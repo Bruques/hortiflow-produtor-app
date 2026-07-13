@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PapelSocio {
+  FINANCIADOR
+  MEEIRO
+  MISTO
+}
+
+enum StatusSafra {
+  PLANEJADA
+  EM_ANDAMENTO
+  ENCERRADA
+}
+
+enum TipoDespesa {
+  TERRA
+  MUDAS
+  ADUBO
+  DEFENSIVOS
+  MAO_DE_OBRA
+  EMBALAGEM
+  TRANSPORTE
+  OUTRO
+}
+
+enum TipoAcerto {
+  PARCIAL
+  FINAL
+}
+
+model Usuario {
+  id         String   @id @default(uuid())
+  nome       String
+  telefone   String   @unique
+  senha_hash String
+  criado_em  DateTime @default(now())
+
+  socioSociedades SocioSociedade[]
+  despesas        Despesa[]
+  aportesTrabalho AporteTrabalho[]
+  acertosSocio    AcertoSocio[]
+
+  @@map("usuarios")
+}
+
+model Sociedade {
+  id        String   @id @default(uuid())
+  nome      String
+  criado_em DateTime @default(now())
+
+  socios  SocioSociedade[]
+  safras  Safra[]
+
+  @@map("sociedades")
+}
+
+model SocioSociedade {
+  id               String     @id @default(uuid())
+  usuario_id       String
+  sociedade_id     String
+  percentual_lucro Decimal    @db.Decimal(5, 2)
+  papel            PapelSocio
+  criado_em        DateTime   @default(now())
+
+  usuario   Usuario   @relation(fields: [usuario_id], references: [id])
+  sociedade Sociedade @relation(fields: [sociedade_id], references: [id])
+
+  @@unique([usuario_id, sociedade_id])
+  @@map("socio_sociedades")
+}
+
+model Safra {
+  id           String      @id @default(uuid())
+  sociedade_id String
+  nome         String
+  status       StatusSafra @default(PLANEJADA)
+  data_inicio  DateTime?
+  data_fim     DateTime?
+  criado_em    DateTime    @default(now())
+
+  sociedade       Sociedade        @relation(fields: [sociedade_id], references: [id])
+  despesas        Despesa[]
+  vendas          Venda[]
+  acertos         Acerto[]
+  aportesTrabalho AporteTrabalho[]
+
+  @@map("safras")
+}
+
+model Despesa {
+  id                 String      @id @default(uuid())
+  safra_id           String
+  socio_id           String
+  tipo               TipoDespesa
+  valor              Decimal     @db.Decimal(10, 2)
+  data               DateTime
+  foto_comprovante   String?
+  criado_em          DateTime    @default(now())
+
+  safra Safra   @relation(fields: [safra_id], references: [id])
+  socio Usuario @relation(fields: [socio_id], references: [id])
+
+  @@map("despesas")
+}
+
+model AporteTrabalho {
+  id        String   @id @default(uuid())
+  safra_id  String
+  socio_id  String
+  data      DateTime
+  horas     Decimal  @db.Decimal(5, 2)
+  descricao String?
+  criado_em DateTime @default(now())
+
+  safra Safra   @relation(fields: [safra_id], references: [id])
+  socio Usuario @relation(fields: [socio_id], references: [id])
+
+  @@map("aportes_trabalho")
+}
+
+model Venda {
+  id         String   @id @default(uuid())
+  safra_id   String
+  data       DateTime
+  quantidade Decimal  @db.Decimal(10, 2)
+  preco      Decimal  @db.Decimal(10, 2)
+  total      Decimal  @db.Decimal(10, 2)
+  comprador  String?
+  criado_em  DateTime @default(now())
+
+  safra Safra @relation(fields: [safra_id], references: [id])
+
+  @@map("vendas")
+}
+
+model Acerto {
+  id           String     @id @default(uuid())
+  safra_id     String
+  data_inicio  DateTime
+  data_fim     DateTime
+  tipo         TipoAcerto
+  criado_em    DateTime   @default(now())
+
+  safra  Safra          @relation(fields: [safra_id], references: [id])
+  socios AcertoSocio[]
+
+  @@map("acertos")
+}
+
+model AcertoSocio {
+  id                  String  @id @default(uuid())
+  acerto_id           String
+  socio_id            String
+  despesas_bancadas   Decimal @db.Decimal(10, 2)
+  percentual_aplicado Decimal @db.Decimal(5, 2)
+  valor_lucro         Decimal @db.Decimal(10, 2)
+
+  acerto Acerto  @relation(fields: [acerto_id], references: [id])
+  socio  Usuario @relation(fields: [socio_id], references: [id])
+
+  @@map("acerto_socios")
+}
