@@ -15,3 +15,8 @@ export async function encerrarSafraRequest(safraId: string): Promise<{ safra: Sa
   const { data } = await apiClient.patch(`/safras/${safraId}/encerrar`);
   return data;
 }
+
+export async function obterSafraRequest(safraId: string): Promise<{ safra: Safra }> {
+  const { data } = await apiClient.get(`/safras/${safraId}`);
+  return data;
+}

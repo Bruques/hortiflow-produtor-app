@@ -1,24 +1,25 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DateField } from '@/components/ui/date-field';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
+import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarAcertoRequest, listarAcertosRequest } from '@/services/acertos';
 import { formatarData } from '@/lib/utils';
+import { ROTULO_TIPO_ACERTO } from '@/lib/rotulos';
 import type { AcertoResumo, TipoAcerto } from '@/types/acerto';
 
-const TIPOS: { valor: TipoAcerto; label: string }[] = [
-  { valor: 'PARCIAL', label: 'Parcial' },
-  { valor: 'FINAL', label: 'Final (encerra a safra)' },
-];
+const TIPOS = Object.keys(ROTULO_TIPO_ACERTO) as TipoAcerto[];
 
 export default function AcertosPage() {
-  const { id } = useParams<{ id: string }>(); // safra id
+  const { safraId } = useSafraAtiva();
   const navigate = useNavigate();
 
   const [acertos, setAcertos] = useState<AcertoResumo[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [tipo, setTipo] = useState<TipoAcerto>('PARCIAL');
@@ -26,20 +27,21 @@ export default function AcertosPage() {
   const [salvando, setSalvando] = useState(false);
 
   function carregar() {
-    if (!id) return;
-    listarAcertosRequest(id)
+    setCarregando(true);
+    listarAcertosRequest(safraId)
       .then(setAcertos)
-      .catch(() => setErro('Não foi possível carregar os acertos'));
+      .catch(() => setErro('Não foi possível carregar os acertos'))
+      .finally(() => setCarregando(false));
   }
 
-  useEffect(carregar, [id]);
+  useEffect(carregar, [safraId]);
 
   async function registrar() {
-    if (!id || !dataInicio || !dataFim) return;
+    if (!dataInicio || !dataFim) return;
     setErro(null);
     setSalvando(true);
     try {
-      const acerto = await criarAcertoRequest(id, { data_inicio: dataInicio, data_fim: dataFim, tipo });
+      const acerto = await criarAcertoRequest(safraId, { data_inicio: dataInicio, data_fim: dataFim, tipo });
       navigate(`/acertos/${acerto.id}`);
     } catch (e) {
       const mensagem = axios.isAxiosError(e) ? e.response?.data?.error : null;
@@ -50,81 +52,75 @@ export default function AcertosPage() {
   }
 
   return (
-    <div className="min-h-screen p-4 max-w-sm mx-auto space-y-4">
-      <h1 className="text-xl font-bold text-center pt-4">Acertos</h1>
+    <div className="max-w-sm mx-auto">
+      <PageHeader
+        title="Acertos"
+        apoio="Um acerto congela o cálculo de um período — pra prestação de contas já feita não mudar depois"
+      />
+      <div className="p-4 space-y-4">
+        {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
 
-      {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Registrar novo acerto</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="data-inicio">Início do período</Label>
-            <Input
-              id="data-inicio"
-              type="date"
-              value={dataInicio}
-              onChange={(e) => setDataInicio(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="data-fim">Fim do período</Label>
-            <Input id="data-fim" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Tipo</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {TIPOS.map((t) => (
-                <Button
-                  key={t.valor}
-                  type="button"
-                  size="sm"
-                  variant={tipo === t.valor ? 'default' : 'outline'}
-                  onClick={() => setTipo(t.valor)}
-                >
-                  {t.label}
-                </Button>
-              ))}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Registrar novo acerto</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="data-inicio">Início do período</Label>
+              <DateField id="data-inicio" value={dataInicio} onChange={setDataInicio} />
             </div>
-          </div>
-          <Button
-            className="w-full"
-            onClick={registrar}
-            disabled={salvando || !dataInicio || !dataFim}
-          >
-            {salvando ? 'Registrando...' : 'Registrar acerto'}
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Label htmlFor="data-fim">Fim do período</Label>
+              <DateField id="data-fim" value={dataFim} onChange={setDataFim} />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {TIPOS.map((t) => (
+                  <Button
+                    key={t}
+                    type="button"
+                    variant={tipo === t ? 'default' : 'outline'}
+                    onClick={() => setTipo(t)}
+                  >
+                    {ROTULO_TIPO_ACERTO[t]}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={registrar}
+              disabled={salvando || !dataInicio || !dataFim}
+            >
+              {salvando ? 'Registrando...' : 'Registrar acerto'}
+            </Button>
+          </CardContent>
+        </Card>
 
-      <div className="space-y-3">
-        {acertos.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center">Nenhum acerto registrado ainda.</p>
-        )}
+        <div className="space-y-3">
+          {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
+          {!carregando && acertos.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center">Nenhum acerto registrado ainda.</p>
+          )}
 
-        {acertos.map((a) => (
-          <Link key={a.id} to={`/acertos/${a.id}`}>
-            <Card>
-              <CardContent className="pt-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium">
-                    {formatarData(a.data_inicio)} – {formatarData(a.data_fim)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {a.tipo === 'FINAL' ? 'Final' : 'Parcial'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+          {acertos.map((a) => (
+            <Link key={a.id} to={`/acertos/${a.id}`}>
+              <Card>
+                <CardContent className="pt-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">
+                      {formatarData(a.data_inicio)} – {formatarData(a.data_fim)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{ROTULO_TIPO_ACERTO[a.tipo]}</p>
+                  </div>
+                  <span className="text-muted-foreground" aria-hidden>›</span>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
-
-      <Button size="lg" variant="ghost" className="w-full" onClick={() => navigate(-1)}>
-        Voltar
-      </Button>
     </div>
   );
 }

@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
 import { atualizarPercentuaisRequest, listarSociosRequest } from '@/services/sociedades';
+import { ROTULO_PAPEL_SOCIO } from '@/lib/rotulos';
 import type { PapelSocio, Socio } from '@/types/sociedade';
 
-const PAPEIS: PapelSocio[] = ['FINANCIADOR', 'MEEIRO', 'MISTO'];
+const PAPEIS = Object.keys(ROTULO_PAPEL_SOCIO) as PapelSocio[];
 
 interface EdicaoSocio {
   usuario_id: string;
@@ -20,12 +22,14 @@ export default function SociosPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [edicoes, setEdicoes] = useState<EdicaoSocio[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
 
   useEffect(() => {
     if (!id) return;
+    setCarregando(true);
     listarSociosRequest(id)
       .then((data: { socios: Socio[] }) =>
         setEdicoes(
@@ -37,7 +41,8 @@ export default function SociosPage() {
           }))
         )
       )
-      .catch(() => setErro('Não foi possível carregar os sócios'));
+      .catch(() => setErro('Não foi possível carregar os sócios'))
+      .finally(() => setCarregando(false));
   }, [id]);
 
   function atualizarCampo(usuarioId: string, campo: 'percentual_lucro' | 'papel', valor: string) {
@@ -73,13 +78,17 @@ export default function SociosPage() {
   }
 
   return (
-    <div className="min-h-screen p-4 max-w-sm mx-auto space-y-4">
-      <h1 className="text-xl font-bold text-center pt-4">Sócios da sociedade</h1>
-
+    <div className="max-w-sm mx-auto">
+      <PageHeader
+        title="Sócios da sociedade"
+        apoio="O percentual de lucro é a fatia que cada sócio recebe na divisão — e não precisa ser igual ao que cada um gastou"
+      />
+      <div className="p-4 space-y-4">
       {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
       {sucesso && (
         <p className="text-sm text-center font-medium text-green-600">Percentuais atualizados!</p>
       )}
+      {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
 
       {edicoes.map((s) => (
         <Card key={s.usuario_id}>
@@ -109,7 +118,7 @@ export default function SociosPage() {
               >
                 {PAPEIS.map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {ROTULO_PAPEL_SOCIO[p]}
                   </option>
                 ))}
               </select>
@@ -134,9 +143,16 @@ export default function SociosPage() {
       <Button size="lg" variant="outline" className="w-full" onClick={() => navigate(`/sociedades/${id}/safras`)}>
         Safras
       </Button>
-      <Button size="lg" variant="ghost" className="w-full" onClick={() => navigate('/')}>
+      <Button
+        size="lg"
+        variant="ghost"
+        className="w-full"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={() => navigate('/')}
+      >
         Voltar
       </Button>
+      </div>
     </div>
   );
 }

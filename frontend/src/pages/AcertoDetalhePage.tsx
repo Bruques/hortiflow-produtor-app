@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
 import { buscarAcertoRequest } from '@/services/acertos';
 import { formatarData } from '@/lib/utils';
+import { ROTULO_TIPO_ACERTO } from '@/lib/rotulos';
 import type { AcertoDetalhado } from '@/types/acerto';
 
 function formatarMoeda(valor: number): string {
@@ -15,26 +17,31 @@ export default function AcertoDetalhePage() {
   const navigate = useNavigate();
 
   const [acerto, setAcerto] = useState<AcertoDetalhado | null>(null);
+  const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
+    setCarregando(true);
     buscarAcertoRequest(id)
       .then(setAcerto)
-      .catch(() => setErro('Não foi possível carregar o acerto'));
+      .catch(() => setErro('Não foi possível carregar o acerto'))
+      .finally(() => setCarregando(false));
   }, [id]);
 
   return (
-    <div className="min-h-screen p-4 max-w-sm mx-auto space-y-4">
-      <h1 className="text-xl font-bold text-center pt-4">Extrato do acerto</h1>
+    <div className="max-w-sm mx-auto">
+      <PageHeader title="Extrato do acerto" />
+      <div className="p-4 space-y-4">
 
       {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
+      {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
 
       {acerto && (
         <>
           <p className="text-sm text-muted-foreground text-center">
             {formatarData(acerto.data_inicio)} – {formatarData(acerto.data_fim)} ·{' '}
-            {acerto.tipo === 'FINAL' ? 'Final' : 'Parcial'}
+            {ROTULO_TIPO_ACERTO[acerto.tipo]}
           </p>
 
           <Card>
@@ -63,14 +70,14 @@ export default function AcertoDetalhePage() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center justify-between">
                     <span>{s.nome}</span>
-                    <span className="text-xs font-normal text-muted-foreground">{s.percentual_aplicado}%</span>
+                    <span className="text-sm font-normal text-muted-foreground">{s.percentual_aplicado}%</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="-mt-2 space-y-1">
                   <p className={`text-lg font-bold ${s.valor_lucro < 0 ? 'text-destructive' : ''}`}>
                     {formatarMoeda(s.valor_lucro)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Despesas bancadas: {formatarMoeda(s.despesas_bancadas)}
                   </p>
                 </CardContent>
@@ -80,9 +87,16 @@ export default function AcertoDetalhePage() {
         </>
       )}
 
-      <Button size="lg" variant="ghost" className="w-full" onClick={() => navigate(-1)}>
+      <Button
+        size="lg"
+        variant="ghost"
+        className="w-full"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={() => navigate(-1)}
+      >
         Voltar
       </Button>
+      </div>
     </div>
   );
 }

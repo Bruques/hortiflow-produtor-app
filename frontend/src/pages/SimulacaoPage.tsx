@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
+import { useSafraAtiva } from '@/lib/SafraContext';
 import { buscarSimulacaoRequest } from '@/services/simulacao';
 import type { PeriodoFiltro, Simulacao } from '@/types/simulacao';
 
@@ -17,8 +18,7 @@ function formatarMoeda(valor: number): string {
 }
 
 export default function SimulacaoPage() {
-  const { id } = useParams<{ id: string }>(); // safra id
-  const navigate = useNavigate();
+  const { safraId } = useSafraAtiva();
 
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('semana');
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
@@ -26,19 +26,18 @@ export default function SimulacaoPage() {
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
     setCarregando(true);
     setErro(null);
-    buscarSimulacaoRequest(id, periodo)
+    buscarSimulacaoRequest(safraId, periodo)
       .then(setSimulacao)
       .catch(() => setErro('Não foi possível carregar a simulação'))
       .finally(() => setCarregando(false));
-  }, [id, periodo]);
+  }, [safraId, periodo]);
 
   return (
-    <div className="min-h-screen p-4 max-w-sm mx-auto space-y-4">
-      <h1 className="text-xl font-bold text-center pt-4">Simulação de divisão</h1>
-
+    <div className="max-w-sm mx-auto">
+      <PageHeader title="Simulação de divisão" />
+      <div className="p-4 space-y-4">
       <div className="grid grid-cols-4 gap-2">
         {PERIODOS.map((p) => (
           <Button
@@ -83,7 +82,7 @@ export default function SimulacaoPage() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center justify-between">
                     <span>{d.nome}</span>
-                    <span className="text-xs font-normal text-muted-foreground">{d.percentual}%</span>
+                    <span className="text-sm font-normal text-muted-foreground">{d.percentual}%</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="-mt-2">
@@ -96,10 +95,7 @@ export default function SimulacaoPage() {
           </div>
         </>
       )}
-
-      <Button size="lg" variant="ghost" className="w-full" onClick={() => navigate(-1)}>
-        Voltar
-      </Button>
+      </div>
     </div>
   );
 }

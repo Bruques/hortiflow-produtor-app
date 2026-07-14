@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from '@/components/PrivateRoute';
+import SafraLayout from '@/components/SafraLayout';
 import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
 import CriarSociedadePage from '@/pages/CriarSociedadePage';
@@ -25,13 +26,15 @@ export default function App() {
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
           <Route path="/sociedades/:id/socios" element={<SociosPage />} />
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />
-          <Route path="/safras/:id/despesas" element={<DespesasPage />} />
-          <Route path="/safras/:id/despesas-pessoais" element={<DespesasPessoaisPage />} />
-          <Route path="/safras/:id/vendas" element={<VendasPage />} />
           <Route path="/sociedades/:id/regras-recorrentes" element={<RegrasRecorrentesPage />} />
-          <Route path="/safras/:id/simulacao" element={<SimulacaoPage />} />
-          <Route path="/safras/:id/acertos" element={<AcertosPage />} />
           <Route path="/acertos/:id" element={<AcertoDetalhePage />} />
+          <Route path="/safras/:id" element={<SafraLayout />}>
+            <Route path="despesas" element={<DespesasPage />} />
+            <Route path="despesas-pessoais" element={<DespesasPessoaisPage />} />
+            <Route path="vendas" element={<VendasPage />} />
+            <Route path="simulacao" element={<SimulacaoPage />} />
+            <Route path="acertos" element={<AcertosPage />} />
+          </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
 import { abrirSafraRequest, encerrarSafraRequest, listarSafrasRequest } from '@/services/safras';
 import type { Safra } from '@/types/safra';
 
@@ -17,15 +18,18 @@ export default function SafrasPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [safras, setSafras] = useState<Safra[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [nome, setNome] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [abrindo, setAbrindo] = useState(false);
 
   function carregar() {
     if (!id) return;
+    setCarregando(true);
     listarSafrasRequest(id)
       .then((data) => setSafras(data.safras))
-      .catch(() => setErro('Não foi possível carregar as safras'));
+      .catch(() => setErro('Não foi possível carregar as safras'))
+      .finally(() => setCarregando(false));
   }
 
   useEffect(carregar, [id]);
@@ -56,9 +60,9 @@ export default function SafrasPage() {
   }
 
   return (
-    <div className="min-h-screen p-4 max-w-sm mx-auto space-y-4">
-      <h1 className="text-xl font-bold text-center pt-4">Safras</h1>
-
+    <div className="min-h-screen max-w-sm mx-auto">
+      <PageHeader title="Safras" />
+      <div className="p-4 space-y-4">
       {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
 
       <Link to={`/sociedades/${id}/regras-recorrentes`}>
@@ -88,7 +92,8 @@ export default function SafrasPage() {
       </Card>
 
       <div className="space-y-3">
-        {safras.length === 0 && (
+        {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
+        {!carregando && safras.length === 0 && (
           <p className="text-sm text-muted-foreground text-center">Nenhuma safra ainda.</p>
         )}
 
@@ -103,7 +108,7 @@ export default function SafrasPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Link to={`/safras/${s.id}/despesas?sociedadeId=${id}`}>
+              <Link to={`/safras/${s.id}/despesas`}>
                 <Button variant="outline" className="w-full">
                   Despesas da sociedade
                 </Button>
@@ -138,9 +143,16 @@ export default function SafrasPage() {
         ))}
       </div>
 
-      <Button size="lg" variant="ghost" className="w-full" onClick={() => navigate(`/sociedades/${id}/socios`)}>
+      <Button
+        size="lg"
+        variant="ghost"
+        className="w-full"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={() => navigate(`/sociedades/${id}/socios`)}
+      >
         Voltar
       </Button>
+      </div>
     </div>
   );
 }

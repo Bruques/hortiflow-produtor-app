@@ -12,6 +12,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
+router.get('/:id', safrasController.obter);
 router.patch('/:id/encerrar', safrasController.encerrar);
 router.post('/:id/despesas', despesasController.criar);
 router.get('/:id/despesas', despesasController.listar);

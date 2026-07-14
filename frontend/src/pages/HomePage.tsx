@@ -11,6 +11,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [sociedades, setSociedades] = useState<Sociedade[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,7 +21,8 @@ export default function HomePage() {
 
     listarSociedadesRequest()
       .then((data) => setSociedades(data.sociedades))
-      .catch(() => setErro('Não foi possível carregar suas sociedades'));
+      .catch(() => setErro('Não foi possível carregar suas sociedades'))
+      .finally(() => setCarregando(false));
   }, []);
 
   function sair() {
@@ -40,7 +42,8 @@ export default function HomePage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">Minhas sociedades</h2>
 
-        {sociedades.length === 0 && (
+        {carregando && <p className="text-sm text-muted-foreground">Carregando...</p>}
+        {!carregando && sociedades.length === 0 && (
           <p className="text-sm text-muted-foreground">
             Você ainda não participa de nenhuma sociedade.
           </p>
@@ -50,7 +53,10 @@ export default function HomePage() {
           <Link key={s.id} to={`/sociedades/${s.id}/socios`}>
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">{s.nome}</CardTitle>
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span>{s.nome}</span>
+                  <span className="text-muted-foreground" aria-hidden>›</span>
+                </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-1 -mt-2">
                 <p>Seu percentual: {s.percentual_lucro}%</p>
@@ -75,7 +81,13 @@ export default function HomePage() {
         </Button>
       </div>
 
-      <Button size="lg" variant="ghost" className="w-full" onClick={sair}>
+      <Button
+        size="lg"
+        variant="ghost"
+        className="w-full"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={sair}
+      >
         Sair
       </Button>
     </div>
