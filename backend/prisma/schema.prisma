@@ -35,6 +35,11 @@ enum TipoAcerto {
   FINAL
 }
 
+enum TipoGatilhoRegra {
+  POR_VENDA
+  POR_PERIODO
+}
+
 model Usuario {
   id         String   @id @default(uuid())
   nome       String
@@ -47,6 +52,8 @@ model Usuario {
   despesasPessoais DespesaPessoal[]
   aportesTrabalho  AporteTrabalho[]
   acertosSocio     AcertoSocio[]
+  regrasComoSocio  RegraDespesaRecorrente[] @relation("RegraSocio")
+  regrasCriadas    RegraDespesaRecorrente[] @relation("RegraCriador")
 
   @@map("usuarios")
 }
@@ -57,8 +64,9 @@ model Sociedade {
   codigo_convite String   @unique
   criado_em      DateTime @default(now())
 
-  socios SocioSociedade[]
-  safras Safra[]
+  socios             SocioSociedade[]
+  safras             Safra[]
+  regrasRecorrentes  RegraDespesaRecorrente[]
 
   @@map("sociedades")
 }
@@ -105,10 +113,12 @@ model Despesa {
   valor            Decimal     @db.Decimal(10, 2)
   data             DateTime
   foto_comprovante String?
+  regra_origem_id  String?
   criado_em        DateTime    @default(now())
 
-  safra Safra   @relation(fields: [safra_id], references: [id])
-  socio Usuario @relation(fields: [socio_id], references: [id])
+  safra       Safra                    @relation(fields: [safra_id], references: [id])
+  socio       Usuario                  @relation(fields: [socio_id], references: [id])
+  regraOrigem RegraDespesaRecorrente?  @relation(fields: [regra_origem_id], references: [id])
 
   @@map("despesas")
 }
@@ -157,6 +167,25 @@ model Venda {
   safra Safra @relation(fields: [safra_id], references: [id])
 
   @@map("vendas")
+}
+
+model RegraDespesaRecorrente {
+  id           String           @id @default(uuid())
+  sociedade_id String
+  socio_id     String
+  criado_por   String
+  tipo_gatilho TipoGatilhoRegra
+  tipo_despesa TipoDespesa
+  valor        Decimal          @db.Decimal(10, 2)
+  ativo        Boolean          @default(true)
+  criado_em    DateTime         @default(now())
+
+  sociedade Sociedade @relation(fields: [sociedade_id], references: [id])
+  socio     Usuario   @relation("RegraSocio", fields: [socio_id], references: [id])
+  criador   Usuario   @relation("RegraCriador", fields: [criado_por], references: [id])
+  despesas  Despesa[]
+
+  @@map("regras_despesa_recorrente")
 }
 
 model Acerto {

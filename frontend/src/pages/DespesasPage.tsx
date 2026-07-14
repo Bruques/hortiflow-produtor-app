@@ -6,9 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { criarDespesaRequest, listarDespesasRequest } from '@/services/despesas';
 import { listarSociosRequest } from '@/services/sociedades';
+import { confirmarSugestaoRequest, listarSugestoesRequest } from '@/services/regrasDespesaRecorrente';
 import { formatarData } from '@/lib/utils';
 import type { Despesa, TipoDespesa } from '@/types/despesa';
 import type { Socio } from '@/types/sociedade';
+import type { SugestaoDespesaRecorrente } from '@/types/regraDespesaRecorrente';
 
 const TIPOS_DESPESA: TipoDespesa[] = [
   'TERRA',
@@ -29,6 +31,7 @@ export default function DespesasPage() {
 
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [socios, setSocios] = useState<Socio[]>([]);
+  const [sugestoes, setSugestoes] = useState<SugestaoDespesaRecorrente[]>([]);
   const [socioId, setSocioId] = useState('');
   const [tipo, setTipo] = useState<TipoDespesa>('OUTRO');
   const [valor, setValor] = useState('');
@@ -43,7 +46,27 @@ export default function DespesasPage() {
       .catch(() => setErro('Não foi possível carregar as despesas'));
   }
 
+  function carregarSugestoes() {
+    if (!id) return;
+    listarSugestoesRequest(id)
+      .then((res) => setSugestoes(res.sugestoes))
+      .catch(() => setErro('Não foi possível carregar as sugestões do dia'));
+  }
+
   useEffect(carregarDespesas, [id]);
+  useEffect(carregarSugestoes, [id]);
+
+  async function confirmarSugestao(regraId: string) {
+    if (!id) return;
+    setErro(null);
+    try {
+      await confirmarSugestaoRequest(id, regraId);
+      carregarSugestoes();
+      carregarDespesas();
+    } catch {
+      setErro('Não foi possível confirmar a sugestão');
+    }
+  }
 
   useEffect(() => {
     if (!sociedadeId) return;
@@ -80,6 +103,29 @@ export default function DespesasPage() {
       <h1 className="text-xl font-bold text-center pt-4">Despesas da sociedade</h1>
 
       {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
+
+      {sugestoes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Sugestões do dia</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {sugestoes.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">
+                    {s.tipo_despesa} — R$ {s.valor}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{s.socio_nome}</p>
+                </div>
+                <Button size="sm" onClick={() => confirmarSugestao(s.id)}>
+                  Confirmar
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {sociedadeId && (
         <Card>

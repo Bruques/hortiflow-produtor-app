@@ -6,6 +6,7 @@ import authRoutes from './routes/auth';
 import sociedadesRoutes from './routes/sociedades';
 import safrasRoutes from './routes/safras';
 import despesasPessoaisRoutes from './routes/despesasPessoais';
+import regrasDespesaRecorrenteRoutes from './routes/regrasDespesaRecorrente';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/sociedades', sociedadesRoutes);
 app.use('/api/safras', safrasRoutes);
 app.use('/api/despesas-pessoais', despesasPessoaisRoutes);
+app.use('/api/regras-recorrentes', regrasDespesaRecorrenteRoutes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error({

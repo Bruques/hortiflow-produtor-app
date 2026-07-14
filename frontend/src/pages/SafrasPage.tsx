@@ -61,6 +61,12 @@ export default function SafrasPage() {
 
       {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
 
+      <Link to={`/sociedades/${id}/regras-recorrentes`}>
+        <Button variant="outline" className="w-full">
+          Despesas recorrentes
+        </Button>
+      </Link>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Abrir nova safra</CardTitle>
@@ -105,6 +111,11 @@ export default function SafrasPage() {
               <Link to={`/safras/${s.id}/despesas-pessoais`}>
                 <Button variant="outline" className="w-full">
                   Minhas despesas pessoais
+                </Button>
+              </Link>
+              <Link to={`/safras/${s.id}/vendas`}>
+                <Button variant="outline" className="w-full">
+                  Vendas
                 </Button>
               </Link>
               {s.status === 'EM_ANDAMENTO' && (
