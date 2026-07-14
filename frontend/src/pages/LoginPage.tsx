@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { loginRequest, registerRequest } from '@/services/auth';
+import { formatarTelefone, somenteDigitos } from '@/lib/telefone';
 
 const loginSchema = z.object({
   nome: z.string().optional(),
@@ -28,13 +29,16 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
+  const telefoneField = register('telefone');
+
   async function onSubmit(data: LoginForm) {
     setErro(null);
+    const telefone = somenteDigitos(data.telefone);
     try {
       const response =
         modo === 'login'
-          ? await loginRequest(data.telefone, data.senha)
-          : await registerRequest(data.nome ?? '', data.telefone, data.senha);
+          ? await loginRequest(telefone, data.senha)
+          : await registerRequest(data.nome ?? '', telefone, data.senha);
       localStorage.setItem('token', response.token);
       navigate('/');
     } catch {
@@ -65,9 +69,14 @@ export default function LoginPage() {
               <Input
                 id="telefone"
                 type="tel"
-                placeholder="35999999999"
+                placeholder="(35) 99730-2015"
                 autoComplete="tel"
-                {...register('telefone')}
+                maxLength={16}
+                {...telefoneField}
+                onChange={(e) => {
+                  e.target.value = formatarTelefone(e.target.value);
+                  telefoneField.onChange(e);
+                }}
               />
               {errors.telefone && (
                 <p className="text-sm text-destructive">{errors.telefone.message}</p>
