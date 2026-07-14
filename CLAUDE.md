@@ -24,6 +24,8 @@ Meação é a parceria agrícola comum na região: um ou mais sócios financiam 
 
 Um app onde cada sócio de uma parceria registra despesas e vendas da safra e acompanha, em tempo real, um extrato transparente e auditável de quanto cada um vai receber — substituindo a prestação de contas manual por um cálculo que todos os lados enxergam e conferem.
 
+Além disso, o app funciona como um **assessor de gestão financeira pessoal** para cada sócio: cada um também controla, no mesmo lugar, gastos que não entram na conta da sociedade (ex: gastos pessoais do financiador ou do meeiro), com o mesmo tipo de visão por dia/semana/mês/safra que já existe para a sociedade — só que privada, cada um vê apenas a própria.
+
 ### Caso real que motivou o modelo de dados
 
 Um financiador bancou 100% dos custos (terra, insumos) e vendeu a produção, mas ficou com **60%** do lucro — não 100%. O sócio que entrou só com mão de obra ficou com **40%**. Ou seja: **o percentual de divisão do lucro é desacoplado de quanto cada um gastou.** Esse é o ponto central do domínio — ver seção de modelo de dados.
@@ -120,6 +122,8 @@ Isso implica na modelagem: em vez de um único "fechamento" só no fim da safra,
 - **Despesa** — `safra_id`, `socio_id` (obrigatório — quem bancou), tipo (terra, mudas, adubo, defensivos, mão de obra, embalagem, transporte, outro), valor, data, foto de comprovante opcional
 - **AporteTrabalho** (modelar desde já, mesmo se não entrar no MVP) — registro de dias/horas do meeiro que só contribui com mão de obra, para a tela dele não ficar vazia de contribuições
 - **Venda** — safra_id, data, quantidade de caixas, preço por caixa, total, comprador (texto livre no MVP)
+- **DespesaPessoal** — `usuario_id`, `safra_id` (vinculada à safra ativa, mesma filtragem por dia/semana/mês/safra do resto do app), tipo, valor, data, descrição opcional. **Não entra em nenhum cálculo da sociedade** (não é subtraída do lucro, não aparece em `calcularDivisao`, não aparece em Acerto) — é visível só para o próprio usuário que lançou, mesmo que ele seja financiador ou meeiro. Existe puramente para o sócio controlar o próprio financeiro dentro do app
+- **RegraDespesaRecorrente** — define uma despesa da sociedade que se repete automaticamente, pra evitar lançamento manual repetitivo (ex: "R$1 por caixa vendida", "R$50/dia de diesel do frete"). Campos: `sociedade_id`, `socio_id` (a quem a despesa gerada será atribuída), `criado_por` (sempre o financiador — só ele configura regras recorrentes, mesmo quando a despesa é atribuída a outro sócio), `tipo_gatilho` (`por_venda` — valor por caixa, calculado automaticamente sobre a quantidade da Venda lançada; ou `por_periodo` — valor fixo recorrente, ex: diário), `valor`, `ativo`. No MVP a regra `por_periodo` **não gera a Despesa sozinha em background** — ela vira uma sugestão de 1 clique pro sócio confirmar no dia (evita lançamento de despesa "fantasma" sem o sócio revisar); esse comportamento é o mais provável de mudar depois (ex: virar 100% automático), por isso fica isolado nessa regra, sem se misturar à lógica de `calcularDivisao`
 - **Acerto** — registro de que os sócios se acertaram financeiramente num período dentro da safra. Campos: `safra_id`, `data_inicio`, `data_fim`, `tipo` (parcial ou final — final também encerra a safra), `data_criacao`. Um Acerto é o snapshot congelado do cálculo daquele intervalo, pra que edições posteriores em despesas/vendas não alterem uma prestação de contas já feita. Pode haver vários Acertos parciais ao longo de uma safra (ex: semanais) e um Acerto final que fecha tudo — é o mesmo mecanismo, só muda o `tipo` e se o intervalo cobre a safra inteira
 - **AcertoSocio** — detalhe por sócio dentro de um Acerto: despesas bancadas no período, percentual de lucro aplicado (snapshot, não referencia `SocioSociedade.percentual_lucro` ao vivo), valor de lucro recebido no período. É o "documento" que resolve a dor de transparência — pode virar PDF depois
 
@@ -127,9 +131,11 @@ Isso implica na modelagem: em vez de um único "fechamento" só no fim da safra,
 
 ## Jornadas principais
 
-**Sócio financiador**: cria a sociedade → convida sócio(s) por código → define percentual de lucro de cada um → abre a safra → lança despesas e vendas → acompanha painel de simulação em tempo real, podendo filtrar por dia, semana, mês ou safra inteira ("quanto cada um tem a receber neste período?") → registra um Acerto quando os sócios se acertam de fato (parcial, ex: semanal, ou final, encerrando a safra).
+**Sócio financiador**: cria a sociedade → convida sócio(s) por código → define percentual de lucro de cada um → abre a safra → lança despesas e vendas → configura regras de despesa recorrente (ex: R$/caixa vendida, diesel/dia) → acompanha painel de simulação em tempo real, podendo filtrar por dia, semana, mês ou safra inteira ("quanto cada um tem a receber neste período?") → registra um Acerto quando os sócios se acertam de fato (parcial, ex: semanal, ou final, encerrando a safra). Em paralelo, mantém suas próprias despesas pessoais (fora da conta da sociedade) numa aba separada, pra controle financeiro próprio.
 
-**Meeiro**: entra na sociedade via código → vê a mesma safra ativa com visão **não restrita** (todas as despesas e vendas de todos os sócios, não só as dele — transparência total é o ponto central do produto) → filtra o mesmo painel por período → acompanha o histórico de Acertos e o que tem a receber.
+**Meeiro**: entra na sociedade via código → vê a mesma safra ativa com visão **não restrita** (todas as despesas e vendas de todos os sócios, não só as dele — transparência total é o ponto central do produto) → filtra o mesmo painel por período → acompanha o histórico de Acertos e o que tem a receber. Também tem sua própria aba de despesas pessoais, privada, sem relação com a conta da sociedade.
+
+Na tela inicial, cada sócio (financiador ou meeiro) enxerga sempre duas frentes separadas: **despesas da sociedade** (o que entra na divisão) e **despesas pessoais** (o que é só dele, gestão própria).
 
 ---
 
@@ -138,14 +144,16 @@ Isso implica na modelagem: em vez de um único "fechamento" só no fim da safra,
 - Auth por telefone + senha
 - Sociedade (criar, convidar por código, definir % de lucro de N sócios somando 100%)
 - Safra (abrir/fechar)
-- Despesa (CRUD com sócio obrigatório, tipo, valor, data, foto opcional)
+- Despesa da sociedade (CRUD com sócio obrigatório, tipo, valor, data, foto opcional)
+- Despesa Pessoal (CRUD simples por usuário, vinculada à safra ativa, privada, fora do cálculo de divisão)
+- RegraDespesaRecorrente (só o financiador cria/edita; gatilho `por_venda` calcula automático ao lançar Venda; gatilho `por_periodo` aparece como sugestão de 1 clique, não gera despesa sozinha em background)
 - Venda (CRUD simples)
 - Painel de acompanhamento com simulação em tempo real, filtrável por dia, semana, mês ou safra inteira
 - Acerto (parcial ou final) com snapshot por período e extrato visível a qualquer sócio
 - Mesma visão de dados para os dois perfis (sem permissões parciais no MVP)
 - Responsivo mobile-first
 
-**Fase 2** (não implementar sem pedido explícito): `AporteTrabalho` formal, fórmula de divisão configurável, PDF do extrato, notificações WhatsApp/SMS, múltiplas safras/histórico comparativo, app nativo/PWA, permissões granulares, cadastro de comprador como entidade, modelo de cobrança do SaaS.
+**Fase 2** (não implementar sem pedido explícito): `AporteTrabalho` formal, fórmula de divisão configurável, PDF do extrato, notificações WhatsApp/SMS, lançamento de despesa via WhatsApp com IA (texto ou áudio), gatilho `por_periodo` de despesa recorrente virando 100% automático (sem confirmação de 1 clique), múltiplas safras/histórico comparativo, app nativo/PWA, permissões granulares, cadastro de comprador como entidade, modelo de cobrança do SaaS.
 
 ---
 
@@ -153,8 +161,8 @@ Isso implica na modelagem: em vez de um único "fechamento" só no fim da safra,
 
 1. **Setup** — scaffold do monorepo (backend Express+TS+Prisma, frontend React+TS+Tailwind), banco Neon novo, schema Prisma completo com todas as entidades acima, auth por telefone+senha
 2. **Sociedade e sócios** — criar sociedade, adicionar N sócios com % de lucro (validando soma 100%), entrada via código simples
-3. **Safra e despesas** — abrir safra, lançar/listar despesas por sócio (com foto opcional)
-4. **Vendas** — lançar/listar vendas da safra
+3. **Safra, despesas e despesa pessoal** — abrir safra, lançar/listar despesas da sociedade por sócio (com foto opcional), lançar/listar despesas pessoais privadas (não entram na divisão)
+4. **Vendas e despesa recorrente** — lançar/listar vendas da safra; configurar `RegraDespesaRecorrente` (só financiador): gatilho `por_venda` gera despesa da sociedade automaticamente ao lançar venda, gatilho `por_periodo` aparece como sugestão de 1 clique
 5. **Cálculo e painel de simulação** — service isolado de divisão (`calcularDivisao` com filtro de período) + tela com seletor de dia/semana/mês/safra mostrando lucro e divisão por sócio naquele intervalo
 6. **Acerto** — registrar um Acerto (parcial ou final) para um período, gerar `Acerto`/`AcertoSocio`, tela de extrato auditável (boa candidata pra demo com a contadora); um Acerto do tipo final também encerra a safra
 7. **Polimento mobile** — ajustes de UX pra celular (poucos campos por tela, câmera para comprovante, botões grandes)

@@ -131,6 +131,9 @@ export default function SociosPage() {
       <Button size="lg" className="w-full" onClick={salvar} disabled={salvando || edicoes.length === 0}>
         {salvando ? 'Salvando...' : 'Salvar percentuais'}
       </Button>
+      <Button size="lg" variant="outline" className="w-full" onClick={() => navigate(`/sociedades/${id}/safras`)}>
+        Safras
+      </Button>
       <Button size="lg" variant="ghost" className="w-full" onClick={() => navigate('/')}>
         Voltar
       </Button>

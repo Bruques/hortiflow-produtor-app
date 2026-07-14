@@ -4,6 +4,8 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import sociedadesRoutes from './routes/sociedades';
+import safrasRoutes from './routes/safras';
+import despesasPessoaisRoutes from './routes/despesasPessoais';
 
 dotenv.config();
 
@@ -31,6 +33,8 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/sociedades', sociedadesRoutes);
+app.use('/api/safras', safrasRoutes);
+app.use('/api/despesas-pessoais', despesasPessoaisRoutes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error({

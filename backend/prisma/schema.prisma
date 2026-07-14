@@ -42,10 +42,11 @@ model Usuario {
   senha_hash String
   criado_em  DateTime @default(now())
 
-  socioSociedades SocioSociedade[]
-  despesas        Despesa[]
-  aportesTrabalho AporteTrabalho[]
-  acertosSocio    AcertoSocio[]
+  socioSociedades  SocioSociedade[]
+  despesas         Despesa[]
+  despesasPessoais DespesaPessoal[]
+  aportesTrabalho  AporteTrabalho[]
+  acertosSocio     AcertoSocio[]
 
   @@map("usuarios")
 }
@@ -56,8 +57,8 @@ model Sociedade {
   codigo_convite String   @unique
   criado_em      DateTime @default(now())
 
-  socios  SocioSociedade[]
-  safras  Safra[]
+  socios SocioSociedade[]
+  safras Safra[]
 
   @@map("sociedades")
 }
@@ -86,29 +87,46 @@ model Safra {
   data_fim     DateTime?
   criado_em    DateTime    @default(now())
 
-  sociedade       Sociedade        @relation(fields: [sociedade_id], references: [id])
-  despesas        Despesa[]
-  vendas          Venda[]
-  acertos         Acerto[]
-  aportesTrabalho AporteTrabalho[]
+  sociedade        Sociedade        @relation(fields: [sociedade_id], references: [id])
+  despesas         Despesa[]
+  despesasPessoais DespesaPessoal[]
+  vendas           Venda[]
+  acertos          Acerto[]
+  aportesTrabalho  AporteTrabalho[]
 
   @@map("safras")
 }
 
 model Despesa {
-  id                 String      @id @default(uuid())
-  safra_id           String
-  socio_id           String
-  tipo               TipoDespesa
-  valor              Decimal     @db.Decimal(10, 2)
-  data               DateTime
-  foto_comprovante   String?
-  criado_em          DateTime    @default(now())
+  id               String      @id @default(uuid())
+  safra_id         String
+  socio_id         String
+  tipo             TipoDespesa
+  valor            Decimal     @db.Decimal(10, 2)
+  data             DateTime
+  foto_comprovante String?
+  criado_em        DateTime    @default(now())
 
   safra Safra   @relation(fields: [safra_id], references: [id])
   socio Usuario @relation(fields: [socio_id], references: [id])
 
   @@map("despesas")
+}
+
+model DespesaPessoal {
+  id         String      @id @default(uuid())
+  safra_id   String
+  usuario_id String
+  tipo       TipoDespesa
+  valor      Decimal     @db.Decimal(10, 2)
+  data       DateTime
+  descricao  String?
+  criado_em  DateTime    @default(now())
+
+  safra   Safra   @relation(fields: [safra_id], references: [id])
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+
+  @@map("despesas_pessoais")
 }
 
 model AporteTrabalho {
@@ -142,14 +160,14 @@ model Venda {
 }
 
 model Acerto {
-  id           String     @id @default(uuid())
-  safra_id     String
-  data_inicio  DateTime
-  data_fim     DateTime
-  tipo         TipoAcerto
-  criado_em    DateTime   @default(now())
+  id          String     @id @default(uuid())
+  safra_id    String
+  data_inicio DateTime
+  data_fim    DateTime
+  tipo        TipoAcerto
+  criado_em   DateTime   @default(now())
 
-  safra  Safra          @relation(fields: [safra_id], references: [id])
+  safra  Safra         @relation(fields: [safra_id], references: [id])
   socios AcertoSocio[]
 
   @@map("acertos")

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as sociedadesController from '../controllers/sociedades.controller';
+import * as safrasController from '../controllers/safras.controller';
 import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
@@ -11,5 +12,7 @@ router.post('/entrar', sociedadesController.entrar);
 router.get('/', sociedadesController.listar);
 router.get('/:id/socios', sociedadesController.listarSocios);
 router.put('/:id/socios/percentuais', sociedadesController.atualizarPercentuais);
+router.post('/:id/safras', safrasController.abrir);
+router.get('/:id/safras', safrasController.listar);
 
 export default router;

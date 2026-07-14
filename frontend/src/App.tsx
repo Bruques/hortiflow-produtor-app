@@ -5,6 +5,9 @@ import HomePage from '@/pages/HomePage';
 import CriarSociedadePage from '@/pages/CriarSociedadePage';
 import EntrarSociedadePage from '@/pages/EntrarSociedadePage';
 import SociosPage from '@/pages/SociosPage';
+import SafrasPage from '@/pages/SafrasPage';
+import DespesasPage from '@/pages/DespesasPage';
+import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
 
 export default function App() {
   return (
@@ -16,6 +19,9 @@ export default function App() {
           <Route path="/sociedades/nova" element={<CriarSociedadePage />} />
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
           <Route path="/sociedades/:id/socios" element={<SociosPage />} />
+          <Route path="/sociedades/:id/safras" element={<SafrasPage />} />
+          <Route path="/safras/:id/despesas" element={<DespesasPage />} />
+          <Route path="/safras/:id/despesas-pessoais" element={<DespesasPessoaisPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
