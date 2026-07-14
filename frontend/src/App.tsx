@@ -11,6 +11,8 @@ import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
 import VendasPage from '@/pages/VendasPage';
 import RegrasRecorrentesPage from '@/pages/RegrasRecorrentesPage';
 import SimulacaoPage from '@/pages/SimulacaoPage';
+import AcertosPage from '@/pages/AcertosPage';
+import AcertoDetalhePage from '@/pages/AcertoDetalhePage';
 
 export default function App() {
   return (
@@ -28,6 +30,8 @@ export default function App() {
           <Route path="/safras/:id/vendas" element={<VendasPage />} />
           <Route path="/sociedades/:id/regras-recorrentes" element={<RegrasRecorrentesPage />} />
           <Route path="/safras/:id/simulacao" element={<SimulacaoPage />} />
+          <Route path="/safras/:id/acertos" element={<AcertosPage />} />
+          <Route path="/acertos/:id" element={<AcertoDetalhePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

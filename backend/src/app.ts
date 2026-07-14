@@ -7,6 +7,7 @@ import sociedadesRoutes from './routes/sociedades';
 import safrasRoutes from './routes/safras';
 import despesasPessoaisRoutes from './routes/despesasPessoais';
 import regrasDespesaRecorrenteRoutes from './routes/regrasDespesaRecorrente';
+import acertosRoutes from './routes/acertos';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/sociedades', sociedadesRoutes);
 app.use('/api/safras', safrasRoutes);
 app.use('/api/despesas-pessoais', despesasPessoaisRoutes);
 app.use('/api/regras-recorrentes', regrasDespesaRecorrenteRoutes);
+app.use('/api/acertos', acertosRoutes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error({

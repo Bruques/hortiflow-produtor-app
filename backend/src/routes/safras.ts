@@ -5,6 +5,7 @@ import * as despesasPessoaisController from '../controllers/despesasPessoais.con
 import * as vendasController from '../controllers/vendas.controller';
 import * as regrasController from '../controllers/regrasDespesaRecorrente.controller';
 import * as simulacaoController from '../controllers/simulacao.controller';
+import * as acertosController from '../controllers/acertos.controller';
 import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
@@ -21,5 +22,7 @@ router.get('/:id/vendas', vendasController.listar);
 router.get('/:id/regras-recorrentes/sugestoes', regrasController.sugestoes);
 router.post('/:id/regras-recorrentes/:regraId/confirmar', regrasController.confirmar);
 router.get('/:id/simulacao', simulacaoController.simular);
+router.post('/:id/acertos', acertosController.criar);
+router.get('/:id/acertos', acertosController.listar);
 
 export default router;

@@ -123,6 +123,11 @@ export default function SafrasPage() {
                   Simulação de divisão
                 </Button>
               </Link>
+              <Link to={`/safras/${s.id}/acertos`}>
+                <Button variant="outline" className="w-full">
+                  Acertos
+                </Button>
+              </Link>
               {s.status === 'EM_ANDAMENTO' && (
                 <Button variant="ghost" className="w-full" onClick={() => encerrar(s.id)}>
                   Encerrar safra
