@@ -10,6 +10,7 @@ import DespesasPage from '@/pages/DespesasPage';
 import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
 import VendasPage from '@/pages/VendasPage';
 import RegrasRecorrentesPage from '@/pages/RegrasRecorrentesPage';
+import SimulacaoPage from '@/pages/SimulacaoPage';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/safras/:id/despesas-pessoais" element={<DespesasPessoaisPage />} />
           <Route path="/safras/:id/vendas" element={<VendasPage />} />
           <Route path="/sociedades/:id/regras-recorrentes" element={<RegrasRecorrentesPage />} />
+          <Route path="/safras/:id/simulacao" element={<SimulacaoPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
