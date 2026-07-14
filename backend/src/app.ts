@@ -3,6 +3,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
+import sociedadesRoutes from './routes/sociedades';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
+app.use('/api/sociedades', sociedadesRoutes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error({

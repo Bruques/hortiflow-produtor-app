@@ -51,9 +51,10 @@ model Usuario {
 }
 
 model Sociedade {
-  id        String   @id @default(uuid())
-  nome      String
-  criado_em DateTime @default(now())
+  id             String   @id @default(uuid())
+  nome           String
+  codigo_convite String   @unique
+  criado_em      DateTime @default(now())
 
   socios  SocioSociedade[]
   safras  Safra[]
