@@ -24,7 +24,6 @@ Uma tela (ou componente compartilhado) por vez, igual ao fluxo de SDD do `CLAUDE
 - [x] **Configurações** (percentuais + regras recorrentes) — `frontend/src/pages/ConfiguracoesPage.tsx`, rota `/sociedades/:id/configuracoes`. Consolida o que antes eram `SociosPage` e `RegrasRecorrentesPage` (removidas). Barra de proporção + selo de validação (soma = 100%) + mini-stepper (±5%) por sócio, código de convite com botão de copiar (igual ao wireframe original), lista de regras recorrentes com toggle ativo/inativo (só financiador/misto interage) + formulário inline de nova regra. **Decisão de escopo**: papel do sócio não é editável aqui (só exibido como selo) — o wireframe também não previa edição de papel nesta tela.
 - [ ] **Splash / Carregando** — usa `frontend/src/assets/Logo hortiflow.png` direto, sem depender de spec funcional.
 - [x] **Nova safra** — `frontend/src/pages/NovaSafraPage.tsx`, rota `/sociedades/:id/safras/nova` (fora do `SafraLayout` — não há uma "safra atual" antes de criar a primeira). Aviso quando já existe safra em andamento na sociedade (a API não trava isso, só a tela avisa, conforme spec 03), nome sugerido a partir do ano atual (editável). Ao criar, navega direto pro Resumo da nova safra. `SafrasPage` trocou o formulário embutido por um botão "Nova safra" apontando pra essa rota. **Decisão de escopo**: os campos de período (início/término previsto) do wireframe ficaram de fora — a API só aceita `nome` na criação (`data_inicio` é sempre `now()` no servidor); ajustar isso é uma mudança de contrato pequena mas fora do escopo desta sessão, a pedido do dev.
-- [ ] **Cadastrar meeiro** — spec: `docs/specs/02-sociedade-e-socios.md` (código de 6 dígitos). Só gera/gerencia o convite — não define percentual de lucro; isso continua exclusivo da tela Configurações, pra não duplicar a regra de "soma 100%". ⚠️ O wireframe desta tela prevê convite individual (apelido, código regenerável, lista de "pendentes" com cancelar) — isso **não existe no backend hoje** (só há um `Sociedade.codigo_convite` único e fixo, sem entidade de convite). Implementar o wireframe à risca exigiria um model `Convite` novo + endpoints novos, fora do escopo de redesign visual. Decisão do dev (2026-07-16): manter o código de convite exibido em Configurações por enquanto; resolver o escopo desta tela quando for priorizada.
 
 ## Convenção de layout: telas "Nova X" (formulário em tela cheia)
 
@@ -33,6 +32,10 @@ em qualquer rota cujo path termine em `/nova` — essas telas têm botão "Volta
 salvar fixada embaixo (sem bottom nav, que concorreria com o botão). Ao construir "Nova venda",
 "Registrar acerto" etc., seguir a mesma convenção de nome de rota (`.../nova`) em vez de reinventar
 a lógica de esconder a nav.
+
+## Fora de escopo (decisão do dev, 2026-07-16)
+
+- **Cadastrar meeiro** — não será implementada. O código de convite continua exibido na tela Configurações (já implementada), que resolve a necessidade prática de convidar sócio sem precisar do fluxo dedicado do wireframe (apelido, código regenerável, lista de pendentes com cancelar — isso exigiria um model `Convite` novo no backend, hoje inexistente).
 
 ## Observação
 
