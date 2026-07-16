@@ -11,6 +11,7 @@ const criarSchema = z.object({
   valor: z.number().positive(),
   data: z.coerce.date(),
   foto_comprovante: z.string().optional(),
+  descricao: z.string().optional(),
 });
 
 const atualizarSchema = criarSchema.partial();

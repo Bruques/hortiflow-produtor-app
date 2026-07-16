@@ -57,6 +57,7 @@ export default function NovaDespesaPage() {
   const [meuId, setMeuId] = useState<string | null>(null);
   const [socioId, setSocioId] = useState('');
   const [tipo, setTipo] = useState<TipoDespesa>('OUTRO');
+  const [descricao, setDescricao] = useState('');
   const [valorCentavos, setValorCentavos] = useState(''); // só dígitos, sem formatação
   const [outraData, setOutraData] = useState(false);
   const [data, setData] = useState(hojeISO());
@@ -90,6 +91,7 @@ export default function NovaDespesaPage() {
         }
         setSocioId(encontrada.socio_id);
         setTipo(encontrada.tipo);
+        setDescricao(encontrada.descricao ?? '');
         setValorCentavos(String(Math.round(Number(encontrada.valor) * 100)));
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
@@ -137,6 +139,7 @@ export default function NovaDespesaPage() {
         valor: valorNumero,
         data,
         foto_comprovante: foto ?? undefined,
+        descricao: descricao.trim() || undefined,
       };
       if (emEdicao && despesaId) {
         await atualizarDespesaRequest(safraId, despesaId, input);
@@ -266,6 +269,18 @@ export default function NovaDespesaPage() {
               );
             })}
           </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Descrição (opcional)</label>
+          <input
+            type="text"
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder={tipo === 'OUTRO' ? 'Do que foi esse gasto?' : 'Detalhe algo sobre essa despesa'}
+            maxLength={140}
+            className="w-full rounded-2xl border-[1.5px] border-hf-line bg-white px-4 py-3 text-[13.5px] font-medium text-hf-stone-900 outline-none focus:border-hf-green-700"
+          />
         </div>
 
         <div>

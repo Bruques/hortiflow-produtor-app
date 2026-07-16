@@ -113,6 +113,7 @@ model Despesa {
   valor            Decimal     @db.Decimal(10, 2)
   data             DateTime
   foto_comprovante String?
+  descricao        String?
   regra_origem_id  String?
   venda_origem_id  String?
   criado_em        DateTime    @default(now())

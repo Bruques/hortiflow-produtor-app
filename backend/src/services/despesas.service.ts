@@ -7,6 +7,7 @@ interface CriarDespesaInput {
   valor: number;
   data: Date;
   foto_comprovante?: string;
+  descricao?: string;
 }
 
 type AtualizarDespesaInput = Partial<CriarDespesaInput>;
@@ -27,6 +28,7 @@ export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
       valor: input.valor,
       data: input.data,
       foto_comprovante: input.foto_comprovante,
+      descricao: input.descricao,
     },
   });
 }
@@ -44,6 +46,7 @@ export async function atualizarDespesa(id: string, input: AtualizarDespesaInput)
       valor: input.valor,
       data: input.data,
       foto_comprovante: input.foto_comprovante,
+      descricao: input.descricao,
     },
   });
 }
@@ -67,5 +70,6 @@ export async function listarDespesas(safraId: string) {
     valor: d.valor,
     data: d.data,
     foto_comprovante: d.foto_comprovante,
+    descricao: d.descricao,
   }));
 }

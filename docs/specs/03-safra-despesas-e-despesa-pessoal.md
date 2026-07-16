@@ -128,6 +128,26 @@ model DespesaPessoal {
 
 Reaproveita o enum `TipoDespesa` já existente (mesmas categorias fazem sentido pra gasto pessoal de produtor rural). Vai gerar uma nova migração Prisma.
 
+## Adendo (2026-07-16) — campo `descricao` na Despesa da sociedade
+
+Origem: item de backlog — ao lançar despesa com tipo `OUTRO`, o sócio não tinha onde identificar do que se tratava o gasto, perdendo controle sobre esse "outro".
+
+Decisão registrada com o desenvolvedor:
+- `Despesa` (sociedade) ganha um campo `descricao String?`, mesmo padrão já existente em `DespesaPessoal` — reaproveita o modelo, sem model novo
+- **Opcional para qualquer tipo**, não só `OUTRO` — evita reabrir a tela em duas variações (com/sem campo) dependendo da categoria escolhida
+- Exibido **apenas na lista/histórico de despesas** da Safra (como detalhe abaixo do tipo), como texto auxiliar — não entra no cálculo de divisão, não aparece no painel de simulação nem é copiado pro snapshot de Acerto nesta rodada (pode ser revisitado depois se virar necessidade real)
+
+Contrato afetado:
+```
+POST /safras/:id/despesas
+  body: { socio_id, tipo, valor, data, foto_comprovante?, descricao? }
+
+GET /safras/:id/despesas
+  → despesas: [{ ..., descricao }]
+```
+
+Schema Prisma (`model Despesa`): adicionar `descricao String?`, nova migração.
+
 ## Critérios de aceite
 
 1. Dado um sócio de uma Sociedade, `POST /sociedades/:id/safras` cria a Safra com status `EM_ANDAMENTO`

@@ -16,6 +16,7 @@ export interface Despesa {
   valor: string;
   data: string;
   foto_comprovante: string | null;
+  descricao: string | null;
 }
 
 export interface DespesaPessoal {

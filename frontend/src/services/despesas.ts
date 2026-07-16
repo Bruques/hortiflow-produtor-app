@@ -7,6 +7,7 @@ export interface CriarDespesaInput {
   valor: number;
   data: string;
   foto_comprovante?: string;
+  descricao?: string;
 }
 
 export async function criarDespesaRequest(

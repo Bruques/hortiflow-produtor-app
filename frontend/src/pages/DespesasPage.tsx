@@ -160,6 +160,9 @@ export default function DespesasPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="m-0 text-sm font-bold text-hf-stone-900">{ROTULO_TIPO_DESPESA[d.tipo]}</p>
+                      {d.descricao && (
+                        <p className="m-0 mt-0.5 truncate text-xs text-hf-stone-600">{d.descricao}</p>
+                      )}
                       <div className="mt-0.5 flex items-center gap-1.5 text-xs text-hf-stone-600">
                         <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-[8.5px] font-extrabold text-hf-green-800">
                           {iniciais(d.socio_nome)}
