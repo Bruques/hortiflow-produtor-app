@@ -31,7 +31,24 @@
   * {
     @apply border-border;
   }
+  html,
+  body {
+    /* Sem isso o Safari iOS aplica o bounce/rubber-band nativo dele nas bordas horizontais —
+       a tela "anda pros lados" ao arrastar mesmo sem nenhum conteúdo mais largo que a viewport. */
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Tailwind's min-h-screen usa 100vh (altura máxima do viewport, ignorando a barra de
+     ferramentas dinâmica do Safari). Isso cria espaço de rolagem "fantasma": ao rolar levemente
+     pra cima a barra do Safari expande, e como o conteúdo já "achava" que tinha 100vh de altura,
+     a bottom nav fixa fica coberta por trás da toolbar. 100dvh acompanha a altura visível real. */
+  .min-h-screen {
+    min-height: 100dvh;
   }
 }
