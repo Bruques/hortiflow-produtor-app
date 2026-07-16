@@ -9,11 +9,11 @@ interface BottomNavV2Props {
 
 const ITENS = [
   { rota: '', label: 'Resumo', Icon: Home },
-  { rota: 'despesas', label: 'Despesas', Icon: Wallet },
+  { rota: 'vendas', label: 'Vendas', Icon: ShoppingCart },
 ] as const;
 
 const ITENS_DIREITA = [
-  { rota: 'vendas', label: 'Vendas', Icon: ShoppingCart },
+  { rota: 'despesas', label: 'Despesas', Icon: Wallet },
   { rota: 'menu', label: 'Menu', Icon: MenuIcon },
 ] as const;
 

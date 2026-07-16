@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, X } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
+import { ArrowLeft, Camera, Trash2, X } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { criarDespesaRequest } from '@/services/despesas';
+import { criarDespesaRequest, atualizarDespesaRequest, excluirDespesaRequest, listarDespesasRequest } from '@/services/despesas';
 import { listarSociosRequest } from '@/services/sociedades';
 import { meRequest } from '@/services/auth';
 import { DateField } from '@/components/ui/date-field';
@@ -39,6 +40,8 @@ function lerArquivoComoBase64(arquivo: File): Promise<string> {
 export default function NovaDespesaPage() {
   const { safraId, sociedadeId } = useSafraAtiva();
   const navigate = useNavigate();
+  const { despesaId } = useParams<{ despesaId: string }>();
+  const emEdicao = !!despesaId;
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [meuId, setMeuId] = useState<string | null>(null);
@@ -51,16 +54,40 @@ export default function NovaDespesaPage() {
   const [fotoInputKey, setFotoInputKey] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [carregandoDespesa, setCarregandoDespesa] = useState(emEdicao);
 
   useEffect(() => {
     meRequest().then((res) => setMeuId(res.usuario.id)).catch(() => {});
     listarSociosRequest(sociedadeId)
       .then((res) => {
         setSocios(res.socios);
-        if (res.socios.length > 0) setSocioId(res.socios[0].usuario_id);
+        if (!emEdicao && res.socios.length > 0) setSocioId(res.socios[0].usuario_id);
       })
       .catch(() => setErro('Não foi possível carregar os sócios'));
-  }, [sociedadeId]);
+  }, [sociedadeId, emEdicao]);
+
+  // Não existe endpoint de "buscar uma despesa" — a lista já é a fonte de verdade que a tela
+  // de Despesas usa, então reaproveita ela e filtra pelo id da rota em vez de criar uma rota nova.
+  useEffect(() => {
+    if (!despesaId) return;
+    listarDespesasRequest(safraId)
+      .then((res) => {
+        const encontrada = res.despesas.find((d) => d.id === despesaId);
+        if (!encontrada) {
+          setErro('Despesa não encontrada');
+          return;
+        }
+        setSocioId(encontrada.socio_id);
+        setTipo(encontrada.tipo);
+        setValorTexto(String(encontrada.valor).replace('.', ','));
+        setData(encontrada.data.slice(0, 10));
+        setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
+        setFoto(encontrada.foto_comprovante ?? null);
+      })
+      .catch(() => setErro('Não foi possível carregar a despesa'))
+      .finally(() => setCarregandoDespesa(false));
+  }, [despesaId, safraId]);
 
   function selecionarOutraData() {
     setOutraData(true);
@@ -86,22 +113,45 @@ export default function NovaDespesaPage() {
     setFoto(await lerArquivoComoBase64(arquivo));
   }
 
+  function mensagemErro(e: unknown, padrao: string): string {
+    return (axios.isAxiosError(e) && e.response?.data?.error) || padrao;
+  }
+
   async function salvar() {
     if (!formValido) return;
     setErro(null);
     setSalvando(true);
     try {
-      await criarDespesaRequest(safraId, {
+      const input = {
         socio_id: socioId,
         tipo,
         valor: valorNumero,
         data,
         foto_comprovante: foto ?? undefined,
-      });
+      };
+      if (emEdicao && despesaId) {
+        await atualizarDespesaRequest(safraId, despesaId, input);
+      } else {
+        await criarDespesaRequest(safraId, input);
+      }
       navigate(`/safras/${safraId}/despesas`);
-    } catch {
-      setErro('Não foi possível salvar a despesa');
+    } catch (e) {
+      setErro(mensagemErro(e, 'Não foi possível salvar a despesa'));
       setSalvando(false);
+    }
+  }
+
+  async function excluir() {
+    if (!despesaId) return;
+    if (!window.confirm('Excluir essa despesa? Essa ação não pode ser desfeita.')) return;
+    setErro(null);
+    setExcluindo(true);
+    try {
+      await excluirDespesaRequest(safraId, despesaId);
+      navigate(`/safras/${safraId}/despesas`);
+    } catch (e) {
+      setErro(mensagemErro(e, 'Não foi possível excluir a despesa'));
+      setExcluindo(false);
     }
   }
 
@@ -120,11 +170,25 @@ export default function NovaDespesaPage() {
         >
           <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
         </button>
-        <h2 className="font-rounded text-[17px] font-extrabold text-hf-stone-900">Nova despesa</h2>
+        <h2 className="font-rounded text-[17px] font-extrabold text-hf-stone-900 flex-1">
+          {emEdicao ? 'Editar despesa' : 'Nova despesa'}
+        </h2>
+        {emEdicao && (
+          <button
+            type="button"
+            aria-label="Excluir despesa"
+            onClick={excluir}
+            disabled={excluindo}
+            className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-red disabled:opacity-50"
+          >
+            <Trash2 className="h-[17px] w-[17px]" strokeWidth={2.2} />
+          </button>
+        )}
       </div>
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+        {carregandoDespesa && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
 
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Quem bancou?</label>
@@ -284,7 +348,7 @@ export default function NovaDespesaPage() {
         <button
           type="button"
           onClick={salvar}
-          disabled={!formValido || salvando}
+          disabled={!formValido || salvando || carregandoDespesa}
           className="w-full rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white disabled:opacity-50"
         >
           {salvando ? 'Salvando...' : 'Salvar despesa'}

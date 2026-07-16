@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TipoDespesa } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
 import * as despesasService from '../services/despesas.service';
+import * as acertosService from '../services/acertos.service';
 
 const criarSchema = z.object({
   socio_id: z.string().min(1),
@@ -11,6 +12,8 @@ const criarSchema = z.object({
   data: z.coerce.date(),
   foto_comprovante: z.string().optional(),
 });
+
+const atualizarSchema = criarSchema.partial();
 
 export async function criar(req: Request, res: Response): Promise<void> {
   const { id } = req.params; // safra id
@@ -59,4 +62,68 @@ export async function listar(req: Request, res: Response): Promise<void> {
 
   const despesas = await despesasService.listarDespesas(id);
   res.json({ despesas });
+}
+
+export async function atualizar(req: Request, res: Response): Promise<void> {
+  const { despesaId } = req.params;
+
+  const despesa = await despesasService.buscarDespesa(despesaId);
+  if (!despesa) {
+    res.status(404).json({ error: 'Despesa não encontrada' });
+    return;
+  }
+
+  const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, despesa.safra_id);
+  if (!safra || !autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  const cobertaPorAcerto = await acertosService.dataCobertaPorAcerto(despesa.safra_id, despesa.data);
+  if (cobertaPorAcerto) {
+    res.status(409).json({ error: 'Essa despesa já faz parte de um acerto registrado e não pode ser editada' });
+    return;
+  }
+
+  const parsed = atualizarSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Dados de despesa inválidos' });
+    return;
+  }
+
+  if (parsed.data.socio_id) {
+    const socioValido = await despesasService.socioPertenceASociedade(parsed.data.socio_id, safra.sociedade_id);
+    if (!socioValido) {
+      res.status(422).json({ error: 'socio_id informado não pertence a essa sociedade' });
+      return;
+    }
+  }
+
+  const atualizada = await despesasService.atualizarDespesa(despesaId, parsed.data);
+  res.json({ despesa: atualizada });
+}
+
+export async function excluir(req: Request, res: Response): Promise<void> {
+  const { despesaId } = req.params;
+
+  const despesa = await despesasService.buscarDespesa(despesaId);
+  if (!despesa) {
+    res.status(404).json({ error: 'Despesa não encontrada' });
+    return;
+  }
+
+  const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, despesa.safra_id);
+  if (!safra || !autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  const cobertaPorAcerto = await acertosService.dataCobertaPorAcerto(despesa.safra_id, despesa.data);
+  if (cobertaPorAcerto) {
+    res.status(409).json({ error: 'Essa despesa já faz parte de um acerto registrado e não pode ser excluída' });
+    return;
+  }
+
+  await despesasService.excluirDespesa(despesaId);
+  res.status(204).send();
 }

@@ -114,11 +114,13 @@ model Despesa {
   data             DateTime
   foto_comprovante String?
   regra_origem_id  String?
+  venda_origem_id  String?
   criado_em        DateTime    @default(now())
 
   safra       Safra                    @relation(fields: [safra_id], references: [id])
   socio       Usuario                  @relation(fields: [socio_id], references: [id])
   regraOrigem RegraDespesaRecorrente?  @relation(fields: [regra_origem_id], references: [id])
+  vendaOrigem Venda?                   @relation(fields: [venda_origem_id], references: [id])
 
   @@map("despesas")
 }
@@ -164,7 +166,8 @@ model Venda {
   comprador  String?
   criado_em  DateTime @default(now())
 
-  safra Safra @relation(fields: [safra_id], references: [id])
+  safra           Safra     @relation(fields: [safra_id], references: [id])
+  despesasGeradas Despesa[]
 
   @@map("vendas")
 }

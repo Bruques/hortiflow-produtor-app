@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Store, Info } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
+import { ArrowLeft, Minus, Plus, Store, Info, Trash2 } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { criarVendaRequest } from '@/services/vendas';
+import { criarVendaRequest, atualizarVendaRequest, excluirVendaRequest, listarVendasRequest } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
 import { DateField } from '@/components/ui/date-field';
 import { cn, formatarMoeda } from '@/lib/utils';
@@ -23,6 +24,8 @@ function rotuloHoje(): string {
 export default function NovaVendaPage() {
   const { safraId, sociedadeId } = useSafraAtiva();
   const navigate = useNavigate();
+  const { vendaId } = useParams<{ vendaId: string }>();
+  const emEdicao = !!vendaId;
 
   const [outraData, setOutraData] = useState(false);
   const [data, setData] = useState(hojeISO());
@@ -32,6 +35,8 @@ export default function NovaVendaPage() {
   const [valorAutoPorCaixa, setValorAutoPorCaixa] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [carregandoVenda, setCarregandoVenda] = useState(emEdicao);
 
   useEffect(() => {
     listarRegrasRequest(sociedadeId)
@@ -43,6 +48,27 @@ export default function NovaVendaPage() {
       })
       .catch(() => {});
   }, [sociedadeId]);
+
+  // Mesma lógica da Nova despesa: sem endpoint de "buscar uma venda", reaproveita a lista que
+  // a tela de Vendas já usa e filtra pelo id da rota.
+  useEffect(() => {
+    if (!vendaId) return;
+    listarVendasRequest(safraId)
+      .then((res) => {
+        const encontrada = res.vendas.find((v) => v.id === vendaId);
+        if (!encontrada) {
+          setErro('Venda não encontrada');
+          return;
+        }
+        setQuantidade(Number(encontrada.quantidade));
+        setPrecoTexto(String(encontrada.preco).replace('.', ','));
+        setComprador(encontrada.comprador ?? '');
+        setData(encontrada.data.slice(0, 10));
+        setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
+      })
+      .catch(() => setErro('Não foi possível carregar a venda'))
+      .finally(() => setCarregandoVenda(false));
+  }, [vendaId, safraId]);
 
   function selecionarOutraData() {
     setOutraData(true);
@@ -63,21 +89,44 @@ export default function NovaVendaPage() {
   const valorAuto = valorAutoPorCaixa * quantidade;
   const formValido = quantidade > 0 && precoNumero > 0 && !!data;
 
+  function mensagemErro(e: unknown, padrao: string): string {
+    return (axios.isAxiosError(e) && e.response?.data?.error) || padrao;
+  }
+
   async function salvar() {
     if (!formValido) return;
     setErro(null);
     setSalvando(true);
     try {
-      await criarVendaRequest(safraId, {
+      const input = {
         data,
         quantidade,
         preco: precoNumero,
         comprador: comprador || undefined,
-      });
+      };
+      if (emEdicao && vendaId) {
+        await atualizarVendaRequest(safraId, vendaId, input);
+      } else {
+        await criarVendaRequest(safraId, input);
+      }
       navigate(`/safras/${safraId}/vendas`);
-    } catch {
-      setErro('Não foi possível salvar a venda');
+    } catch (e) {
+      setErro(mensagemErro(e, 'Não foi possível salvar a venda'));
       setSalvando(false);
+    }
+  }
+
+  async function excluir() {
+    if (!vendaId) return;
+    if (!window.confirm('Excluir essa venda? Essa ação não pode ser desfeita.')) return;
+    setErro(null);
+    setExcluindo(true);
+    try {
+      await excluirVendaRequest(safraId, vendaId);
+      navigate(`/safras/${safraId}/vendas`);
+    } catch (e) {
+      setErro(mensagemErro(e, 'Não foi possível excluir a venda'));
+      setExcluindo(false);
     }
   }
 
@@ -95,11 +144,25 @@ export default function NovaVendaPage() {
         >
           <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
         </button>
-        <h2 className="font-rounded text-[17px] font-extrabold text-hf-stone-900">Nova venda</h2>
+        <h2 className="font-rounded text-[17px] font-extrabold text-hf-stone-900 flex-1">
+          {emEdicao ? 'Editar venda' : 'Nova venda'}
+        </h2>
+        {emEdicao && (
+          <button
+            type="button"
+            aria-label="Excluir venda"
+            onClick={excluir}
+            disabled={excluindo}
+            className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-red disabled:opacity-50"
+          >
+            <Trash2 className="h-[17px] w-[17px]" strokeWidth={2.2} />
+          </button>
+        )}
       </div>
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+        {carregandoVenda && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
 
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Data</label>
@@ -214,7 +277,7 @@ export default function NovaVendaPage() {
         <button
           type="button"
           onClick={salvar}
-          disabled={!formValido || salvando}
+          disabled={!formValido || salvando || carregandoVenda}
           className="w-full rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white disabled:opacity-50"
         >
           {salvando ? 'Salvando...' : 'Salvar venda'}

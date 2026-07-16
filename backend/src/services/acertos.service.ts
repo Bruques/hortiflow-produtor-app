@@ -149,6 +149,17 @@ export async function criarAcerto(
   };
 }
 
+// Um Acerto é o "documento" já mostrado aos sócios (docs/specs/06) — editar ou excluir uma
+// Despesa/Venda cuja data já caiu dentro de um Acerto existente deixaria esse extrato
+// congelado inconsistente com a realidade. Não há FK de Despesa/Venda pra Acerto no schema
+// (AcertoSocio só guarda valores já agregados), então a checagem é por data mesmo.
+export async function dataCobertaPorAcerto(safraId: string, data: Date): Promise<boolean> {
+  const acerto = await prisma.acerto.findFirst({
+    where: { safra_id: safraId, data_inicio: { lte: data }, data_fim: { gte: data } },
+  });
+  return acerto !== null;
+}
+
 export async function listarAcertos(safraId: string): Promise<AcertoResumo[]> {
   return prisma.acerto.findMany({
     where: { safra_id: safraId },

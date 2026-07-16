@@ -34,9 +34,11 @@ export default function App() {
             <Route index element={<ResumoPage />} />
             <Route path="despesas" element={<DespesasPage />} />
             <Route path="despesas/nova" element={<NovaDespesaPage />} />
+            <Route path="despesas/:despesaId/editar" element={<NovaDespesaPage />} />
             <Route path="despesas-pessoais" element={<DespesasPessoaisPage />} />
             <Route path="vendas" element={<VendasPage />} />
             <Route path="vendas/nova" element={<NovaVendaPage />} />
+            <Route path="vendas/:vendaId/editar" element={<NovaVendaPage />} />
             <Route path="acertos" element={<AcertosPage />} />
             <Route path="acertos/novo" element={<NovoAcertoPage />} />
             <Route path="menu" element={<MenuPage />} />

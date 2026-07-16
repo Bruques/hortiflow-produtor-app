@@ -17,3 +17,18 @@ export async function listarVendasRequest(safraId: string): Promise<{ vendas: Ve
   const { data } = await apiClient.get(`/safras/${safraId}/vendas`);
   return data;
 }
+
+export type AtualizarVendaInput = Partial<CriarVendaInput>;
+
+export async function atualizarVendaRequest(
+  safraId: string,
+  vendaId: string,
+  input: AtualizarVendaInput
+): Promise<{ venda: Venda }> {
+  const { data } = await apiClient.put(`/safras/${safraId}/vendas/${vendaId}`, input);
+  return data;
+}
+
+export async function excluirVendaRequest(safraId: string, vendaId: string): Promise<void> {
+  await apiClient.delete(`/safras/${safraId}/vendas/${vendaId}`);
+}

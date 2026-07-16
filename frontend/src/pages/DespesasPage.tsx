@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Receipt } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
@@ -15,11 +16,12 @@ import type { SugestaoDespesaRecorrente } from '@/types/regraDespesaRecorrente';
 
 export default function DespesasPage() {
   const { safraId, safra } = useSafraAtiva();
+  const navigate = useNavigate();
 
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>('semana');
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>('dia');
 
   const [sugestoes, setSugestoes] = useState<SugestaoDespesaRecorrente[]>([]);
   const [sugestoesDispensadas, setSugestoesDispensadas] = useState<Set<string>>(new Set());
@@ -147,7 +149,12 @@ export default function DespesasPage() {
               {itens.map((d) => {
                 const Icone = ICONE_TIPO_DESPESA[d.tipo];
                 return (
-                  <div key={d.id} className="flex items-center gap-3 border-b border-hf-cream-100 py-3 last:border-b-0">
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => navigate(`/safras/${safraId}/despesas/${d.id}/editar`)}
+                    className="flex w-full items-center gap-3 border-b border-hf-cream-100 py-3 text-left last:border-b-0"
+                  >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hf-red-bg">
                       <Icone className="h-[18px] w-[18px] text-hf-red" strokeWidth={2} />
                     </div>
@@ -168,7 +175,7 @@ export default function DespesasPage() {
                         <div className="mt-0.5 text-[10.5px] text-hf-stone-400">comprovante</div>
                       )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

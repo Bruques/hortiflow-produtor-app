@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Check } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
@@ -12,11 +13,12 @@ import type { PeriodoFiltro } from '@/types/simulacao';
 
 export default function VendasPage() {
   const { safraId, sociedadeId, safra } = useSafraAtiva();
+  const navigate = useNavigate();
 
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>('semana');
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>('dia');
 
   // Valor por caixa de todas as regras POR_VENDA ativas da sociedade — dá pra calcular a
   // despesa automática que cada Venda gerou (valor = soma_regras × quantidade, docs/specs/
@@ -102,7 +104,12 @@ export default function VendasPage() {
               {itens.map((v) => {
                 const valorAuto = valorAutoPorCaixa * Number(v.quantidade);
                 return (
-                  <div key={v.id} className="flex items-center gap-3 border-b border-hf-cream-100 py-3 last:border-b-0">
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => navigate(`/safras/${safraId}/vendas/${v.id}/editar`)}
+                    className="flex w-full items-center gap-3 border-b border-hf-cream-100 py-3 text-left last:border-b-0"
+                  >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hf-blue-bg">
                       <ShoppingCart className="h-[18px] w-[18px] text-hf-blue" strokeWidth={2} />
                     </div>
@@ -125,7 +132,7 @@ export default function VendasPage() {
                         {formatarMoeda(Number(v.total))}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

@@ -21,7 +21,7 @@ export default function ResumoPage() {
 
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [socios, setSocios] = useState<Socio[]>([]);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>('semana');
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>('dia');
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -51,7 +51,7 @@ export default function ResumoPage() {
       <div className="mx-auto flex max-w-sm flex-col gap-[22px] px-[22px] pb-6 pt-3.5">
         <button
           type="button"
-          onClick={() => navigate(`/sociedades/${sociedadeId}/safras`)}
+          onClick={() => navigate('/')}
           className="flex flex-col items-start gap-0.5 text-left"
         >
           <span className="text-[12.5px] text-hf-stone-600">Safra atual</span>

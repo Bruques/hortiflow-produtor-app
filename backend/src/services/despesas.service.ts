@@ -9,6 +9,8 @@ interface CriarDespesaInput {
   foto_comprovante?: string;
 }
 
+type AtualizarDespesaInput = Partial<CriarDespesaInput>;
+
 export async function socioPertenceASociedade(usuarioId: string, sociedadeId: string): Promise<boolean> {
   const vinculo = await prisma.socioSociedade.findUnique({
     where: { usuario_id_sociedade_id: { usuario_id: usuarioId, sociedade_id: sociedadeId } },
@@ -27,6 +29,27 @@ export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
       foto_comprovante: input.foto_comprovante,
     },
   });
+}
+
+export async function buscarDespesa(id: string) {
+  return prisma.despesa.findUnique({ where: { id } });
+}
+
+export async function atualizarDespesa(id: string, input: AtualizarDespesaInput) {
+  return prisma.despesa.update({
+    where: { id },
+    data: {
+      socio_id: input.socio_id,
+      tipo: input.tipo,
+      valor: input.valor,
+      data: input.data,
+      foto_comprovante: input.foto_comprovante,
+    },
+  });
+}
+
+export async function excluirDespesa(id: string): Promise<void> {
+  await prisma.despesa.delete({ where: { id } });
 }
 
 export async function listarDespesas(safraId: string) {

@@ -21,3 +21,18 @@ export async function listarDespesasRequest(safraId: string): Promise<{ despesas
   const { data } = await apiClient.get(`/safras/${safraId}/despesas`);
   return data;
 }
+
+export type AtualizarDespesaInput = Partial<CriarDespesaInput>;
+
+export async function atualizarDespesaRequest(
+  safraId: string,
+  despesaId: string,
+  input: AtualizarDespesaInput
+): Promise<{ despesa: Despesa }> {
+  const { data } = await apiClient.put(`/safras/${safraId}/despesas/${despesaId}`, input);
+  return data;
+}
+
+export async function excluirDespesaRequest(safraId: string, despesaId: string): Promise<void> {
+  await apiClient.delete(`/safras/${safraId}/despesas/${despesaId}`);
+}
