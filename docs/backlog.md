@@ -9,15 +9,8 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 - 
 
 ## Melhorias de UX
-
-- Na tela de registro de venda, ele tem que apertar no + ou no - para adicionar a quantidade de caixas, se ele vender 200 caixas ele tem que apertar nesse botão de + 200 vezes, quero melhorar isso
-- Na tela de registro de despesas quando o usuario seleciona a opção outro, ele atualmente não tem nenhum lugar onde ele pode identificar esse outro gasto, seria interessante pensar em alguma coisa para que depois ele possa dizer o que foi esse gasto, para ele poder ter o controle do que foi esse "outro" gasto
-- Em relação a tela de registro de despesas, não temos uma mascara para adicionarmos o valor, seria interessante colocar uma mascara para que o usuario so possa digitar numeros, e funcione igual é os apps de banco na hora de colocar o valor pra fazer o pix por exemplo
-- Não criamos os wireframes do fluxo de despesas pessoais do usuário - criar e aplicar ele na nossa aplicação
 - Nas configurações quando clicamos abrir nova safra, estamos indo para um tela antiga, quero criar o wireframe dessa tela também e aplicar ela no app
-- Quando clico no menu e vamos na opção configurações e listamos os socios, quando clicamos no voltar ele não volta pra tela anterior, e sim para uma tela de configuração de safras (uma tela antiga)
-- Quando eu abro no celular, a tela anda para os lados se eu arrastas, queria que a tela ficasse ao maximo parecida com um app nativo
-- quando eu levemente rolo a tela pra cima, a barra de navegação do safari cresce e tampa a navigation bar do app
+- Remover os botões de menu e notificação do topo
 
 ## Ideias de funcionalidade
 
