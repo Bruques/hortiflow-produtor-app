@@ -73,6 +73,10 @@ GET /safras/:id/simulacao?data_inicio=YYYY-MM-DD&data_fim=YYYY-MM-DD
   → 403 se não for sócio
 ```
 
+## Decisões registradas durante a implementação
+
+- **Campo `caixasVendidas` na resposta de `GET /safras/:id/simulacao`** (adicionado durante o redesenho da tela de Início, `docs/design/notas-de-design.md`): o card "Caixas vendidas" do dashboard precisa do total de caixas do período, que não existia na resposta original. Somado no controller a partir da lista de vendas já buscada pro período (`vendas.reduce(...)`), sem tocar em `calcularDivisao` — mantém o service de divisão isolado e focado só em valores monetários, conforme a regra crítica do CLAUDE.md.
+
 ## Decisão de arquitetura a registrar
 
 Nenhuma mudança de schema — reaproveita `Despesa`, `Venda` e `SocioSociedade` já existentes.

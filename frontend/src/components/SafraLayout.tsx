@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { obterSafraRequest } from '@/services/safras';
 import { SafraContext, type SafraContextValue } from '@/lib/SafraContext';
-import { BottomNav } from '@/components/BottomNav';
+import { BottomNavV2 } from '@/components/BottomNavV2';
 
 // Resolve a sociedade dona da safra atual uma única vez (via GET /safras/:id) e disponibiliza
 // os dois IDs pro resto da árvore de rotas via contexto — em vez de cada tela depender de um
@@ -19,7 +19,7 @@ export default function SafraLayout() {
     setContexto(null);
     setErro(null);
     obterSafraRequest(id)
-      .then((res) => setContexto({ safraId: id, sociedadeId: res.safra.sociedade_id }))
+      .then((res) => setContexto({ safraId: id, sociedadeId: res.safra.sociedade_id, safra: res.safra }))
       .catch(() => setErro('Não foi possível carregar essa safra'));
   }, [id]);
 
@@ -44,10 +44,10 @@ export default function SafraLayout() {
 
   return (
     <SafraContext.Provider value={contexto}>
-      <div className="pb-20">
+      <div className="pb-24 bg-hf-cream-50 min-h-screen">
         <Outlet />
       </div>
-      <BottomNav safraId={contexto.safraId} />
+      <BottomNavV2 safraId={contexto.safraId} />
     </SafraContext.Provider>
   );
 }

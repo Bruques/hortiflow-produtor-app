@@ -1,5 +1,10 @@
 import apiClient from './apiClient';
-import type { Safra } from '@/types/safra';
+import type { MinhaSafra, Safra } from '@/types/safra';
+
+export async function listarMinhasSafrasRequest(): Promise<{ safras: MinhaSafra[] }> {
+  const { data } = await apiClient.get('/safras');
+  return data;
+}
 
 export async function abrirSafraRequest(sociedadeId: string, nome: string): Promise<{ safra: Safra }> {
   const { data } = await apiClient.post(`/sociedades/${sociedadeId}/safras`, { nome });

@@ -111,8 +111,14 @@ export async function simular(req: Request, res: Response): Promise<void> {
     socios.map((s) => ({ socio_id: s.usuario_id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
   );
 
+  // Soma direto da lista de vendas já buscada pro período — não passa pelo calcularDivisao
+  // (que só lida com valores monetários) pra não misturar a contagem de caixas na fórmula
+  // de divisão de lucro.
+  const caixasVendidas = vendas.reduce((acc, v) => acc + Number(v.quantidade), 0);
+
   res.json({
     periodo: { data_inicio: intervalo.data_inicio ?? null, data_fim: intervalo.data_fim ?? null },
     ...resultado,
+    caixasVendidas,
   });
 }

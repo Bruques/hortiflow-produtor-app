@@ -7,6 +7,11 @@ const abrirSchema = z.object({
   nome: z.string().min(1),
 });
 
+export async function listarMinhas(req: Request, res: Response): Promise<void> {
+  const safras = await safrasService.listarSafrasDoUsuario(req.usuarioId);
+  res.json({ safras });
+}
+
 export async function abrir(req: Request, res: Response): Promise<void> {
   const { id } = req.params; // sociedade id
 

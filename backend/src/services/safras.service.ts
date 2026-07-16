@@ -20,6 +20,27 @@ export async function listarSafras(sociedadeId: string): Promise<Safra[]> {
   });
 }
 
+// Lista as safras de TODAS as sociedades do usuário, não só uma — base da tela de entrada
+// pós-login (docs/design/notas-de-design.md): o usuário pensa em "minhas safras", não em
+// "minhas sociedades", então a navegação depois do login parte daqui, não de uma sociedade.
+export async function listarSafrasDoUsuario(usuarioId: string) {
+  const safras = await prisma.safra.findMany({
+    where: { sociedade: { socios: { some: { usuario_id: usuarioId } } } },
+    include: { sociedade: { select: { nome: true } } },
+    orderBy: { criado_em: 'desc' },
+  });
+
+  return safras.map((s) => ({
+    id: s.id,
+    sociedade_id: s.sociedade_id,
+    sociedade_nome: s.sociedade.nome,
+    nome: s.nome,
+    status: s.status,
+    data_inicio: s.data_inicio,
+    data_fim: s.data_fim,
+  }));
+}
+
 // Centraliza a checagem "usuário é sócio da sociedade dona dessa safra", usada por
 // despesas e despesas pessoais também, pra não duplicar o join safra -> sociedade em cada controller.
 export async function ehSocioDaSafra(

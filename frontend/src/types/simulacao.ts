@@ -11,6 +11,7 @@ export interface Simulacao {
   despesas: number;
   lucroLiquido: number;
   divisao: DivisaoSocio[];
+  caixasVendidas: number;
 }
 
 export type PeriodoFiltro = 'dia' | 'semana' | 'mes' | 'safra';

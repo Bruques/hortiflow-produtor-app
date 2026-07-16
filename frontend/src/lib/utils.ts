@@ -12,3 +12,7 @@ export function formatarData(dataISO: string): string {
   const [ano, mes, dia] = dataISO.slice(0, 10).split('-');
   return `${dia}/${mes}/${ano}`;
 }
+
+export function formatarMoeda(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}

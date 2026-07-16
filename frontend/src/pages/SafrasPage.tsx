@@ -6,13 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 import { abrirSafraRequest, encerrarSafraRequest, listarSafrasRequest } from '@/services/safras';
+import { ROTULO_STATUS_SAFRA } from '@/lib/rotulos';
 import type { Safra } from '@/types/safra';
-
-const STATUS_LABEL: Record<Safra['status'], string> = {
-  PLANEJADA: 'Planejada',
-  EM_ANDAMENTO: 'Em andamento',
-  ENCERRADA: 'Encerrada',
-};
 
 export default function SafrasPage() {
   const { id } = useParams<{ id: string }>();
@@ -103,7 +98,7 @@ export default function SafrasPage() {
               <CardTitle className="text-base flex items-center justify-between">
                 <span>{s.nome}</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  {STATUS_LABEL[s.status]}
+                  {ROTULO_STATUS_SAFRA[s.status]}
                 </span>
               </CardTitle>
             </CardHeader>
@@ -123,9 +118,9 @@ export default function SafrasPage() {
                   Vendas
                 </Button>
               </Link>
-              <Link to={`/safras/${s.id}/simulacao`}>
+              <Link to={`/safras/${s.id}`}>
                 <Button variant="outline" className="w-full">
-                  Simulação de divisão
+                  Ir para a safra (Resumo)
                 </Button>
               </Link>
               <Link to={`/safras/${s.id}/acertos`}>
