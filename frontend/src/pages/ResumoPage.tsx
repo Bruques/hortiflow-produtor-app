@@ -7,19 +7,13 @@ import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest } from '@/services/auth';
 import { buscarSimulacaoRequest } from '@/services/simulacao';
 import { listarSociosRequest } from '@/services/sociedades';
-import { formatarData, formatarMoeda } from '@/lib/utils';
+import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
 import { ROTULO_STATUS_SAFRA, ROTULO_PAPEL_SOCIO } from '@/lib/rotulos';
 import type { PeriodoFiltro, Simulacao } from '@/types/simulacao';
 import type { Socio } from '@/types/sociedade';
 
 const RAIO_ANEL = 31;
 const CIRCUNFERENCIA_ANEL = 2 * Math.PI * RAIO_ANEL;
-
-function iniciais(nome: string): string {
-  const partes = nome.trim().split(/\s+/);
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[1][0]).toUpperCase();
-}
 
 export default function ResumoPage() {
   const { safraId, sociedadeId, safra } = useSafraAtiva();

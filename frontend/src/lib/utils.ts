@@ -16,3 +16,10 @@ export function formatarData(dataISO: string): string {
 export function formatarMoeda(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+// Iniciais pro avatar circular usado em listas com nome de sócio (Resumo, Despesas, Vendas).
+export function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/);
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[1][0]).toUpperCase();
+}

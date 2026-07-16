@@ -1,258 +1,179 @@
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { DateField } from '@/components/ui/date-field';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageHeader } from '@/components/PageHeader';
+import { useEffect, useMemo, useState } from 'react';
+import { X, Receipt } from 'lucide-react';
+import { Topbar } from '@/components/Topbar';
+import { PeriodToggle } from '@/components/PeriodToggle';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { criarDespesaRequest, listarDespesasRequest } from '@/services/despesas';
-import { listarSociosRequest } from '@/services/sociedades';
+import { listarDespesasRequest } from '@/services/despesas';
 import { confirmarSugestaoRequest, listarSugestoesRequest } from '@/services/regrasDespesaRecorrente';
-import { formatarData } from '@/lib/utils';
+import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
+import { dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
-import type { Despesa, TipoDespesa } from '@/types/despesa';
-import type { Socio } from '@/types/sociedade';
+import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
+import type { Despesa } from '@/types/despesa';
+import type { PeriodoFiltro } from '@/types/simulacao';
 import type { SugestaoDespesaRecorrente } from '@/types/regraDespesaRecorrente';
 
-const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
-
-function lerArquivoComoBase64(arquivo: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const leitor = new FileReader();
-    leitor.onload = () => resolve(leitor.result as string);
-    leitor.onerror = reject;
-    leitor.readAsDataURL(arquivo);
-  });
-}
-
 export default function DespesasPage() {
-  const { safraId, sociedadeId } = useSafraAtiva();
+  const { safraId, safra } = useSafraAtiva();
 
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [socios, setSocios] = useState<Socio[]>([]);
-  const [sugestoes, setSugestoes] = useState<SugestaoDespesaRecorrente[]>([]);
-  const [socioId, setSocioId] = useState('');
-  const [tipo, setTipo] = useState<TipoDespesa>('OUTRO');
-  const [valor, setValor] = useState('');
-  const [data, setData] = useState('');
-  const [foto, setFoto] = useState<string | null>(null);
-  const [fotoInputKey, setFotoInputKey] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
-  const [sucesso, setSucesso] = useState(false);
-  const [salvando, setSalvando] = useState(false);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>('semana');
 
-  function carregarDespesas() {
+  const [sugestoes, setSugestoes] = useState<SugestaoDespesaRecorrente[]>([]);
+  const [sugestoesDispensadas, setSugestoesDispensadas] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
     setCarregando(true);
     listarDespesasRequest(safraId)
       .then((res) => setDespesas(res.despesas))
       .catch(() => setErro('Não foi possível carregar as despesas'))
       .finally(() => setCarregando(false));
-  }
+  }, [safraId]);
 
-  function carregarSugestoes() {
+  useEffect(() => {
     listarSugestoesRequest(safraId)
       .then((res) => setSugestoes(res.sugestoes))
       .catch(() => setErro('Não foi possível carregar as sugestões do dia'));
-  }
+  }, [safraId]);
 
-  useEffect(carregarDespesas, [safraId]);
-  useEffect(carregarSugestoes, [safraId]);
+  const despesasDoPeriodo = useMemo(
+    () => despesas.filter((d) => dataEstaNoPeriodo(d.data, periodo)),
+    [despesas, periodo]
+  );
+
+  const totalPeriodo = despesasDoPeriodo.reduce((acc, d) => acc + Number(d.valor), 0);
+
+  const grupos = useMemo(() => {
+    const porDia = new Map<string, Despesa[]>();
+    for (const d of despesasDoPeriodo) {
+      const chave = d.data.slice(0, 10);
+      if (!porDia.has(chave)) porDia.set(chave, []);
+      porDia.get(chave)!.push(d);
+    }
+    return [...porDia.entries()].sort(([a], [b]) => (a < b ? 1 : -1));
+  }, [despesasDoPeriodo]);
+
+  const sugestoesVisiveis = sugestoes.filter((s) => !sugestoesDispensadas.has(s.id));
 
   async function confirmarSugestao(regraId: string) {
     setErro(null);
     try {
       await confirmarSugestaoRequest(safraId, regraId);
-      carregarSugestoes();
-      carregarDespesas();
+      const [resSugestoes, resDespesas] = await Promise.all([
+        listarSugestoesRequest(safraId),
+        listarDespesasRequest(safraId),
+      ]);
+      setSugestoes(resSugestoes.sugestoes);
+      setDespesas(resDespesas.despesas);
     } catch {
       setErro('Não foi possível confirmar a sugestão');
     }
   }
 
-  useEffect(() => {
-    listarSociosRequest(sociedadeId)
-      .then((res) => {
-        setSocios(res.socios);
-        if (res.socios.length > 0) setSocioId(res.socios[0].usuario_id);
-      })
-      .catch(() => setErro('Não foi possível carregar os sócios'));
-  }, [sociedadeId]);
-
-  async function escolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const arquivo = e.target.files?.[0];
-    if (!arquivo) return;
-    setFoto(await lerArquivoComoBase64(arquivo));
-  }
-
-  async function lancar() {
-    if (!socioId || !valor || !data) return;
-    setErro(null);
-    setSucesso(false);
-    setSalvando(true);
-    try {
-      await criarDespesaRequest(safraId, {
-        socio_id: socioId,
-        tipo,
-        valor: Number(valor),
-        data,
-        foto_comprovante: foto ?? undefined,
-      });
-      setValor('');
-      setFoto(null);
-      setFotoInputKey((k) => k + 1);
-      setSucesso(true);
-      carregarDespesas();
-    } catch {
-      setErro('Não foi possível lançar a despesa');
-    } finally {
-      setSalvando(false);
-    }
+  function dispensarSugestao(id: string) {
+    setSugestoesDispensadas((atual) => new Set(atual).add(id));
   }
 
   return (
-    <div className="max-w-sm mx-auto">
-      <PageHeader title="Despesas da sociedade" />
-      <div className="p-4 space-y-4">
-        {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
-        {sucesso && (
-          <p className="text-sm text-center font-medium text-green-600">Despesa lançada!</p>
-        )}
+    <div>
+      <Topbar safraId={safraId} />
 
-        {sugestoes.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Sugestões do dia</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {sugestoes.map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-medium">
-                      {ROTULO_TIPO_DESPESA[s.tipo_despesa]} — R$ {s.valor}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{s.socio_nome}</p>
-                  </div>
-                  <Button onClick={() => confirmarSugestao(s.id)}>Confirmar</Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Lançar despesa</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="socio">Sócio que pagou essa despesa</Label>
-              <select
-                id="socio"
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base"
-                value={socioId}
-                onChange={(e) => setSocioId(e.target.value)}
-              >
-                {socios.map((s) => (
-                  <option key={s.usuario_id} value={s.usuario_id}>
-                    {s.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo</Label>
-              <select
-                id="tipo"
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base"
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as TipoDespesa)}
-              >
-                {TIPOS_DESPESA.map((t) => (
-                  <option key={t} value={t}>
-                    {ROTULO_TIPO_DESPESA[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="valor">Valor (R$)</Label>
-              <Input
-                id="valor"
-                type="number"
-                min={0}
-                step="0.01"
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="data">Data</Label>
-              <DateField id="data" value={data} onChange={setData} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="foto">Foto do comprovante (opcional)</Label>
-              <Input
-                key={fotoInputKey}
-                id="foto"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={escolherFoto}
-              />
-              {foto && (
-                <div className="flex items-center gap-3">
-                  <img src={foto} alt="Preview do comprovante" className="h-16 w-16 object-cover rounded-md border" />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setFoto(null);
-                      setFotoInputKey((k) => k + 1);
-                    }}
-                  >
-                    Remover foto
-                  </Button>
-                </div>
-              )}
-            </div>
-            <Button
-              className="w-full"
-              onClick={lancar}
-              disabled={salvando || !socioId || !valor || !data}
-            >
-              {salvando ? 'Lançando...' : 'Lançar despesa'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-3">
-          {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
-          {!carregando && despesas.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center">Nenhuma despesa lançada ainda.</p>
-          )}
-
-          {despesas.map((d) => (
-            <Card key={d.id}>
-              <CardContent className="pt-4 space-y-1">
-                <p className="font-medium">
-                  {ROTULO_TIPO_DESPESA[d.tipo]} — R$ {d.valor}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {d.socio_nome} · {formatarData(d.data)}
-                </p>
-                {d.foto_comprovante && (
-                  <img
-                    src={d.foto_comprovante}
-                    alt="Comprovante da despesa"
-                    className="h-16 w-16 object-cover rounded-md border mt-1"
-                  />
-                )}
-              </CardContent>
-            </Card>
-          ))}
+      <div className="mx-auto flex max-w-sm flex-col gap-[18px] px-[22px] pb-6 pt-3.5">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <h2 className="font-rounded text-[20px] font-extrabold text-hf-stone-900">Despesas</h2>
+            <p className="mt-0.5 text-[12.5px] text-hf-stone-600">Sociedade · {safra.nome}</p>
+          </div>
         </div>
+
+        <PeriodToggle value={periodo} onChange={setPeriodo} />
+
+        {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+
+        <div className="flex items-center justify-between rounded-2xl bg-hf-cream-100 px-4 py-3.5">
+          <div>
+            <p className="m-0 mb-0.5 text-xs text-hf-stone-600">Total de despesas no período</p>
+            <span className="text-[11px] text-hf-stone-400">
+              {despesasDoPeriodo.length} lançamento{despesasDoPeriodo.length === 1 ? '' : 's'} · todos os sócios
+            </span>
+          </div>
+          <p className="m-0 text-[19px] font-extrabold tabular-nums text-hf-red">{formatarMoeda(totalPeriodo)}</p>
+        </div>
+
+        {sugestoesVisiveis.map((s) => (
+          <div key={s.id} className="relative flex items-start gap-3 rounded-2xl bg-hf-amber-bg p-3.5">
+            <button
+              type="button"
+              aria-label="Dispensar sugestão"
+              onClick={() => dispensarSugestao(s.id)}
+              className="absolute right-2.5 top-2.5 p-0.5 text-hf-amber opacity-70"
+            >
+              <X className="h-[15px] w-[15px]" strokeWidth={2.2} />
+            </button>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-white/55">
+              <Receipt className="h-[18px] w-[18px] text-hf-amber" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="m-0 text-[13px] font-extrabold text-[#5a3f0e]">
+                {ROTULO_TIPO_DESPESA[s.tipo_despesa]} · {formatarMoeda(Number(s.valor))}
+              </p>
+              <p className="m-0 mb-2 mt-0.5 text-[11.5px] text-hf-amber">
+                Regra recorrente de hoje — toque pra confirmar o lançamento
+              </p>
+              <button
+                type="button"
+                onClick={() => confirmarSugestao(s.id)}
+                className="rounded-full bg-hf-green-700 px-3.5 py-1.5 text-xs font-bold text-white"
+              >
+                Confirmar despesa
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {carregando && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
+        {!carregando && despesasDoPeriodo.length === 0 && (
+          <p className="text-center text-sm text-hf-stone-600">Nenhuma despesa neste período.</p>
+        )}
+
+        {grupos.map(([dataChave, itens]) => (
+          <div key={dataChave}>
+            <div className="mb-0.5 text-[11.5px] font-bold uppercase tracking-wide text-hf-stone-400">
+              {rotuloDia(dataChave, formatarData)}
+            </div>
+            <div>
+              {itens.map((d) => {
+                const Icone = ICONE_TIPO_DESPESA[d.tipo];
+                return (
+                  <div key={d.id} className="flex items-center gap-3 border-b border-hf-cream-100 py-3 last:border-b-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hf-red-bg">
+                      <Icone className="h-[18px] w-[18px] text-hf-red" strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 text-sm font-bold text-hf-stone-900">{ROTULO_TIPO_DESPESA[d.tipo]}</p>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-hf-stone-600">
+                        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-[8.5px] font-extrabold text-hf-green-800">
+                          {iniciais(d.socio_nome)}
+                        </span>
+                        {d.socio_nome}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[14.5px] font-extrabold tabular-nums text-hf-red">
+                        {formatarMoeda(Number(d.valor))}
+                      </div>
+                      {d.foto_comprovante && (
+                        <div className="mt-0.5 text-[10.5px] text-hf-stone-400">comprovante</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

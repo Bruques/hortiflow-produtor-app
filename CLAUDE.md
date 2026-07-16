@@ -167,6 +167,19 @@ Na tela inicial, cada sócio (financiador ou meeiro) enxerga sempre duas frentes
 6. **Acerto** — registrar um Acerto (parcial ou final) para um período, gerar `Acerto`/`AcertoSocio`, tela de extrato auditável (boa candidata pra demo com a contadora); um Acerto do tipo final também encerra a safra
 7. **Polimento mobile** — ajustes de UX pra celular (poucos campos por tela, câmera para comprovante, botões grandes)
 
+**O roadmap acima (tasks 1–7) já está implementado e concluído.** O trabalho atual do projeto é outro, descrito na seção seguinte.
+
+---
+
+## Redesign visual pós-MVP (trabalho em andamento, separado do roadmap acima)
+
+Com o MVP funcional (tasks 1–7 concluídas), o projeto entrou numa fase de **redesign visual** das telas existentes, a partir de wireframes definidos separadamente. Isso **não é funcionalidade nova** — é reestilização de telas que já funcionam, tela por tela, reaproveitando a lógica (chamadas de API, cálculos, validações) já implementada nas tasks do roadmap.
+
+- **Onde está o trabalho**: `docs/design/` — `wireframes.html` (as 12 telas do redesign, abrir no navegador), `notas-de-design.md` (decisões visuais: paleta, tipografia, componentes recorrentes) e `checklist-telas.md` (lista de telas, marcadas `[x]` conforme implementadas)
+- **Como está sendo feito**: cada tela é implementada numa **sessão nova** (agente novo por tela, pra economizar tokens), seguindo o mesmo espírito do SDD do MVP: a sessão só precisa ler a spec funcional relacionada em `docs/specs/0X-*.md` (regras de negócio, já implementadas — não mudam) + a seção correspondente de `docs/design/notas-de-design.md` (decisões visuais). Não é necessário reler este CLAUDE.md inteiro nem o histórico de outras telas.
+- **Se o desenvolvedor pedir "vamos implementar a tela de X"**: isso é sobre esse redesign, não sobre uma task nova do roadmap. Confira `docs/design/checklist-telas.md` para ver se X já está marcada, e siga a spec + notas de design indicadas ali. Antes de reescrever, olhe o componente/página atual (já existe e funciona) para não perder lógica validada.
+- **Progresso**: ver `docs/design/checklist-telas.md` para o estado atualizado — não presuma que está tudo por fazer nem que está tudo pronto.
+
 ---
 
 ## Perguntas em aberto (validar com a contadora/produtores antes de fechar a fórmula de divisão)
