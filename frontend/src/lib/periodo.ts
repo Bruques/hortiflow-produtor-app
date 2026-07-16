@@ -49,3 +49,11 @@ export function rotuloDia(dataISO: string, formatarData: (iso: string) => string
   if (diffDias === 1) return 'Ontem';
   return formatarData(dataISO);
 }
+
+// Usado pela tela de Acertos pra calcular o início do período "ainda não dividido": o dia
+// seguinte ao data_fim do último Acerto (o próprio data_fim já foi coberto por ele).
+export function adicionarDias(dataISO: string, dias: number): string {
+  const data = inicioDoDiaUTC(dataISO);
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}

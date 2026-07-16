@@ -1,124 +1,125 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { DateField } from '@/components/ui/date-field';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageHeader } from '@/components/PageHeader';
+import { FileText, ChevronRight } from 'lucide-react';
+import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { criarAcertoRequest, listarAcertosRequest } from '@/services/acertos';
-import { formatarData } from '@/lib/utils';
-import { ROTULO_TIPO_ACERTO } from '@/lib/rotulos';
-import type { AcertoResumo, TipoAcerto } from '@/types/acerto';
-
-const TIPOS = Object.keys(ROTULO_TIPO_ACERTO) as TipoAcerto[];
+import { listarAcertosRequest } from '@/services/acertos';
+import { buscarSimulacaoRequest, buscarSimulacaoPersonalizadaRequest } from '@/services/simulacao';
+import { adicionarDias } from '@/lib/periodo';
+import { cn, formatarData, formatarMoeda } from '@/lib/utils';
+import { ROTULO_STATUS_SAFRA } from '@/lib/rotulos';
+import type { AcertoResumo } from '@/types/acerto';
 
 export default function AcertosPage() {
-  const { safraId } = useSafraAtiva();
+  const { safraId, safra } = useSafraAtiva();
   const navigate = useNavigate();
 
   const [acertos, setAcertos] = useState<AcertoResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
-  const [tipo, setTipo] = useState<TipoAcerto>('PARCIAL');
   const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState(false);
+  const [lucroNaoDividido, setLucroNaoDividido] = useState<number | null>(null);
 
-  function carregar() {
+  useEffect(() => {
     setCarregando(true);
     listarAcertosRequest(safraId)
       .then(setAcertos)
       .catch(() => setErro('Não foi possível carregar os acertos'))
       .finally(() => setCarregando(false));
-  }
+  }, [safraId]);
 
-  useEffect(carregar, [safraId]);
-
-  async function registrar() {
-    if (!dataInicio || !dataFim) return;
-    setErro(null);
-    setSalvando(true);
-    try {
-      const acerto = await criarAcertoRequest(safraId, { data_inicio: dataInicio, data_fim: dataFim, tipo });
-      navigate(`/acertos/${acerto.id}`);
-    } catch (e) {
-      const mensagem = axios.isAxiosError(e) ? e.response?.data?.error : null;
-      setErro(mensagem ?? 'Não foi possível registrar o acerto');
-    } finally {
-      setSalvando(false);
+  useEffect(() => {
+    // Lucro ainda não coberto por nenhum Acerto: desde o dia seguinte ao data_fim do último
+    // (o próprio data_fim já foi congelado por ele) até hoje. Sem nenhum Acerto ainda, é a
+    // safra inteira até agora.
+    async function calcular() {
+      if (acertos.length > 0) {
+        const inicio = adicionarDias(acertos[0].data_fim, 1);
+        const hoje = new Date().toISOString().slice(0, 10);
+        if (inicio > hoje) {
+          setLucroNaoDividido(0);
+          return;
+        }
+        const sim = await buscarSimulacaoPersonalizadaRequest(safraId, inicio, hoje);
+        setLucroNaoDividido(sim.lucroLiquido);
+      } else {
+        const sim = await buscarSimulacaoRequest(safraId, 'safra');
+        setLucroNaoDividido(sim.lucroLiquido);
+      }
     }
-  }
+    calcular().catch(() => {});
+  }, [acertos, safraId]);
 
   return (
-    <div className="max-w-sm mx-auto">
-      <PageHeader
-        title="Acertos"
-        apoio="Um acerto congela o cálculo de um período — pra prestação de contas já feita não mudar depois"
-      />
-      <div className="p-4 space-y-4">
-        {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
+    <div>
+      <Topbar safraId={safraId} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Registrar novo acerto</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="data-inicio">Início do período</Label>
-              <DateField id="data-inicio" value={dataInicio} onChange={setDataInicio} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="data-fim">Fim do período</Label>
-              <DateField id="data-fim" value={dataFim} onChange={setDataFim} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {TIPOS.map((t) => (
-                  <Button
-                    key={t}
-                    type="button"
-                    variant={tipo === t ? 'default' : 'outline'}
-                    onClick={() => setTipo(t)}
-                  >
-                    {ROTULO_TIPO_ACERTO[t]}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            <Button
-              className="w-full"
-              onClick={registrar}
-              disabled={salvando || !dataInicio || !dataFim}
-            >
-              {salvando ? 'Registrando...' : 'Registrar acerto'}
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="mx-auto flex max-w-sm flex-col gap-6 px-[22px] pb-6 pt-3.5">
+        <div>
+          <h2 className="font-rounded text-[20px] font-extrabold text-hf-stone-900">Acertos</h2>
+          <p className="mt-0.5 text-[12.5px] text-hf-stone-600">
+            {safra.nome} · {ROTULO_STATUS_SAFRA[safra.status].toLowerCase()}
+          </p>
+        </div>
 
-        <div className="space-y-3">
-          {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
+        {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+
+        <div className="flex flex-col gap-2.5">
+          <button
+            type="button"
+            // A tela "Registrar acerto" ainda não foi construída (checklist), então esse botão
+            // aponta pra uma rota que ainda não existe — assim que ela for criada, numa sessão
+            // dedicada, é só registrar a rota que este link já funciona.
+            onClick={() => navigate(`/safras/${safraId}/acertos/novo`)}
+            className="flex items-center justify-center gap-2 rounded-2xl bg-hf-green-800 py-4 text-[14.5px] font-bold text-white"
+          >
+            <FileText className="h-[17px] w-[17px]" strokeWidth={2} />
+            Registrar novo acerto
+          </button>
+          {lucroNaoDividido !== null && (
+            <p className="text-center text-xs text-hf-stone-600">
+              {acertos.length > 0 ? (
+                <>Desde o último acerto ({formatarData(acertos[0].data_fim)}): </>
+              ) : (
+                <>Nesta safra até agora: </>
+              )}
+              <b className="text-hf-stone-900">{formatarMoeda(lucroNaoDividido)}</b> de lucro ainda não dividido
+            </p>
+          )}
+        </div>
+
+        <div>
+          <h3 className="mb-1 text-base font-extrabold text-hf-stone-900">Histórico</h3>
+
+          {carregando && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
           {!carregando && acertos.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center">Nenhum acerto registrado ainda.</p>
+            <p className="text-center text-sm text-hf-stone-600">Nenhum acerto registrado ainda.</p>
           )}
 
-          {acertos.map((a) => (
-            <Link key={a.id} to={`/acertos/${a.id}`}>
-              <Card>
-                <CardContent className="pt-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">
-                      {formatarData(a.data_inicio)} – {formatarData(a.data_fim)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{ROTULO_TIPO_ACERTO[a.tipo]}</p>
-                  </div>
-                  <span className="text-muted-foreground" aria-hidden>›</span>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+          <div>
+            {acertos.map((a) => (
+              <Link
+                key={a.id}
+                to={`/acertos/${a.id}`}
+                className="flex items-center gap-3 border-b border-hf-cream-100 py-3.5 last:border-b-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      'inline-block rounded-full px-2 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wide',
+                      a.tipo === 'FINAL' ? 'bg-hf-green-800 text-white' : 'bg-hf-blue-bg text-hf-blue'
+                    )}
+                  >
+                    {a.tipo === 'FINAL' ? 'Final' : 'Parcial'}
+                  </span>
+                  <p className="m-0 mb-0.5 mt-1.5 text-[13.5px] font-bold text-hf-stone-900">
+                    {formatarData(a.data_inicio)} – {formatarData(a.data_fim)}
+                  </p>
+                  <p className="m-0 text-[11px] text-hf-stone-400">Registrado em {formatarData(a.criado_em)}</p>
+                </div>
+                <ChevronRight className="h-[18px] w-[18px] shrink-0 text-hf-line" strokeWidth={2.2} />
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </div>
