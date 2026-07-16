@@ -6,6 +6,7 @@ import HomePage from '@/pages/HomePage';
 import EntrarSociedadePage from '@/pages/EntrarSociedadePage';
 import SociosPage from '@/pages/SociosPage';
 import SafrasPage from '@/pages/SafrasPage';
+import NovaSafraPage from '@/pages/NovaSafraPage';
 import DespesasPage from '@/pages/DespesasPage';
 import NovaDespesaPage from '@/pages/NovaDespesaPage';
 import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
           <Route path="/sociedades/:id/socios" element={<SociosPage />} />
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />
+          <Route path="/sociedades/:id/safras/nova" element={<NovaSafraPage />} />
           <Route path="/sociedades/:id/regras-recorrentes" element={<RegrasRecorrentesPage />} />
           <Route path="/acertos/:id" element={<AcertoDetalhePage />} />
           <Route path="/safras/:id" element={<SafraLayout />}>

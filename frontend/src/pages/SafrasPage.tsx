@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
-import { abrirSafraRequest, encerrarSafraRequest, listarSafrasRequest } from '@/services/safras';
+import { encerrarSafraRequest, listarSafrasRequest } from '@/services/safras';
 import { ROTULO_STATUS_SAFRA } from '@/lib/rotulos';
 import type { Safra } from '@/types/safra';
 
@@ -14,9 +12,7 @@ export default function SafrasPage() {
   const navigate = useNavigate();
   const [safras, setSafras] = useState<Safra[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [nome, setNome] = useState('');
   const [erro, setErro] = useState<string | null>(null);
-  const [abrindo, setAbrindo] = useState(false);
 
   function carregar() {
     if (!id) return;
@@ -28,21 +24,6 @@ export default function SafrasPage() {
   }
 
   useEffect(carregar, [id]);
-
-  async function abrir() {
-    if (!id || !nome.trim()) return;
-    setErro(null);
-    setAbrindo(true);
-    try {
-      await abrirSafraRequest(id, nome.trim());
-      setNome('');
-      carregar();
-    } catch {
-      setErro('Não foi possível abrir a safra');
-    } finally {
-      setAbrindo(false);
-    }
-  }
 
   async function encerrar(safraId: string) {
     setErro(null);
@@ -66,25 +47,9 @@ export default function SafrasPage() {
         </Button>
       </Link>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Abrir nova safra</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="nome-safra">Nome</Label>
-            <Input
-              id="nome-safra"
-              placeholder="Safra 2026"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-            />
-          </div>
-          <Button className="w-full" onClick={abrir} disabled={abrindo || !nome.trim()}>
-            {abrindo ? 'Abrindo...' : 'Abrir safra'}
-          </Button>
-        </CardContent>
-      </Card>
+      <Link to={`/sociedades/${id}/safras/nova`}>
+        <Button className="w-full">Nova safra</Button>
+      </Link>
 
       <div className="space-y-3">
         {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
