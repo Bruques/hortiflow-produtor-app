@@ -6,14 +6,14 @@ Uma tela (ou componente compartilhado) por vez, igual ao fluxo de SDD do `CLAUDE
 
 ## 0. Componentes compartilhados (fazer antes das telas que dependem deles)
 
-- [ ] **Bottom nav v2 + FAB + bottom sheet** — 4 abas + botão central, folha de opções Nova venda/Nova despesa. Usado em Início, Despesas, Vendas, Acertos.
-- [ ] **Period toggle** (Hoje/Semana/Mês/Safra) — usado em Início, Despesas, Vendas. Depende do `calcularDivisao` já existente (task 5, `docs/specs/05-calculo-e-painel-simulacao.md`), só variando o filtro de data.
-- [ ] **Topbar** (menu + logo + notificações) — usado em toda tela com bottom nav.
+- [x] **Bottom nav v2 + FAB + bottom sheet** — 4 abas (Resumo/Despesas/Vendas/Menu — "Acertos" virou "Menu" por decisão do dev) + botão central, folha de opções Nova venda/Nova despesa. `frontend/src/components/BottomNavV2.tsx`.
+- [x] **Period toggle** (Hoje/Semana/Mês/Safra) — `frontend/src/components/PeriodToggle.tsx`, usado na Início.
+- [x] **Topbar** (menu + logo + notificações) — `frontend/src/components/Topbar.tsx`. Hambúrguer leva pro Menu; sino sem selo (não existe sistema de notificação ainda).
 
 ## 1. Telas
 
-- [ ] **Login** — spec: `docs/specs/01-setup.md` (auth telefone+senha). Provavelmente já implementada; conferir se o visual bate com o wireframe ou se é só ajuste de estilo.
-- [ ] **Início** — spec: `docs/specs/05-calculo-e-painel-simulacao.md`. Depende do Period toggle e da Bottom nav v2 (item 0). Cards: Receita, Despesas, Lucro líquido, Caixas vendidas + Divisão do lucro + Atalhos rápidos.
+- [x] **Login** — `frontend/src/pages/LoginPage.tsx`. Redesenhada conforme a Tela 1 do wireframe (marca, campos com ícone, toggle de senha, card "seguro e transparente"); lógica de auth mantida sem mudanças.
+- [x] **Início** — `frontend/src/pages/ResumoPage.tsx` (rota `/safras/:id`, aba "Resumo"). Substituiu a antiga tela de Simulação (mesmo endpoint `GET /safras/:id/simulacao`, que ganhou o campo `caixasVendidas`). Atalhos rápidos: Nova venda, Nova despesa, Despesas pessoais (no lugar de "Ver simulação", redundante já que esta tela é a simulação), Registrar acerto.
 - [ ] **Despesas (lista)** — spec: `docs/specs/03-safra-despesas-e-despesa-pessoal.md` + `docs/specs/04-vendas-e-despesa-recorrente.md` (card de sugestão `por_periodo`).
 - [ ] **Vendas (lista)** — spec: `docs/specs/04-vendas-e-despesa-recorrente.md` (selo de despesa automática `por_venda`).
 - [ ] **Nova despesa** — spec: `docs/specs/03-safra-despesas-e-despesa-pessoal.md`.
@@ -23,6 +23,8 @@ Uma tela (ou componente compartilhado) por vez, igual ao fluxo de SDD do `CLAUDE
 - [ ] **Registrar acerto** — spec: `docs/specs/06-acerto.md`. ⚠️ Campo de comprovante de pagamento precisa de migration nova (ver pendência em `notas-de-design.md`) — resolver isso antes ou tratar como sub-tarefa separada.
 - [ ] **Configurações** (percentuais + regras recorrentes) — specs: `docs/specs/02-sociedade-e-socios.md` (percentuais, código de convite) + `docs/specs/04-vendas-e-despesa-recorrente.md` (regras). Pode já existir como telas separadas no código atual; esta é a versão consolidada numa tela só.
 - [ ] **Splash / Carregando** — usa `frontend/src/assets/Logo hortiflow.png` direto, sem depender de spec funcional.
+- [ ] **Nova safra** — spec: `docs/specs/03-safra-despesas-e-despesa-pessoal.md` (abrir safra). Avisa se já existe safra em andamento; não fecha a anterior sozinha.
+- [ ] **Cadastrar meeiro** — spec: `docs/specs/02-sociedade-e-socios.md` (código de 6 dígitos). Só gera/gerencia o convite — não define percentual de lucro; isso continua exclusivo da tela Configurações, pra não duplicar a regra de "soma 100%".
 
 ## Observação
 

@@ -50,6 +50,8 @@ Não é preciso colar o HTML nem re-explicar o histórico — é só isso.
 - **Registrar acerto**: tipo (Parcial/Final, Final mostra aviso de que encerra a safra) → período (De/Até) → prévia do cálculo (mesmo layout do extrato, mas "a receber" em vez de "recebido") → **comprovante de pagamento opcional** (campo novo) → nota de congelamento → confirmar.
 - **Configurações**: percentual de sócios com barra de proporção visual + stepper por sócio + selo de validação (soma = 100%), código de convite de 6 dígitos, regras de despesa recorrente com toggle ativo/inativo.
 - **Splash**: usa a imagem real de `frontend/src/assets/Logo hortiflow.png` em tela cheia. É a única tela que usa o arquivo raster — nas demais o ícone é um SVG desenhado à mão (a imagem original tem textura de grão que fica "manchada" em tamanho pequeno; só vale usar o arquivo real se um dia existir uma versão vetorial/transparente exportada da fonte original).
+- **Nova safra**: nome sugerido a partir da data (editável), período (início + término previsto, esse último pode ficar em aberto), aviso se já existir safra em andamento (o modelo não trava "uma safra ativa por vez" sozinho — quem evita confusão é a tela).
+- **Cadastrar meeiro**: gera só o código de convite (papel + apelido opcional pra identificação local) — **não define percentual de lucro aqui**, isso é exclusivo da tela Configurações, pra não duplicar a regra "soma 100%" em dois lugares. Mostra lista de convites pendentes com opção de cancelar.
 
 ## Decisões confirmadas (2026-07-15)
 
