@@ -75,7 +75,7 @@ export function BottomNavV2({ safraId }: BottomNavV2Props) {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => irPara('vendas')}
+            onClick={() => irPara('vendas/nova')}
             className="flex flex-1 flex-col items-center gap-2.5 rounded-2xl border-[1.5px] border-hf-line bg-white py-4.5 px-2.5 hover:bg-hf-cream-100"
           >
             <div className="flex h-[50px] w-[50px] items-center justify-center rounded-2xl bg-hf-green-100">

@@ -10,6 +10,7 @@ import DespesasPage from '@/pages/DespesasPage';
 import NovaDespesaPage from '@/pages/NovaDespesaPage';
 import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
 import VendasPage from '@/pages/VendasPage';
+import NovaVendaPage from '@/pages/NovaVendaPage';
 import RegrasRecorrentesPage from '@/pages/RegrasRecorrentesPage';
 import ResumoPage from '@/pages/ResumoPage';
 import MenuPage from '@/pages/MenuPage';
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="despesas/nova" element={<NovaDespesaPage />} />
             <Route path="despesas-pessoais" element={<DespesasPessoaisPage />} />
             <Route path="vendas" element={<VendasPage />} />
+            <Route path="vendas/nova" element={<NovaVendaPage />} />
             <Route path="acertos" element={<AcertosPage />} />
             <Route path="menu" element={<MenuPage />} />
           </Route>
