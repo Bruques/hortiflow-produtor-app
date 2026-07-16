@@ -16,6 +16,7 @@ import ResumoPage from '@/pages/ResumoPage';
 import MenuPage from '@/pages/MenuPage';
 import AcertosPage from '@/pages/AcertosPage';
 import AcertoDetalhePage from '@/pages/AcertoDetalhePage';
+import NovoAcertoPage from '@/pages/NovoAcertoPage';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="vendas" element={<VendasPage />} />
             <Route path="vendas/nova" element={<NovaVendaPage />} />
             <Route path="acertos" element={<AcertosPage />} />
+            <Route path="acertos/novo" element={<NovoAcertoPage />} />
             <Route path="menu" element={<MenuPage />} />
           </Route>
         </Route>

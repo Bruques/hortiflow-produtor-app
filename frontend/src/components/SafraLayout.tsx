@@ -43,10 +43,11 @@ export default function SafraLayout() {
     );
   }
 
-  // Telas de formulário em tela cheia (convenção ".../nova", ex: Nova despesa, Nova venda) têm
-  // botão "Voltar" e ação de salvar fixada embaixo — a bottom nav não cabe junto e concorreria
-  // com o botão de salvar, então some nessas rotas.
-  const ehTelaDeFormulario = location.pathname.endsWith('/nova');
+  // Telas de formulário em tela cheia (convenção ".../nova" ou ".../novo" — concordância de
+  // gênero, ex: Nova despesa, Nova venda, Novo acerto) têm botão "Voltar" e ação de salvar
+  // fixada embaixo — a bottom nav não cabe junto e concorreria com o botão de salvar, então
+  // some nessas rotas.
+  const ehTelaDeFormulario = /\/nov[ao]$/.test(location.pathname);
 
   return (
     <SafraContext.Provider value={contexto}>
