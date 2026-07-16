@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
-import { PiggyBank, FileText, Users, Repeat, Sprout, LogOut, ChevronRight } from 'lucide-react';
+import { PiggyBank, FileText, Settings, Sprout, LogOut, ChevronRight } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
 
@@ -28,18 +28,10 @@ export default function MenuPage() {
       cor: 'text-hf-amber',
     },
     {
-      href: `/sociedades/${sociedadeId}/socios`,
-      label: 'Sócios e percentuais',
-      apoio: 'Convite por código e percentual de lucro de cada um',
-      Icon: Users,
-      bg: 'bg-hf-green-100',
-      cor: 'text-hf-green-700',
-    },
-    {
-      href: `/sociedades/${sociedadeId}/regras-recorrentes`,
-      label: 'Despesas recorrentes',
-      apoio: 'Regras automáticas por venda ou por período',
-      Icon: Repeat,
+      href: `/sociedades/${sociedadeId}/configuracoes`,
+      label: 'Configurações',
+      apoio: 'Percentual de lucro dos sócios e despesas recorrentes',
+      Icon: Settings,
       bg: 'bg-hf-green-100',
       cor: 'text-hf-green-700',
     },

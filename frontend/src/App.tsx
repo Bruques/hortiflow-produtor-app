@@ -4,15 +4,14 @@ import SafraLayout from '@/components/SafraLayout';
 import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
 import EntrarSociedadePage from '@/pages/EntrarSociedadePage';
-import SociosPage from '@/pages/SociosPage';
 import SafrasPage from '@/pages/SafrasPage';
 import NovaSafraPage from '@/pages/NovaSafraPage';
+import ConfiguracoesPage from '@/pages/ConfiguracoesPage';
 import DespesasPage from '@/pages/DespesasPage';
 import NovaDespesaPage from '@/pages/NovaDespesaPage';
 import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
 import VendasPage from '@/pages/VendasPage';
 import NovaVendaPage from '@/pages/NovaVendaPage';
-import RegrasRecorrentesPage from '@/pages/RegrasRecorrentesPage';
 import ResumoPage from '@/pages/ResumoPage';
 import MenuPage from '@/pages/MenuPage';
 import AcertosPage from '@/pages/AcertosPage';
@@ -27,10 +26,9 @@ export default function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
-          <Route path="/sociedades/:id/socios" element={<SociosPage />} />
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />
           <Route path="/sociedades/:id/safras/nova" element={<NovaSafraPage />} />
-          <Route path="/sociedades/:id/regras-recorrentes" element={<RegrasRecorrentesPage />} />
+          <Route path="/sociedades/:id/configuracoes" element={<ConfiguracoesPage />} />
           <Route path="/acertos/:id" element={<AcertoDetalhePage />} />
           <Route path="/safras/:id" element={<SafraLayout />}>
             <Route index element={<ResumoPage />} />

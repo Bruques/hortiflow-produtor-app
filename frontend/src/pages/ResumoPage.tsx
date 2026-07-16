@@ -159,7 +159,7 @@ export default function ResumoPage() {
               <div className="mb-2.5 flex items-baseline justify-between">
                 <h3 className="text-base font-extrabold text-hf-stone-900">Divisão do lucro</h3>
                 <Link
-                  to={`/sociedades/${sociedadeId}/socios`}
+                  to={`/sociedades/${sociedadeId}/configuracoes`}
                   className="flex items-center gap-0.5 text-[12.5px] font-bold text-hf-green-700"
                 >
                   Ver sócios

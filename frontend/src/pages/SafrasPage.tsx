@@ -41,9 +41,9 @@ export default function SafrasPage() {
       <div className="p-4 space-y-4">
       {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
 
-      <Link to={`/sociedades/${id}/regras-recorrentes`}>
+      <Link to={`/sociedades/${id}/configuracoes`}>
         <Button variant="outline" className="w-full">
-          Despesas recorrentes
+          Configurações
         </Button>
       </Link>
 
@@ -108,7 +108,7 @@ export default function SafrasPage() {
         variant="ghost"
         className="w-full"
         style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
-        onClick={() => navigate(`/sociedades/${id}/socios`)}
+        onClick={() => navigate(`/sociedades/${id}/configuracoes`)}
       >
         Voltar
       </Button>
