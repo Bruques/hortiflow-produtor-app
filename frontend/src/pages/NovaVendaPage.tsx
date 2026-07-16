@@ -21,6 +21,16 @@ function rotuloHoje(): string {
   return `Hoje, ${hoje.getDate()} ${MESES_ABREV[hoje.getMonth()]}`;
 }
 
+// Máscara estilo apps de banco (Pix): usuário só digita números, e o valor se monta da direita
+// pra esquerda (centavos primeiro) — "1" -> 0,01, "12345" -> 123,45. O estado guarda só os
+// dígitos brutos (centavos); a formatação com pontos/vírgula é derivada na hora de exibir.
+function formatarValorMascara(digitos: string): string {
+  if (!digitos) return '';
+  const [inteiro, decimal] = (Number(digitos) / 100).toFixed(2).split('.');
+  const inteiroComPontos = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${inteiroComPontos},${decimal}`;
+}
+
 export default function NovaVendaPage() {
   const { safraId, sociedadeId } = useSafraAtiva();
   const navigate = useNavigate();
@@ -30,7 +40,7 @@ export default function NovaVendaPage() {
   const [outraData, setOutraData] = useState(false);
   const [data, setData] = useState(hojeISO());
   const [quantidadeTexto, setQuantidadeTexto] = useState('1');
-  const [precoTexto, setPrecoTexto] = useState('');
+  const [precoCentavos, setPrecoCentavos] = useState(''); // só dígitos, sem formatação
   const [comprador, setComprador] = useState('');
   const [valorAutoPorCaixa, setValorAutoPorCaixa] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
@@ -61,7 +71,7 @@ export default function NovaVendaPage() {
           return;
         }
         setQuantidadeTexto(String(encontrada.quantidade));
-        setPrecoTexto(String(encontrada.preco).replace('.', ','));
+        setPrecoCentavos(String(Math.round(Number(encontrada.preco) * 100)));
         setComprador(encontrada.comprador ?? '');
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
@@ -81,7 +91,7 @@ export default function NovaVendaPage() {
   }
 
   function alterarPreco(texto: string) {
-    setPrecoTexto(texto.replace(/[^\d,]/g, ''));
+    setPrecoCentavos(texto.replace(/\D/g, '').slice(0, 9));
   }
 
   // Limita a 4 dígitos (até 9999 caixas) — evita o usuário colar um número absurdo por engano.
@@ -90,7 +100,7 @@ export default function NovaVendaPage() {
   }
 
   const quantidade = Number(quantidadeTexto) || 0;
-  const precoNumero = Number(precoTexto.replace(',', '.')) || 0;
+  const precoNumero = precoCentavos ? Number(precoCentavos) / 100 : 0;
   const total = quantidade * precoNumero;
   const valorAuto = valorAutoPorCaixa * quantidade;
   const formValido = quantidade > 0 && precoNumero > 0 && !!data;
@@ -244,9 +254,9 @@ export default function NovaVendaPage() {
             <span className="text-[15px] font-bold text-hf-stone-600">R$</span>
             <input
               type="text"
-              inputMode="decimal"
+              inputMode="numeric"
               placeholder="0,00"
-              value={precoTexto}
+              value={formatarValorMascara(precoCentavos)}
               onChange={(e) => alterarPreco(e.target.value)}
               className="w-full bg-transparent text-[15px] text-hf-stone-900 outline-none placeholder:text-hf-stone-400"
             />

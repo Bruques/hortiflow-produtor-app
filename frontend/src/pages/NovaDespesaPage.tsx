@@ -28,6 +28,16 @@ function rotuloHoje(): string {
   return `Hoje, ${hoje.getDate()} ${MESES_ABREV[hoje.getMonth()]}`;
 }
 
+// Máscara estilo apps de banco (Pix): usuário só digita números, e o valor se monta da direita
+// pra esquerda (centavos primeiro) — "1" -> 0,01, "12345" -> 123,45. O estado guarda só os
+// dígitos brutos (centavos); a formatação com pontos/vírgula é derivada na hora de exibir.
+function formatarValorMascara(digitos: string): string {
+  if (!digitos) return '';
+  const [inteiro, decimal] = (Number(digitos) / 100).toFixed(2).split('.');
+  const inteiroComPontos = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${inteiroComPontos},${decimal}`;
+}
+
 function lerArquivoComoBase64(arquivo: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const leitor = new FileReader();
@@ -47,7 +57,7 @@ export default function NovaDespesaPage() {
   const [meuId, setMeuId] = useState<string | null>(null);
   const [socioId, setSocioId] = useState('');
   const [tipo, setTipo] = useState<TipoDespesa>('OUTRO');
-  const [valorTexto, setValorTexto] = useState('');
+  const [valorCentavos, setValorCentavos] = useState(''); // só dígitos, sem formatação
   const [outraData, setOutraData] = useState(false);
   const [data, setData] = useState(hojeISO());
   const [foto, setFoto] = useState<string | null>(null);
@@ -80,7 +90,7 @@ export default function NovaDespesaPage() {
         }
         setSocioId(encontrada.socio_id);
         setTipo(encontrada.tipo);
-        setValorTexto(String(encontrada.valor).replace('.', ','));
+        setValorCentavos(String(Math.round(Number(encontrada.valor) * 100)));
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
         setFoto(encontrada.foto_comprovante ?? null);
@@ -100,12 +110,11 @@ export default function NovaDespesaPage() {
   }
 
   function alterarValor(texto: string) {
-    const limpo = texto.replace(/[^\d,]/g, '');
-    setValorTexto(limpo);
+    setValorCentavos(texto.replace(/\D/g, '').slice(0, 9));
   }
 
-  const valorNumero = Number(valorTexto.replace(',', '.'));
-  const formValido = !!socioId && valorTexto !== '' && valorNumero > 0 && !!data;
+  const valorNumero = valorCentavos ? Number(valorCentavos) / 100 : 0;
+  const formValido = !!socioId && valorCentavos !== '' && valorNumero > 0 && !!data;
 
   async function escolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
@@ -265,9 +274,9 @@ export default function NovaDespesaPage() {
             <span className="text-[22px] font-bold text-hf-stone-400">R$</span>
             <input
               type="text"
-              inputMode="decimal"
+              inputMode="numeric"
               placeholder="0,00"
-              value={valorTexto}
+              value={formatarValorMascara(valorCentavos)}
               onChange={(e) => alterarValor(e.target.value)}
               className="w-[200px] bg-transparent text-left text-[40px] font-extrabold tabular-nums text-hf-stone-900 outline-none"
             />
