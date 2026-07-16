@@ -7,6 +7,7 @@ import EntrarSociedadePage from '@/pages/EntrarSociedadePage';
 import SociosPage from '@/pages/SociosPage';
 import SafrasPage from '@/pages/SafrasPage';
 import DespesasPage from '@/pages/DespesasPage';
+import NovaDespesaPage from '@/pages/NovaDespesaPage';
 import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
 import VendasPage from '@/pages/VendasPage';
 import RegrasRecorrentesPage from '@/pages/RegrasRecorrentesPage';
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/safras/:id" element={<SafraLayout />}>
             <Route index element={<ResumoPage />} />
             <Route path="despesas" element={<DespesasPage />} />
+            <Route path="despesas/nova" element={<NovaDespesaPage />} />
             <Route path="despesas-pessoais" element={<DespesasPessoaisPage />} />
             <Route path="vendas" element={<VendasPage />} />
             <Route path="acertos" element={<AcertosPage />} />

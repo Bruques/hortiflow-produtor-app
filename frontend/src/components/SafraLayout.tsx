@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { obterSafraRequest } from '@/services/safras';
 import { SafraContext, type SafraContextValue } from '@/lib/SafraContext';
@@ -11,6 +11,7 @@ import { BottomNavV2 } from '@/components/BottomNavV2';
 export default function SafraLayout() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [contexto, setContexto] = useState<SafraContextValue | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -42,12 +43,17 @@ export default function SafraLayout() {
     );
   }
 
+  // Telas de formulário em tela cheia (convenção ".../nova", ex: Nova despesa, Nova venda) têm
+  // botão "Voltar" e ação de salvar fixada embaixo — a bottom nav não cabe junto e concorreria
+  // com o botão de salvar, então some nessas rotas.
+  const ehTelaDeFormulario = location.pathname.endsWith('/nova');
+
   return (
     <SafraContext.Provider value={contexto}>
-      <div className="pb-24 bg-hf-cream-50 min-h-screen">
+      <div className={ehTelaDeFormulario ? 'bg-hf-cream-50 min-h-screen' : 'pb-24 bg-hf-cream-50 min-h-screen'}>
         <Outlet />
       </div>
-      <BottomNavV2 safraId={contexto.safraId} />
+      {!ehTelaDeFormulario && <BottomNavV2 safraId={contexto.safraId} />}
     </SafraContext.Provider>
   );
 }

@@ -16,7 +16,7 @@ Uma tela (ou componente compartilhado) por vez, igual ao fluxo de SDD do `CLAUDE
 - [x] **Início** — `frontend/src/pages/ResumoPage.tsx` (rota `/safras/:id`, aba "Resumo"). Substituiu a antiga tela de Simulação (mesmo endpoint `GET /safras/:id/simulacao`, que ganhou o campo `caixasVendidas`). Atalhos rápidos: Nova venda, Nova despesa, Despesas pessoais (no lugar de "Ver simulação", redundante já que esta tela é a simulação), Registrar acerto.
 - [x] **Despesas (lista)** — `frontend/src/pages/DespesasPage.tsx`. Period toggle (filtra no cliente, `frontend/src/lib/periodo.ts` replica a mesma regra de semana/mês do backend, já que `GET /safras/:id/despesas` não aceita filtro de período), total do período, card de sugestão `por_periodo` (dispensar é só local/visual, sem persistência — mesmo comportamento do wireframe), lista agrupada por dia com ícone por tipo (`frontend/src/lib/iconesTipoDespesa.tsx`). **Decisão de escopo**: o formulário de lançamento (antes embutido nesta tela) foi removido daqui — vira a tela "Nova despesa" (item ainda não implementado abaixo). Até essa tela existir, não há como lançar despesa pela UI redesenhada.
 - [x] **Vendas (lista)** — `frontend/src/pages/VendasPage.tsx`. Mesmo padrão da Despesas: period toggle, total do período, lista agrupada por dia. Selo "gerou despesa automática de R$X" calculado no cliente (soma das regras `POR_VENDA` ativas da sociedade × quantidade da venda, mesma fórmula do backend) — a API de vendas não expõe esse valor, então é uma estimativa que pode ficar desatualizada se uma regra for ativada/desativada depois da venda ser lançada; a fonte de verdade continua sendo a lista de Despesas. **Mesma decisão de escopo da Despesas**: formulário de lançamento removido daqui, vira a tela "Nova venda" (ainda não implementada).
-- [ ] **Nova despesa** — spec: `docs/specs/03-safra-despesas-e-despesa-pessoal.md`.
+- [x] **Nova despesa** — `frontend/src/pages/NovaDespesaPage.tsx`, rota `/safras/:id/despesas/nova`. Chip de sócio (quem bancou), grade de ícones de tipo, campo de valor grande estilo calculadora, chip Hoje/Outra data, upload de comprovante (câmera no celular). Tela cheia sem bottom nav (ver decisão de layout abaixo). Botão "+" da bottom nav agora abre direto essa tela em vez da lista.
 - [ ] **Nova venda** — spec: `docs/specs/04-vendas-e-despesa-recorrente.md`.
 - [ ] **Acertos (histórico)** — spec: `docs/specs/06-acerto.md`.
 - [ ] **Extrato do acerto** — spec: `docs/specs/06-acerto.md`.
@@ -25,6 +25,14 @@ Uma tela (ou componente compartilhado) por vez, igual ao fluxo de SDD do `CLAUDE
 - [ ] **Splash / Carregando** — usa `frontend/src/assets/Logo hortiflow.png` direto, sem depender de spec funcional.
 - [ ] **Nova safra** — spec: `docs/specs/03-safra-despesas-e-despesa-pessoal.md` (abrir safra). Avisa se já existe safra em andamento; não fecha a anterior sozinha.
 - [ ] **Cadastrar meeiro** — spec: `docs/specs/02-sociedade-e-socios.md` (código de 6 dígitos). Só gera/gerencia o convite — não define percentual de lucro; isso continua exclusivo da tela Configurações, pra não duplicar a regra de "soma 100%".
+
+## Convenção de layout: telas "Nova X" (formulário em tela cheia)
+
+`SafraLayout` (`frontend/src/components/SafraLayout.tsx`) esconde a bottom nav automaticamente
+em qualquer rota cujo path termine em `/nova` — essas telas têm botão "Voltar" no topo e ação de
+salvar fixada embaixo (sem bottom nav, que concorreria com o botão). Ao construir "Nova venda",
+"Registrar acerto" etc., seguir a mesma convenção de nome de rota (`.../nova`) em vez de reinventar
+a lógica de esconder a nav.
 
 ## Observação
 
