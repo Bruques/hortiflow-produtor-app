@@ -29,7 +29,7 @@ export default function NovaVendaPage() {
 
   const [outraData, setOutraData] = useState(false);
   const [data, setData] = useState(hojeISO());
-  const [quantidade, setQuantidade] = useState(1);
+  const [quantidadeTexto, setQuantidadeTexto] = useState('1');
   const [precoTexto, setPrecoTexto] = useState('');
   const [comprador, setComprador] = useState('');
   const [valorAutoPorCaixa, setValorAutoPorCaixa] = useState(0);
@@ -60,7 +60,7 @@ export default function NovaVendaPage() {
           setErro('Venda não encontrada');
           return;
         }
-        setQuantidade(Number(encontrada.quantidade));
+        setQuantidadeTexto(String(encontrada.quantidade));
         setPrecoTexto(String(encontrada.preco).replace('.', ','));
         setComprador(encontrada.comprador ?? '');
         setData(encontrada.data.slice(0, 10));
@@ -84,6 +84,12 @@ export default function NovaVendaPage() {
     setPrecoTexto(texto.replace(/[^\d,]/g, ''));
   }
 
+  // Limita a 4 dígitos (até 9999 caixas) — evita o usuário colar um número absurdo por engano.
+  function alterarQuantidade(texto: string) {
+    setQuantidadeTexto(texto.replace(/\D/g, '').slice(0, 4));
+  }
+
+  const quantidade = Number(quantidadeTexto) || 0;
   const precoNumero = Number(precoTexto.replace(',', '.')) || 0;
   const total = quantidade * precoNumero;
   const valorAuto = valorAutoPorCaixa * quantidade;
@@ -204,20 +210,28 @@ export default function NovaVendaPage() {
               type="button"
               aria-label="Diminuir"
               disabled={quantidade <= 1}
-              onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
-              className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800 disabled:opacity-35"
+              onClick={() => setQuantidadeTexto(String(Math.max(1, quantidade - 1)))}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800 disabled:opacity-35"
             >
               <Minus className="h-[18px] w-[18px]" strokeWidth={2.4} />
             </button>
             <div className="min-w-[74px] text-center">
-              <span className="block text-[32px] font-extrabold tabular-nums text-hf-stone-900">{quantidade}</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label="Quantidade de caixas"
+                value={quantidadeTexto}
+                onChange={(e) => alterarQuantidade(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                className="w-full bg-transparent text-center text-[32px] font-extrabold tabular-nums text-hf-stone-900 outline-none"
+              />
               <span className="text-[11px] text-hf-stone-400">caixas</span>
             </div>
             <button
               type="button"
               aria-label="Aumentar"
-              onClick={() => setQuantidade((q) => q + 1)}
-              className="flex h-11 w-11 items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
+              onClick={() => setQuantidadeTexto(String(quantidade + 1))}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
             >
               <Plus className="h-[18px] w-[18px]" strokeWidth={2.4} />
             </button>
