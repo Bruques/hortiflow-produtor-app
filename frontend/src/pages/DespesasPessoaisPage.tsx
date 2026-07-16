@@ -1,207 +1,149 @@
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { DateField } from '@/components/ui/date-field';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageHeader } from '@/components/PageHeader';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
+import { Topbar } from '@/components/Topbar';
+import { PeriodToggle } from '@/components/PeriodToggle';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import {
-  atualizarDespesaPessoalRequest,
-  criarDespesaPessoalRequest,
-  excluirDespesaPessoalRequest,
-  listarDespesasPessoaisRequest,
-} from '@/services/despesasPessoais';
-import { formatarData } from '@/lib/utils';
+import { listarDespesasPessoaisRequest } from '@/services/despesasPessoais';
+import { formatarData, formatarMoeda } from '@/lib/utils';
+import { dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
-import type { DespesaPessoal, TipoDespesa } from '@/types/despesa';
-
-const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
-
-interface FormState {
-  tipo: TipoDespesa;
-  valor: string;
-  data: string;
-  descricao: string;
-}
-
-const FORM_VAZIO: FormState = { tipo: 'OUTRO', valor: '', data: '', descricao: '' };
+import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
+import type { DespesaPessoal } from '@/types/despesa';
+import type { PeriodoFiltro } from '@/types/simulacao';
 
 export default function DespesasPessoaisPage() {
-  const { safraId } = useSafraAtiva();
+  const { safraId, safra } = useSafraAtiva();
+  const navigate = useNavigate();
 
   const [despesas, setDespesas] = useState<DespesaPessoal[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [form, setForm] = useState<FormState>(FORM_VAZIO);
-  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [sucesso, setSucesso] = useState(false);
-  const [salvando, setSalvando] = useState(false);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>('dia');
 
-  function carregar() {
+  useEffect(() => {
     setCarregando(true);
     listarDespesasPessoaisRequest(safraId)
       .then((res) => setDespesas(res.despesasPessoais))
       .catch(() => setErro('Não foi possível carregar suas despesas pessoais'))
       .finally(() => setCarregando(false));
-  }
+  }, [safraId]);
 
-  useEffect(carregar, [safraId]);
+  const despesasDoPeriodo = useMemo(
+    () => despesas.filter((d) => dataEstaNoPeriodo(d.data, periodo)),
+    [despesas, periodo]
+  );
 
-  function iniciarEdicao(d: DespesaPessoal) {
-    setEditandoId(d.id);
-    setForm({ tipo: d.tipo, valor: d.valor, data: d.data.slice(0, 10), descricao: d.descricao ?? '' });
-  }
+  const totalPeriodo = despesasDoPeriodo.reduce((acc, d) => acc + Number(d.valor), 0);
 
-  function cancelarEdicao() {
-    setEditandoId(null);
-    setForm(FORM_VAZIO);
-  }
-
-  async function salvar() {
-    if (!form.valor || !form.data) return;
-    setErro(null);
-    setSucesso(false);
-    setSalvando(true);
-    try {
-      const input = {
-        tipo: form.tipo,
-        valor: Number(form.valor),
-        data: form.data,
-        descricao: form.descricao || undefined,
-      };
-      if (editandoId) {
-        await atualizarDespesaPessoalRequest(editandoId, input);
-      } else {
-        await criarDespesaPessoalRequest(safraId, input);
-      }
-      cancelarEdicao();
-      setSucesso(true);
-      carregar();
-    } catch {
-      setErro('Não foi possível salvar a despesa pessoal');
-    } finally {
-      setSalvando(false);
+  const grupos = useMemo(() => {
+    const porDia = new Map<string, DespesaPessoal[]>();
+    for (const d of despesasDoPeriodo) {
+      const chave = d.data.slice(0, 10);
+      if (!porDia.has(chave)) porDia.set(chave, []);
+      porDia.get(chave)!.push(d);
     }
-  }
-
-  async function excluir(despesaId: string) {
-    if (!window.confirm('Excluir essa despesa pessoal? Essa ação não pode ser desfeita.')) return;
-    setErro(null);
-    try {
-      await excluirDespesaPessoalRequest(despesaId);
-      carregar();
-    } catch {
-      setErro('Não foi possível excluir a despesa pessoal');
-    }
-  }
+    return [...porDia.entries()].sort(([a], [b]) => (a < b ? 1 : -1));
+  }, [despesasDoPeriodo]);
 
   return (
-    <div className="max-w-sm mx-auto">
-      <PageHeader
-        title="Minhas despesas pessoais"
-        apoio="Visível só para você — não entra na divisão da sociedade"
-      />
-      <div className="p-4 space-y-4">
-        {erro && <p className="text-sm text-destructive text-center font-medium">{erro}</p>}
-        {sucesso && (
-          <p className="text-sm text-center font-medium text-green-600">Despesa salva!</p>
+    <div>
+      <Topbar safraId={safraId} />
+
+      <div className="mx-auto flex max-w-sm flex-col gap-[18px] px-[22px] pb-6 pt-3.5">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <h2 className="font-rounded text-[20px] font-extrabold text-hf-stone-900">Despesas pessoais</h2>
+            <p className="mt-0.5 text-[12.5px] text-hf-stone-600">Privado · {safra.nome}</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => navigate(`/safras/${safraId}/despesas-pessoais/nova`)}
+          className="flex items-center justify-center gap-2 rounded-2xl bg-hf-green-800 py-4 text-[14.5px] font-bold text-white"
+        >
+          <Plus className="h-[17px] w-[17px]" strokeWidth={2.4} />
+          Nova despesa pessoal
+        </button>
+
+        <PeriodToggle value={periodo} onChange={setPeriodo} />
+
+        {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+
+        <div className="flex items-start gap-2.5 rounded-2xl bg-hf-green-100 px-4 py-3.5">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="mt-0.5 shrink-0 text-hf-green-700"
+          >
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <div>
+            <p className="m-0 text-[12.5px] font-bold text-hf-stone-900">Só você vê essas despesas</p>
+            <p className="m-0 mt-0.5 text-[11.5px] text-hf-stone-600">
+              Não entram na divisão de lucro nem no extrato da sociedade
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-2xl bg-hf-cream-100 px-4 py-3.5">
+          <div>
+            <p className="m-0 mb-0.5 text-xs text-hf-stone-600">Total de despesas pessoais no período</p>
+            <span className="text-[11px] text-hf-stone-400">
+              {despesasDoPeriodo.length} lançamento{despesasDoPeriodo.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <p className="m-0 text-[19px] font-extrabold tabular-nums text-hf-red">{formatarMoeda(totalPeriodo)}</p>
+        </div>
+
+        {carregando && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
+        {!carregando && despesasDoPeriodo.length === 0 && (
+          <p className="text-center text-sm text-hf-stone-600">Nenhuma despesa pessoal neste período.</p>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{editandoId ? 'Editar despesa' : 'Nova despesa'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="tipo-pessoal">Tipo</Label>
-              <select
-                id="tipo-pessoal"
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base"
-                value={form.tipo}
-                onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value as TipoDespesa }))}
-              >
-                {TIPOS_DESPESA.map((t) => (
-                  <option key={t} value={t}>
-                    {ROTULO_TIPO_DESPESA[t]}
-                  </option>
-                ))}
-              </select>
+        {grupos.map(([dataChave, itens]) => (
+          <div key={dataChave}>
+            <div className="mb-0.5 text-[11.5px] font-bold uppercase tracking-wide text-hf-stone-400">
+              {rotuloDia(dataChave, formatarData)}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="valor-pessoal">Valor (R$)</Label>
-              <Input
-                id="valor-pessoal"
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.valor}
-                onChange={(e) => setForm((f) => ({ ...f, valor: e.target.value }))}
-              />
+            <div>
+              {itens.map((d) => {
+                const Icone = ICONE_TIPO_DESPESA[d.tipo];
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => navigate(`/safras/${safraId}/despesas-pessoais/${d.id}/editar`)}
+                    className="flex w-full items-center gap-3 border-b border-hf-cream-100 py-3 text-left last:border-b-0"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hf-red-bg">
+                      <Icone className="h-[18px] w-[18px] text-hf-red" strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 text-sm font-bold text-hf-stone-900">{ROTULO_TIPO_DESPESA[d.tipo]}</p>
+                      {d.descricao && (
+                        <p className="m-0 mt-0.5 truncate text-xs text-hf-stone-600">{d.descricao}</p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[14.5px] font-extrabold tabular-nums text-hf-red">
+                        {formatarMoeda(Number(d.valor))}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="data-pessoal">Data</Label>
-              <DateField
-                id="data-pessoal"
-                value={form.data}
-                onChange={(valor) => setForm((f) => ({ ...f, data: valor }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="descricao-pessoal">Descrição (opcional)</Label>
-              <Input
-                id="descricao-pessoal"
-                value={form.descricao}
-                onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                className="w-full"
-                onClick={salvar}
-                disabled={salvando || !form.valor || !form.data}
-              >
-                {salvando ? 'Salvando...' : editandoId ? 'Salvar edição' : 'Lançar'}
-              </Button>
-              {editandoId && (
-                <Button variant="ghost" onClick={cancelarEdicao}>
-                  Cancelar
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-3">
-          {carregando && <p className="text-sm text-muted-foreground text-center">Carregando...</p>}
-          {!carregando && despesas.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center">
-              Nenhuma despesa pessoal lançada ainda.
-            </p>
-          )}
-
-          {despesas.map((d) => (
-            <Card key={d.id}>
-              <CardContent className="pt-4 space-y-1">
-                <p className="font-medium">
-                  {ROTULO_TIPO_DESPESA[d.tipo]} — R$ {d.valor}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {formatarData(d.data)}
-                  {d.descricao ? ` · ${d.descricao}` : ''}
-                </p>
-                <div className="flex gap-2 pt-1">
-                  <Button className="flex-1" variant="outline" onClick={() => iniciarEdicao(d)}>
-                    Editar
-                  </Button>
-                  <Button className="flex-1" variant="ghost" onClick={() => excluir(d.id)}>
-                    Excluir
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import ConfiguracoesPage from '@/pages/ConfiguracoesPage';
 import DespesasPage from '@/pages/DespesasPage';
 import NovaDespesaPage from '@/pages/NovaDespesaPage';
 import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
+import NovaDespesaPessoalPage from '@/pages/NovaDespesaPessoalPage';
 import VendasPage from '@/pages/VendasPage';
 import NovaVendaPage from '@/pages/NovaVendaPage';
 import ResumoPage from '@/pages/ResumoPage';
@@ -36,6 +37,8 @@ export default function App() {
             <Route path="despesas/nova" element={<NovaDespesaPage />} />
             <Route path="despesas/:despesaId/editar" element={<NovaDespesaPage />} />
             <Route path="despesas-pessoais" element={<DespesasPessoaisPage />} />
+            <Route path="despesas-pessoais/nova" element={<NovaDespesaPessoalPage />} />
+            <Route path="despesas-pessoais/:despesaPessoalId/editar" element={<NovaDespesaPessoalPage />} />
             <Route path="vendas" element={<VendasPage />} />
             <Route path="vendas/nova" element={<NovaVendaPage />} />
             <Route path="vendas/:vendaId/editar" element={<NovaVendaPage />} />
