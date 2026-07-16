@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Check, AlertTriangle, UserPlus } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy } from 'lucide-react';
 import { meRequest } from '@/services/auth';
-import { atualizarPercentuaisRequest, listarSociosRequest } from '@/services/sociedades';
+import { atualizarPercentuaisRequest, listarSociedadesRequest, listarSociosRequest } from '@/services/sociedades';
 import {
   atualizarAtivoRequest,
   criarRegraRequest,
@@ -42,6 +42,9 @@ export default function ConfiguracoesPage() {
   const [carregandoRegras, setCarregandoRegras] = useState(true);
   const [souFinanciador, setSouFinanciador] = useState(false);
   const [erroRegras, setErroRegras] = useState<string | null>(null);
+
+  const [codigoConvite, setCodigoConvite] = useState<string | null>(null);
+  const [codigoCopiado, setCodigoCopiado] = useState(false);
 
   const [novaRegraAberta, setNovaRegraAberta] = useState(false);
   const [socioRegra, setSocioRegra] = useState('');
@@ -89,8 +92,21 @@ export default function ConfiguracoesPage() {
         });
       })
       .catch(() => {});
+    listarSociedadesRequest()
+      .then((res) => {
+        const minhaSociedade = res.sociedades.find((s) => s.id === sociedadeId);
+        setCodigoConvite(minhaSociedade?.codigo_convite ?? null);
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sociedadeId]);
+
+  async function copiarCodigo() {
+    if (!codigoConvite) return;
+    await navigator.clipboard.writeText(codigoConvite);
+    setCodigoCopiado(true);
+    setTimeout(() => setCodigoCopiado(false), 2000);
+  }
 
   function ajustarPct(usuarioId: string, delta: number) {
     setSucessoPct(false);
@@ -245,14 +261,26 @@ export default function ConfiguracoesPage() {
           {erroPct && <p className="text-center text-sm font-medium text-hf-red">{erroPct}</p>}
           {sucessoPct && <p className="text-center text-sm font-medium text-hf-green-700">Percentuais atualizados!</p>}
 
-          <button
-            type="button"
-            onClick={() => navigate(`/sociedades/${sociedadeId}/cadastrar-meeiro`)}
-            className="flex items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-green-700 py-3 text-[13.5px] font-bold text-hf-green-700"
-          >
-            <UserPlus className="h-4 w-4" strokeWidth={2.2} />
-            Cadastrar meeiro
-          </button>
+          {codigoConvite && (
+            <div className="flex items-center justify-between rounded-2xl bg-hf-cream-100 px-4 py-3.5">
+              <div>
+                <div className="text-xl font-extrabold tracking-[0.18em] tabular-nums text-hf-stone-900">
+                  {codigoConvite.slice(0, 3)} {codigoConvite.slice(3)}
+                </div>
+                <div className="mt-0.5 text-[11px] text-hf-stone-400">
+                  {codigoCopiado ? 'Copiado!' : 'Código para um novo sócio entrar na sociedade'}
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Copiar código"
+                onClick={copiarCodigo}
+                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl border-[1.5px] border-hf-line bg-white text-hf-green-800"
+              >
+                <Copy className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-3.5">
