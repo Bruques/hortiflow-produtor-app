@@ -87,7 +87,10 @@ export default function NovaVendaPage() {
         <button
           type="button"
           aria-label="Voltar"
-          onClick={() => navigate(-1)}
+          // Rota explícita em vez de navigate(-1) — mesma razão da Nova despesa: sem bottom
+          // nav nesta tela, se não houver histórico prévio (link direto, refresh), voltar por
+          // histórico trava a navegação.
+          onClick={() => navigate(`/safras/${safraId}/vendas`)}
           className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-stone-900"
         >
           <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />

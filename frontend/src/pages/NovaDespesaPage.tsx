@@ -111,7 +111,11 @@ export default function NovaDespesaPage() {
         <button
           type="button"
           aria-label="Voltar"
-          onClick={() => navigate(-1)}
+          // Rota explícita em vez de navigate(-1): essa tela não tem bottom nav (ver
+          // SafraLayout), então se o usuário chegar aqui sem histórico de navegação prévio
+          // (link direto, refresh, PWA reaberto), voltar por histórico não tem pra onde ir e
+          // trava a navegação.
+          onClick={() => navigate(`/safras/${safraId}/despesas`)}
           className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-stone-900"
         >
           <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
