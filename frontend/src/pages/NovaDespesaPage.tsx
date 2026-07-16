@@ -6,7 +6,7 @@ import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarDespesaRequest, atualizarDespesaRequest, excluirDespesaRequest, listarDespesasRequest } from '@/services/despesas';
 import { listarSociosRequest } from '@/services/sociedades';
 import { meRequest } from '@/services/auth';
-import { DateField } from '@/components/ui/date-field';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { cn, iniciais } from '@/lib/utils';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
@@ -300,7 +300,7 @@ export default function NovaDespesaPage() {
           </div>
           {outraData && (
             <div className="mt-2.5">
-              <DateField value={data} onChange={setData} />
+              <DatePickerField value={data} onChange={setData} />
             </div>
           )}
         </div>

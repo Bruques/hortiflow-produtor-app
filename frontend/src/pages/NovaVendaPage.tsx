@@ -5,7 +5,7 @@ import { ArrowLeft, Minus, Plus, Store, Info, Trash2 } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarVendaRequest, atualizarVendaRequest, excluirVendaRequest, listarVendasRequest } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
-import { DateField } from '@/components/ui/date-field';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { cn, formatarMoeda } from '@/lib/utils';
 
 const MESES_ABREV = [
@@ -190,7 +190,7 @@ export default function NovaVendaPage() {
           </div>
           {outraData && (
             <div className="mt-2.5">
-              <DateField value={data} onChange={setData} />
+              <DatePickerField value={data} onChange={setData} />
             </div>
           )}
         </div>

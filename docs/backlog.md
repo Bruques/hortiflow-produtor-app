@@ -10,7 +10,6 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Melhorias de UX
 
-- Na tela de registro de despesa e venda, quando o usuario quer selecionar uma data especifica para o registro ele tem que digitar a data, quero permitir ele ver um calendário, acho que fica mais amigavel para ele ao inves de digitar a data
 - Na tela de registro de venda, ele tem que apertar no + ou no - para adicionar a quantidade de caixas, se ele vender 200 caixas ele tem que apertar nesse botão de + 200 vezes, quero melhorar isso
 - Na tela de registro de despesas quando o usuario seleciona a opção outro, ele atualmente não tem nenhum lugar onde ele pode identificar esse outro gasto, seria interessante pensar em alguma coisa para que depois ele possa dizer o que foi esse gasto, para ele poder ter o controle do que foi esse "outro" gasto
 - Em relação a tela de registro de despesas, não temos uma mascara para adicionarmos o valor, seria interessante colocar uma mascara para que o usuario so possa digitar numeros, e funcione igual é os apps de banco na hora de colocar o valor pra fazer o pix por exemplo
