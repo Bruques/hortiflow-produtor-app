@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy } from 'lucide-react';
 import { meRequest } from '@/services/auth';
 import { atualizarPercentuaisRequest, listarSociedadesRequest, listarSociosRequest } from '@/services/sociedades';
@@ -31,6 +31,16 @@ const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
 export default function ConfiguracoesPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Configurações é aberta a partir de vários lugares (Resumo "Ver sócios", Menu, lista de
+  // Safras) — usa o histórico real do navegador pra voltar pra origem certa, com fallback
+  // pra Safras só quando não há histórico (link direto/refresh), mesmo padrão do
+  // AcertoDetalhePage.
+  function voltar() {
+    if (location.key !== 'default') navigate(-1);
+    else navigate(`/sociedades/${sociedadeId}/safras`);
+  }
 
   const [edicoes, setEdicoes] = useState<EdicaoSocio[]>([]);
   const [carregandoSocios, setCarregandoSocios] = useState(true);
@@ -178,7 +188,7 @@ export default function ConfiguracoesPage() {
         <button
           type="button"
           aria-label="Voltar"
-          onClick={() => navigate(`/sociedades/${sociedadeId}/safras`)}
+          onClick={voltar}
           className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-stone-900"
         >
           <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />

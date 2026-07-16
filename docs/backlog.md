@@ -6,7 +6,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Bugs / coisas quebradas
 
-- Quando eu clico em ver sócios eu vou para a tela correta de sócios, porem quando eu clico no botão de voltar, eu vou para uma tela de safras, e eu quero apenas voltar pra tela anterior
+- 
 
 ## Melhorias de UX
 
@@ -17,6 +17,8 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 - Não criamos os wireframes do fluxo de despesas pessoais do usuário - criar e aplicar ele na nossa aplicação
 - Nas configurações quando clicamos abrir nova safra, estamos indo para um tela antiga, quero criar o wireframe dessa tela também e aplicar ela no app
 - Quando clico no menu e vamos na opção configurações e listamos os socios, quando clicamos no voltar ele não volta pra tela anterior, e sim para uma tela de configuração de safras (uma tela antiga)
+- Quando eu abro no celular, a tela anda para os lados se eu arrastas, queria que a tela ficasse ao maximo parecida com um app nativo
+- quando eu levemente rolo a tela pra cima, a barra de navegação do safari cresce e tampa a navigation bar do app
 
 ## Ideias de funcionalidade
 
