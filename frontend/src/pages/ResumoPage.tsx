@@ -46,7 +46,7 @@ export default function ResumoPage() {
 
   return (
     <div>
-      <Topbar safraId={safraId} />
+      <Topbar />
 
       <div className="mx-auto flex max-w-sm flex-col gap-[22px] px-[22px] pb-6 pt-3.5">
         <button

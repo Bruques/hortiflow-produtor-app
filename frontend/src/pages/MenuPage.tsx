@@ -52,7 +52,7 @@ export default function MenuPage() {
 
   return (
     <div>
-      <Topbar safraId={safraId} />
+      <Topbar />
 
       <div className="mx-auto flex max-w-sm flex-col gap-2 px-5 pb-6 pt-3">
         <h1 className="font-rounded mb-1 text-xl font-extrabold text-hf-stone-900">Menu</h1>

@@ -10,7 +10,6 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Melhorias de UX
 - Nas configurações quando clicamos abrir nova safra, estamos indo para um tela antiga, quero criar o wireframe dessa tela também e aplicar ela no app
-- Remover os botões de menu e notificação do topo
 
 ## Ideias de funcionalidade
 

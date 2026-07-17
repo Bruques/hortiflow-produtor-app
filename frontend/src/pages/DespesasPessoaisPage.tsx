@@ -48,7 +48,7 @@ export default function DespesasPessoaisPage() {
 
   return (
     <div>
-      <Topbar safraId={safraId} />
+      <Topbar />
 
       <div className="mx-auto flex max-w-sm flex-col gap-[18px] px-[22px] pb-6 pt-3.5">
         <div className="flex items-baseline justify-between">
