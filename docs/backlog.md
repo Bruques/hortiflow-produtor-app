@@ -6,18 +6,29 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Bugs / coisas quebradas
 
-- 
+- Eu abro o app, se eu atualizar a pagina, eu tomo um erro 404, acho que tem algo a ver com a url
 
 ## Melhorias de UX
 - Nas configurações quando clicamos abrir nova safra, estamos indo para um tela antiga, quero criar o wireframe dessa tela também e aplicar ela no app
+- Fazer icone
+- Filtros por dia (usuário não consegue selecionar o dia de ontem por exemplo, só hoje ou a semana toda)
 
 ## Ideias de funcionalidade
 
+- Pedir ajuda para deixar o app privado no github
+- Pedir pra olhar o repo no github pra garantir que não tem nenhum dado sensível sendo vazado
+- Entender como adiciona icone do app na home do celular
+- Entender se consigo melhorar a url do app 
 - Registrar acerto: hoje o período tem que ser preenchido manualmente; pensar em funcionalidades que facilitem e deem mais liberdade ao usuário na hora de definir o que/quando pagar
-- Despesas pessoais: desenhar o fluxo no `docs/design/wireframes.html` — ainda não existe nenhum wireframe para essa parte do app
 - **(REPENSAR — mudança grande, validar antes de fazer)** Generalizar Venda para além de "caixa de morango": hoje o produtor só vende em caixa, mas morango que amadureceu demais é congelado e vendido por quilo; a ideia de fundo é o app dar suporte a outras culturas além do morango (ex: brócolis), então "caixa" não deveria ser a única unidade
 - Depende da task acima: `RegraDespesaRecorrente` do tipo `por_venda` hoje só calcula por caixa vendida — precisaria ser ajustada junto
 - (REPENSAR) A criação de despesa automática, talvez possa ficar no registro de venda, com um botão pro usuario adicionar se quer ou não a respesa recorrente previamente cadastrada, ao inves de sempre ir de forma automatica. Exemplo: o Usuario cadastra uma recorrencia de despesa de 1 real por caixa vendida, mas ela só vai ser adicionada na venda na tela de registro de venda, onde ele veria por exemplo essa opção, e um toggle ou um checkbox dizendo que se ele marcar, uma dispesa de 1 real por caixa vai ser adicionada as caixas que ele registrou na venda
+- Colocar um chatbot para ficar ouvindo as notificações do grupo de preço de morango diário, e colocar isso em uma aba
+- Criar um local para anuncios, promoções etc
+- O backend puxa os dados de toda safra, e só depois filtramos, talvez isso faça gastarmos muita memoria, o ideal talvez seja fazer uma query para filtrarmos, assim inicialmente buscamos só os dados do dia, e caso o usuário queira, a gente busca dados com mais info
+- Troca de senha
+- Mostrar detalhes da safra, observações que o usuário vai colocar: exemplo: Safra 2026 | estufa | Corrego do bom Jesus | 20mil pés
+- Colocar de alguma forma se foi pago ou não, o morango vendido, e colocar um filtro de produtos vendidos que foram pagos ou não - E colocar na edição um botão pra registrar a venda
 
 ## Dúvidas de negócio
 

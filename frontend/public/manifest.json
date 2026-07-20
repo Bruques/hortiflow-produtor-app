@@ -1,0 +1,16 @@
+{
+  "name": "HortiFlow Produtor",
+  "short_name": "HortiFlow",
+  "description": "Gestão transparente de parcerias de meação na produção de morango.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf9f4",
+  "theme_color": "#1e6b3e",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
