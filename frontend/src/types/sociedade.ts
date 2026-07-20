@@ -9,9 +9,16 @@ export interface Sociedade {
 }
 
 export interface Socio {
-  usuario_id: string;
+  id: string;
+  usuario_id: string | null;
   nome: string;
-  telefone: string;
+  telefone: string | null;
   percentual_lucro: string;
+  papel: PapelSocio;
+}
+
+export interface SocioSemConta {
+  id: string;
+  nome: string;
   papel: PapelSocio;
 }

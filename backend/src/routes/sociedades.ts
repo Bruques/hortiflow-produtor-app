@@ -10,8 +10,10 @@ router.use(authMiddleware);
 
 router.post('/', sociedadesController.criar);
 router.post('/entrar', sociedadesController.entrar);
+router.get('/convite/:codigo', sociedadesController.previewConvite);
 router.get('/', sociedadesController.listar);
 router.get('/:id/socios', sociedadesController.listarSocios);
+router.post('/:id/socios', sociedadesController.criarSocio);
 router.put('/:id/socios/percentuais', sociedadesController.atualizarPercentuais);
 router.post('/:id/safras', safrasController.abrir);
 router.get('/:id/safras', safrasController.listar);

@@ -72,8 +72,11 @@ export default function NovaDespesaPage() {
     meRequest().then((res) => setMeuId(res.usuario.id)).catch(() => {});
     listarSociosRequest(sociedadeId)
       .then((res) => {
-        setSocios(res.socios);
-        if (!emEdicao && res.socios.length > 0) setSocioId(res.socios[0].usuario_id);
+        // Despesa só pode ser lançada em nome de sócio com conta — sócio sem conta
+        // ainda não tem um usuário pra receber a atribuição.
+        const comConta = res.socios.filter((s) => s.usuario_id);
+        setSocios(comConta);
+        if (!emEdicao && comConta.length > 0) setSocioId(comConta[0].usuario_id!);
       })
       .catch(() => setErro('Não foi possível carregar os sócios'));
   }, [sociedadeId, emEdicao]);
@@ -209,9 +212,9 @@ export default function NovaDespesaPage() {
               const ativo = s.usuario_id === socioId;
               return (
                 <button
-                  key={s.usuario_id}
+                  key={s.id}
                   type="button"
-                  onClick={() => setSocioId(s.usuario_id)}
+                  onClick={() => setSocioId(s.usuario_id!)}
                   className={cn(
                     'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[12.5px] font-bold transition-colors',
                     ativo

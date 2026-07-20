@@ -5,16 +5,12 @@ Rascunho livre para anotar ideias, melhorias e bugs observados usando o app no d
 Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentido.
 
 ## Bugs / coisas quebradas
-
 - Eu abro o app, se eu atualizar a pagina, eu tomo um erro 404, acho que tem algo a ver com a url
 
 ## Melhorias de UX
-- Nas configurações quando clicamos abrir nova safra, estamos indo para um tela antiga, quero criar o wireframe dessa tela também e aplicar ela no app
-- Fazer icone
 - Filtros por dia (usuário não consegue selecionar o dia de ontem por exemplo, só hoje ou a semana toda)
 
 ## Ideias de funcionalidade
-
 - Pedir ajuda para deixar o app privado no github
 - Pedir pra olhar o repo no github pra garantir que não tem nenhum dado sensível sendo vazado
 - Entender como adiciona icone do app na home do celular
@@ -29,6 +25,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 - Troca de senha
 - Mostrar detalhes da safra, observações que o usuário vai colocar: exemplo: Safra 2026 | estufa | Corrego do bom Jesus | 20mil pés
 - Colocar de alguma forma se foi pago ou não, o morango vendido, e colocar um filtro de produtos vendidos que foram pagos ou não - E colocar na edição um botão pra registrar a venda
+- Permitir o usuário adicionar o meeiro
 
 ## Dúvidas de negócio
 

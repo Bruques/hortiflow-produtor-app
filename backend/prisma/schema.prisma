@@ -51,7 +51,6 @@ model Usuario {
   despesas         Despesa[]
   despesasPessoais DespesaPessoal[]
   aportesTrabalho  AporteTrabalho[]
-  acertosSocio     AcertoSocio[]
   regrasComoSocio  RegraDespesaRecorrente[] @relation("RegraSocio")
   regrasCriadas    RegraDespesaRecorrente[] @relation("RegraCriador")
 
@@ -64,23 +63,25 @@ model Sociedade {
   codigo_convite String   @unique
   criado_em      DateTime @default(now())
 
-  socios             SocioSociedade[]
-  safras             Safra[]
-  regrasRecorrentes  RegraDespesaRecorrente[]
+  socios            SocioSociedade[]
+  safras            Safra[]
+  regrasRecorrentes RegraDespesaRecorrente[]
 
   @@map("sociedades")
 }
 
 model SocioSociedade {
   id               String     @id @default(uuid())
-  usuario_id       String
+  usuario_id       String?
+  nome             String?
   sociedade_id     String
   percentual_lucro Decimal    @db.Decimal(5, 2)
   papel            PapelSocio
   criado_em        DateTime   @default(now())
 
-  usuario   Usuario   @relation(fields: [usuario_id], references: [id])
-  sociedade Sociedade @relation(fields: [sociedade_id], references: [id])
+  usuario      Usuario?      @relation(fields: [usuario_id], references: [id])
+  sociedade    Sociedade     @relation(fields: [sociedade_id], references: [id])
+  acertoSocios AcertoSocio[]
 
   @@unique([usuario_id, sociedade_id])
   @@map("socio_sociedades")
@@ -118,10 +119,10 @@ model Despesa {
   venda_origem_id  String?
   criado_em        DateTime    @default(now())
 
-  safra       Safra                    @relation(fields: [safra_id], references: [id])
-  socio       Usuario                  @relation(fields: [socio_id], references: [id])
-  regraOrigem RegraDespesaRecorrente?  @relation(fields: [regra_origem_id], references: [id])
-  vendaOrigem Venda?                   @relation(fields: [venda_origem_id], references: [id])
+  safra       Safra                   @relation(fields: [safra_id], references: [id])
+  socio       Usuario                 @relation(fields: [socio_id], references: [id])
+  regraOrigem RegraDespesaRecorrente? @relation(fields: [regra_origem_id], references: [id])
+  vendaOrigem Venda?                  @relation(fields: [venda_origem_id], references: [id])
 
   @@map("despesas")
 }
@@ -214,8 +215,8 @@ model AcertoSocio {
   percentual_aplicado Decimal @db.Decimal(5, 2)
   valor_lucro         Decimal @db.Decimal(10, 2)
 
-  acerto Acerto  @relation(fields: [acerto_id], references: [id])
-  socio  Usuario @relation(fields: [socio_id], references: [id])
+  acerto Acerto         @relation(fields: [acerto_id], references: [id])
+  socio  SocioSociedade @relation(fields: [socio_id], references: [id])
 
   @@map("acerto_socios")
 }

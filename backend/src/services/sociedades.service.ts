@@ -47,7 +47,38 @@ export async function criarSociedade(usuarioId: string, nome: string) {
   };
 }
 
-export async function entrarPorCodigo(usuarioId: string, codigoConvite: string) {
+export async function previewConvite(codigoConvite: string) {
+  const sociedade = await prisma.sociedade.findUnique({
+    where: { codigo_convite: codigoConvite },
+    include: { socios: { where: { usuario_id: null } } },
+  });
+
+  if (!sociedade) {
+    return { erro: 'NAO_ENCONTRADA' as const };
+  }
+
+  return {
+    sociedade: { id: sociedade.id, nome: sociedade.nome },
+    socios_sem_conta: sociedade.socios.map((s) => ({
+      id: s.id,
+      nome: s.nome ?? '',
+      papel: s.papel,
+    })),
+  };
+}
+
+type EntrarPorCodigoResultado =
+  | { erro: 'NAO_ENCONTRADA' }
+  | { erro: 'JA_E_SOCIO' }
+  | { erro: 'SOCIO_NAO_ENCONTRADO' }
+  | { erro: 'SOCIO_JA_VINCULADO' }
+  | { sociedade: { id: string; nome: string } };
+
+export async function entrarPorCodigo(
+  usuarioId: string,
+  codigoConvite: string,
+  vincularSocioId?: string
+): Promise<EntrarPorCodigoResultado> {
   const sociedade = await prisma.sociedade.findUnique({
     where: { codigo_convite: codigoConvite },
   });
@@ -64,17 +95,50 @@ export async function entrarPorCodigo(usuarioId: string, codigoConvite: string) 
     return { erro: 'JA_E_SOCIO' as const };
   }
 
-  await prisma.socioSociedade.create({
+  if (vincularSocioId) {
+    const socioSemConta = await prisma.socioSociedade.findUnique({ where: { id: vincularSocioId } });
+    if (!socioSemConta || socioSemConta.sociedade_id !== sociedade.id) {
+      return { erro: 'SOCIO_NAO_ENCONTRADO' as const };
+    }
+    if (socioSemConta.usuario_id) {
+      return { erro: 'SOCIO_JA_VINCULADO' as const };
+    }
+    await prisma.socioSociedade.update({
+      where: { id: vincularSocioId },
+      data: { usuario_id: usuarioId },
+    });
+  } else {
+    await prisma.socioSociedade.create({
+      data: {
+        usuario_id: usuarioId,
+        sociedade_id: sociedade.id,
+        percentual_lucro: 0,
+        papel: PapelSocio.MEEIRO,
+      },
+    });
+  }
+
+  return {
+    sociedade: { id: sociedade.id, nome: sociedade.nome },
+  };
+}
+
+export async function criarSocioSemConta(sociedadeId: string, nome: string, papel: PapelSocio) {
+  const socio = await prisma.socioSociedade.create({
     data: {
-      usuario_id: usuarioId,
-      sociedade_id: sociedade.id,
+      sociedade_id: sociedadeId,
+      nome,
       percentual_lucro: 0,
-      papel: PapelSocio.MEEIRO,
+      papel,
     },
   });
 
   return {
-    sociedade: { id: sociedade.id, nome: sociedade.nome },
+    id: socio.id,
+    nome: socio.nome ?? '',
+    telefone: null as string | null,
+    percentual_lucro: socio.percentual_lucro,
+    papel: socio.papel,
   };
 }
 
@@ -107,16 +171,17 @@ export async function listarSocios(sociedadeId: string) {
   });
 
   return vinculos.map((v) => ({
+    id: v.id,
     usuario_id: v.usuario_id,
-    nome: v.usuario.nome,
-    telefone: v.usuario.telefone,
+    nome: v.usuario?.nome ?? v.nome ?? '',
+    telefone: v.usuario?.telefone ?? null,
     percentual_lucro: v.percentual_lucro,
     papel: v.papel,
   }));
 }
 
 interface SocioPercentualInput {
-  usuario_id: string;
+  id: string;
   percentual_lucro: number;
   papel: PapelSocio;
 }
@@ -134,8 +199,8 @@ export async function atualizarPercentuais(
     where: { sociedade_id: sociedadeId },
   });
 
-  const idsAtuais = new Set(socioAtuais.map((s) => s.usuario_id));
-  const idsEnviados = new Set(entrada.map((s) => s.usuario_id));
+  const idsAtuais = new Set(socioAtuais.map((s) => s.id));
+  const idsEnviados = new Set(entrada.map((s) => s.id));
 
   const cobreTodos =
     idsAtuais.size === idsEnviados.size && [...idsAtuais].every((id) => idsEnviados.has(id));
@@ -152,7 +217,7 @@ export async function atualizarPercentuais(
   await prisma.$transaction(
     entrada.map((s) =>
       prisma.socioSociedade.update({
-        where: { usuario_id_sociedade_id: { usuario_id: s.usuario_id, sociedade_id: sociedadeId } },
+        where: { id: s.id },
         data: { percentual_lucro: s.percentual_lucro, papel: s.papel },
       })
     )

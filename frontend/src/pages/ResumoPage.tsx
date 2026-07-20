@@ -186,8 +186,8 @@ export default function ResumoPage() {
               </div>
               <div>
                 {simulacao.divisao.map((d) => {
-                  const socio = socios.find((s) => s.usuario_id === d.socio_id);
-                  const souEu = d.socio_id === usuarioId;
+                  const socio = socios.find((s) => s.id === d.socio_id);
+                  const souEu = socio?.usuario_id === usuarioId;
                   return (
                     <div
                       key={d.socio_id}

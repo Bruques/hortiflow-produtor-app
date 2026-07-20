@@ -119,3 +119,119 @@ Vai gerar uma nova migração Prisma. Nenhuma outra entidade do schema muda nest
 - **Select de papel do sócio é um `<select>` nativo estilizado**, não um componente shadcn/ui dedicado — evita adicionar uma dependência nova (`@radix-ui/react-select`) para um único campo de 3 opções fixas.
 - **`HomePage` virou a tela "Minhas sociedades"**: antes só mostrava saudação e botão de sair; agora lista as sociedades do usuário e dá acesso a criar/entrar, já que é o hub natural pós-login. Continua sendo a rota `/`.
 - **Ao entrar via código, o usuário recebe 0% e papel MEEIRO por padrão** (conforme a regra de negócio da spec) — a tela de sócios já deixa claro que a soma precisa fechar em 100%, então o ajuste é o próximo passo natural depois do convite.
+
+---
+
+## Incremento (2026-07-20): sócio sem conta cadastrado manualmente
+
+### Motivação
+
+Na prática, muitas parcerias têm só o financiador usando o app — o meeiro não quer (ou não vai) criar conta. Com o fluxo atual, isso é um bloqueio: o financiador sozinho é 100% sócio, e não existe outro sócio pra dividir o percentual até alguém entrar via código. Este incremento permite ao financiador cadastrar sócios diretamente pela tela de Configurações, sem depender de código de convite nem de outro usuário.
+
+### Escopo
+
+**Entra:**
+- Cadastrar um sócio manualmente (nome + papel), sem vínculo com nenhuma conta de usuário
+- Esse sócio participa normalmente do percentual de lucro, do painel de simulação e dos Acertos
+- Qualquer sócio já existente na Sociedade pode cadastrar (mesma autorização já usada em `PUT .../percentuais` — não é uma restrição nova só pro financiador)
+- Código de convite continua existindo e funcionando do jeito que já funciona hoje, para quem quiser entrar com conta própria
+- **Vincular uma conta real a um sócio sem conta já cadastrado**, em vez de sempre criar um sócio novo ao entrar por código — evita duplicar a mesma pessoa (ver "Vincular conta" abaixo)
+
+**Fica de fora (registrado como pergunta em aberto, não decidir agora):**
+- Lançar despesa/venda "em nome de" um sócio sem conta — despesas e vendas continuam exigindo um usuário autenticado que lançou
+- Editar nome ou remover um sócio sem conta depois de criado (mesma lacuna que já existe hoje pra sócios com conta — não é escopo)
+
+### Regras de negócio
+
+**Cadastrar sócio sem conta**
+- `POST /sociedades/:id/socios` com `{ nome: string, papel: "FINANCIADOR" | "MEEIRO" | "MISTO" }`, autenticado, só quem já é sócio da Sociedade
+- Cria um `SocioSociedade` com `usuario_id = null`, `nome` preenchido, `percentual_lucro = 0` (mesmo default do fluxo de entrada por código — o ajuste pra fechar 100% é o passo seguinte, via `PUT .../percentuais`)
+- `nome` obrigatório, não vazio
+
+**Identificação do sócio nas demais rotas**
+- Hoje `GET /sociedades/:id/socios` e `PUT .../percentuais` usam `usuario_id` como identificador do sócio — isso quebra pra sócio sem conta. Passa a usar o `id` do próprio `SocioSociedade` como identificador único em toda a API de sócios, painel de simulação e Acerto (`socio_id` nessas rotas passa a significar "id do vínculo SocioSociedade", não "id do usuário")
+- `nome` retornado em `GET /sociedades/:id/socios` vem de `Usuario.nome` quando há conta vinculada, ou do campo `nome` gravado no `SocioSociedade` quando não há
+- `telefone` retornado é `null` quando não há conta vinculada
+
+**Entrar por código, com opção de vincular a um sócio sem conta**
+- `GET /sociedades/convite/:codigo_convite` (novo, autenticado) retorna o preview do convite: `{ sociedade: { id, nome }, socios_sem_conta: [{ id, nome, papel }] }` — usado pela tela pra perguntar "é algum desses sócios?" antes de confirmar a entrada
+- `POST /sociedades/entrar` ganha um campo opcional: `{ codigo_convite, vincular_socio_id? }`
+  - Sem `vincular_socio_id`: comportamento atual, inalterado — cria um `SocioSociedade` novo com 0%/MEEIRO
+  - Com `vincular_socio_id`: em vez de criar linha nova, preenche `usuario_id` do `SocioSociedade` existente (preserva `nome` → passa a exibir `Usuario.nome`, preserva `percentual_lucro` e `papel` já definidos, preserva histórico de Acerto, já que o `id` do vínculo não muda)
+    - 404 se `vincular_socio_id` não existe ou não pertence à sociedade do código
+    - 409 se esse sócio já tem `usuario_id` preenchido (já foi vinculado)
+
+**Cálculo de divisão e Acerto**
+- `calcularDivisao` (já é agnóstico de Usuario, recebe `socio_id`/`nome`/`percentual_lucro` genéricos — nenhuma mudança nesse service) passa a receber o `id` do `SocioSociedade` como `socio_id`
+- `AcertoSocio.socio_id` passa a referenciar `SocioSociedade.id` em vez de `Usuario.id` — sócio sem conta aparece normalmente num Acerto, com `despesas_bancadas = 0` (já que não pode ter despesa própria lançada, ver escopo)
+
+### Contrato de API
+
+```
+POST /sociedades/:id/socios
+  auth obrigatório, requer ser sócio da sociedade :id
+  body: { nome: string, papel: "FINANCIADOR" | "MEEIRO" | "MISTO" }
+  → 201 { socio: { id, nome, telefone: null, percentual_lucro: 0, papel } }
+  → 400 se nome vazio
+  → 403 se usuário autenticado não é sócio da sociedade
+
+GET /sociedades/:id/socios        (contrato muda)
+  → 200 { socios: [{ id, nome, telefone: string | null, percentual_lucro, papel }] }
+  (campo id substitui usuario_id como identificador; telefone pode ser null)
+
+PUT /sociedades/:id/socios/percentuais   (contrato muda)
+  body: { socios: [{ id: string, percentual_lucro: number, papel: ... }] }
+  (campo id substitui usuario_id)
+
+GET /sociedades/convite/:codigo_convite   (novo)
+  auth obrigatório
+  → 200 { sociedade: { id, nome }, socios_sem_conta: [{ id, nome, papel }] }
+  → 404 se código não corresponde a nenhuma sociedade
+
+POST /sociedades/entrar   (contrato muda)
+  body: { codigo_convite: string, vincular_socio_id?: string }
+  → 200 { sociedade: { id, nome } }
+  → 404 se código não corresponde a nenhuma sociedade, ou vincular_socio_id não existe/não pertence à sociedade
+  → 409 se usuário já é sócio dessa sociedade, ou vincular_socio_id já está vinculado a uma conta
+```
+
+### Decisões de schema a registrar
+
+```prisma
+model SocioSociedade {
+  id               String     @id @default(uuid())
+  usuario_id       String?    // agora opcional — null quando o sócio não tem conta
+  nome             String?    // obrigatório quando usuario_id é null; ignorado (usa Usuario.nome) quando não é
+  sociedade_id     String
+  percentual_lucro Decimal    @db.Decimal(5, 2)
+  papel            PapelSocio
+  criado_em        DateTime   @default(now())
+
+  usuario   Usuario?  @relation(fields: [usuario_id], references: [id])
+  sociedade Sociedade @relation(fields: [sociedade_id], references: [id])
+
+  @@unique([usuario_id, sociedade_id])
+  @@map("socio_sociedades")
+}
+
+model AcertoSocio {
+  ...
+  socio_id String   // passa a referenciar SocioSociedade.id, não mais Usuario.id
+  socio    SocioSociedade @relation(fields: [socio_id], references: [id])
+  ...
+}
+```
+
+- `@@unique([usuario_id, sociedade_id])` continua válido com `usuario_id` nulo — Postgres trata `NULL` como distinto em constraints únicas, então múltiplos sócios sem conta na mesma Sociedade não colidem entre si
+- **Migração de dados**: `AcertoSocio.socio_id` hoje guarda `Usuario.id`; a migração precisa fazer backfill pra `SocioSociedade.id` correspondente (join por `usuario_id` + `sociedade_id` da safra do Acerto) antes de trocar a FK. Há dados reais no ambiente atual (6 Acertos / 12 AcertoSocio / 26 SocioSociedade) — a migração roda contra esses dados, não é banco vazio
+
+### Critérios de aceite
+
+1. Dado um usuário sozinho numa Sociedade (100%), ele consegue `POST /sociedades/:id/socios` com nome e papel, e o novo sócio aparece em `GET /sociedades/:id/socios` com 0%
+2. Dado o cenário acima, `PUT .../percentuais` referenciando os `id`s dos dois sócios (o usuário e o sem conta) com soma 100% funciona normalmente
+3. O painel de simulação e um novo Acerto criado nesse cenário mostram o sócio sem conta com o valor de lucro correto pro percentual definido, e `despesas_bancadas = 0`
+4. Acertos criados antes desta mudança continuam sendo exibidos corretamente em `GET /acertos/:id` após a migração (valores e sócios preservados)
+5. `POST /sociedades/:id/socios` com nome vazio retorna 400; por um usuário que não é sócio da sociedade retorna 403
+6. Dado uma Sociedade com um sócio sem conta chamado "João", um segundo usuário que entra com o código de convite vê "João" listado em `GET /sociedades/convite/:codigo`; ao confirmar entrada com `vincular_socio_id` = id do João, o sócio "João" passa a ter conta (aparece com telefone), mantendo o mesmo `id`, percentual e papel de antes — nenhum sócio novo é criado
+7. Tentar vincular um `vincular_socio_id` que já tem conta retorna 409; um que não existe/não é dessa sociedade retorna 404
+8. Frontend: tela de Configurações ganha um botão "Adicionar sócio" (nome + papel) na seção de sócios; tela de "Entrar por código" pergunta "é algum desses sócios?" quando o convite tem sócios sem conta, com opção "Não, sou novo sócio"

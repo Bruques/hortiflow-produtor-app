@@ -89,12 +89,22 @@ export async function criarAcerto(
   const resultado = calcularDivisao(
     despesas.map((d) => ({ valor: Number(d.valor) })),
     vendas.map((v) => ({ total: Number(v.total) })),
-    socios.map((s) => ({ socio_id: s.usuario_id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
+    socios.map((s) => ({ socio_id: s.id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
   );
 
+  // Despesa.socio_id referencia Usuario.id; a divisão trabalha com o id do vínculo
+  // SocioSociedade, então precisa traduzir um pro outro antes de agregar.
+  const socioSociedadeIdPorUsuario = new Map(
+    socios.filter((s) => s.usuario_id).map((s) => [s.usuario_id as string, s.id])
+  );
   const despesasBancadasPorSocio = new Map<string, number>();
   for (const d of despesas) {
-    despesasBancadasPorSocio.set(d.socio_id, (despesasBancadasPorSocio.get(d.socio_id) ?? 0) + Number(d.valor));
+    const socioSociedadeId = socioSociedadeIdPorUsuario.get(d.socio_id);
+    if (!socioSociedadeId) continue;
+    despesasBancadasPorSocio.set(
+      socioSociedadeId,
+      (despesasBancadasPorSocio.get(socioSociedadeId) ?? 0) + Number(d.valor)
+    );
   }
 
   const registro = await prisma.$transaction(async (tx) => {
@@ -126,7 +136,7 @@ export async function criarAcerto(
     return criado;
   });
 
-  const nomesPorSocio = new Map(socios.map((s) => [s.usuario_id, s.nome]));
+  const nomesPorSocio = new Map(socios.map((s) => [s.id, s.nome]));
   const sociosDetalhe: AcertoSocioDetalhe[] = registro.socios.map((as) => ({
     socio_id: as.socio_id,
     nome: nomesPorSocio.get(as.socio_id) ?? '',
@@ -180,7 +190,7 @@ export async function buscarAcertoDetalhado(
   }
 
   const sociosSociedade = await sociedadesService.listarSocios(registro.safra.sociedade_id);
-  const nomesPorSocio = new Map(sociosSociedade.map((s) => [s.usuario_id, s.nome]));
+  const nomesPorSocio = new Map(sociosSociedade.map((s) => [s.id, s.nome]));
 
   const sociosDetalhe: AcertoSocioDetalhe[] = registro.socios.map((as) => ({
     socio_id: as.socio_id,

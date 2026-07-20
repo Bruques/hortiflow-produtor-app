@@ -108,7 +108,7 @@ export async function simular(req: Request, res: Response): Promise<void> {
   const resultado = calcularDivisao(
     despesas.map((d) => ({ valor: Number(d.valor) })),
     vendas.map((v) => ({ total: Number(v.total) })),
-    socios.map((s) => ({ socio_id: s.usuario_id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
+    socios.map((s) => ({ socio_id: s.id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
   );
 
   // Soma direto da lista de vendas já buscada pro período — não passa pelo calcularDivisao

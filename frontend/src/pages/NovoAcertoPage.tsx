@@ -6,19 +6,21 @@ import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarAcertoRequest, listarAcertosRequest } from '@/services/acertos';
 import { buscarSimulacaoPersonalizadaRequest } from '@/services/simulacao';
 import { listarDespesasRequest } from '@/services/despesas';
+import { listarSociosRequest } from '@/services/sociedades';
 import { adicionarDias } from '@/lib/periodo';
 import { DateField } from '@/components/ui/date-field';
 import { cn, formatarData, formatarMoeda, iniciais } from '@/lib/utils';
 import type { TipoAcerto } from '@/types/acerto';
 import type { Simulacao } from '@/types/simulacao';
 import type { Despesa } from '@/types/despesa';
+import type { Socio } from '@/types/sociedade';
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function NovoAcertoPage() {
-  const { safraId, safra } = useSafraAtiva();
+  const { safraId, sociedadeId, safra } = useSafraAtiva();
   const navigate = useNavigate();
 
   const [tipo, setTipo] = useState<TipoAcerto>('PARCIAL');
@@ -26,6 +28,7 @@ export default function NovoAcertoPage() {
   const [dataFim, setDataFim] = useState(hojeISO());
   const [sugestaoLabel, setSugestaoLabel] = useState<string | null>(null);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
+  const [socios, setSocios] = useState<Socio[]>([]);
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -45,7 +48,10 @@ export default function NovoAcertoPage() {
     listarDespesasRequest(safraId)
       .then((res) => setDespesas(res.despesas))
       .catch(() => {});
-  }, [safraId, safra.data_inicio]);
+    listarSociosRequest(sociedadeId)
+      .then((res) => setSocios(res.socios))
+      .catch(() => {});
+  }, [safraId, sociedadeId, safra.data_inicio]);
 
   useEffect(() => {
     if (!dataInicio || !dataFim || dataInicio > dataFim) {
@@ -58,16 +64,22 @@ export default function NovoAcertoPage() {
   }, [safraId, dataInicio, dataFim]);
 
   const despesasBancadasPorSocio = useMemo(() => {
+    // Despesa.socio_id referencia o usuário; a divisão trabalha com o id do vínculo
+    // sócio-sociedade, então traduz um pro outro antes de agregar.
+    const socioSociedadeIdPorUsuario = new Map(
+      socios.filter((s) => s.usuario_id).map((s) => [s.usuario_id as string, s.id])
+    );
     const mapa = new Map<string, number>();
     if (!dataInicio || !dataFim) return mapa;
     for (const d of despesas) {
       const dataChave = d.data.slice(0, 10);
-      if (dataChave >= dataInicio && dataChave <= dataFim) {
-        mapa.set(d.socio_id, (mapa.get(d.socio_id) ?? 0) + Number(d.valor));
+      const socioSociedadeId = socioSociedadeIdPorUsuario.get(d.socio_id);
+      if (dataChave >= dataInicio && dataChave <= dataFim && socioSociedadeId) {
+        mapa.set(socioSociedadeId, (mapa.get(socioSociedadeId) ?? 0) + Number(d.valor));
       }
     }
     return mapa;
-  }, [despesas, dataInicio, dataFim]);
+  }, [despesas, socios, dataInicio, dataFim]);
 
   const formValido = !!dataInicio && !!dataFim && dataInicio <= dataFim;
 

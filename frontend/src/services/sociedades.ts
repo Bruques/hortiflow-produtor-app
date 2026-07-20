@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { PapelSocio, Sociedade, Socio } from '@/types/sociedade';
+import type { PapelSocio, Sociedade, Socio, SocioSemConta } from '@/types/sociedade';
 
 export async function criarSociedadeRequest(
   nome: string
@@ -8,10 +8,18 @@ export async function criarSociedadeRequest(
   return data;
 }
 
+export async function previewConviteRequest(
+  codigo: string
+): Promise<{ sociedade: { id: string; nome: string }; socios_sem_conta: SocioSemConta[] }> {
+  const { data } = await apiClient.get(`/sociedades/convite/${codigo}`);
+  return data;
+}
+
 export async function entrarSociedadeRequest(
-  codigo_convite: string
+  codigo_convite: string,
+  vincular_socio_id?: string
 ): Promise<{ sociedade: { id: string; nome: string } }> {
-  const { data } = await apiClient.post('/sociedades/entrar', { codigo_convite });
+  const { data } = await apiClient.post('/sociedades/entrar', { codigo_convite, vincular_socio_id });
   return data;
 }
 
@@ -25,8 +33,17 @@ export async function listarSociosRequest(sociedadeId: string): Promise<{ socios
   return data;
 }
 
+export async function criarSocioRequest(
+  sociedadeId: string,
+  nome: string,
+  papel: PapelSocio
+): Promise<{ socio: Socio }> {
+  const { data } = await apiClient.post(`/sociedades/${sociedadeId}/socios`, { nome, papel });
+  return data;
+}
+
 export interface SocioPercentualInput {
-  usuario_id: string;
+  id: string;
   percentual_lucro: number;
   papel: PapelSocio;
 }

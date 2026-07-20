@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy } from 'lucide-react';
 import { meRequest } from '@/services/auth';
-import { atualizarPercentuaisRequest, listarSociedadesRequest, listarSociosRequest } from '@/services/sociedades';
+import {
+  atualizarPercentuaisRequest,
+  criarSocioRequest,
+  listarSociedadesRequest,
+  listarSociosRequest,
+} from '@/services/sociedades';
 import {
   atualizarAtivoRequest,
   criarRegraRequest,
@@ -20,7 +25,8 @@ import type { TipoDespesa } from '@/types/despesa';
 const CORES_BARRA = ['bg-hf-green-800', 'bg-hf-green-600', 'bg-hf-amber', 'bg-hf-blue'];
 
 interface EdicaoSocio {
-  usuario_id: string;
+  id: string;
+  usuario_id: string | null;
   nome: string;
   percentual_lucro: number;
   papel: PapelSocio;
@@ -56,6 +62,11 @@ export default function ConfiguracoesPage() {
   const [codigoConvite, setCodigoConvite] = useState<string | null>(null);
   const [codigoCopiado, setCodigoCopiado] = useState(false);
 
+  const [novoSocioAberto, setNovoSocioAberto] = useState(false);
+  const [nomeNovoSocio, setNomeNovoSocio] = useState('');
+  const [papelNovoSocio, setPapelNovoSocio] = useState<PapelSocio>('MEEIRO');
+  const [salvandoNovoSocio, setSalvandoNovoSocio] = useState(false);
+
   const [novaRegraAberta, setNovaRegraAberta] = useState(false);
   const [socioRegra, setSocioRegra] = useState('');
   const [tipoGatilho, setTipoGatilho] = useState<TipoGatilhoRegra>('POR_VENDA');
@@ -70,13 +81,17 @@ export default function ConfiguracoesPage() {
       .then((res) => {
         setEdicoes(
           res.socios.map((s: Socio) => ({
+            id: s.id,
             usuario_id: s.usuario_id,
             nome: s.nome,
             percentual_lucro: Number(s.percentual_lucro),
             papel: s.papel,
           }))
         );
-        if (res.socios.length > 0) setSocioRegra(res.socios[0].usuario_id);
+        // Regra de despesa recorrente só pode ser atribuída a sócio com conta —
+        // é ele quem gera a Despesa, então sócio sem conta não pode ser origem.
+        const comConta = res.socios.find((s) => s.usuario_id);
+        if (comConta) setSocioRegra(comConta.usuario_id!);
       })
       .catch(() => setErroPct('Não foi possível carregar os sócios'))
       .finally(() => setCarregandoSocios(false));
@@ -118,11 +133,11 @@ export default function ConfiguracoesPage() {
     setTimeout(() => setCodigoCopiado(false), 2000);
   }
 
-  function ajustarPct(usuarioId: string, delta: number) {
+  function ajustarPct(socioId: string, delta: number) {
     setSucessoPct(false);
     setEdicoes((atual) =>
       atual.map((s) =>
-        s.usuario_id === usuarioId
+        s.id === socioId
           ? { ...s, percentual_lucro: Math.max(0, Math.min(100, s.percentual_lucro + delta)) }
           : s
       )
@@ -140,7 +155,7 @@ export default function ConfiguracoesPage() {
     try {
       await atualizarPercentuaisRequest(
         sociedadeId,
-        edicoes.map((s) => ({ usuario_id: s.usuario_id, percentual_lucro: s.percentual_lucro, papel: s.papel }))
+        edicoes.map((s) => ({ id: s.id, percentual_lucro: s.percentual_lucro, papel: s.papel }))
       );
       setSucessoPct(true);
     } catch (err) {
@@ -148,6 +163,23 @@ export default function ConfiguracoesPage() {
       setErroPct(data?.error ?? 'Não foi possível salvar os percentuais');
     } finally {
       setSalvandoPct(false);
+    }
+  }
+
+  async function adicionarSocio() {
+    if (!sociedadeId || !nomeNovoSocio.trim()) return;
+    setErroPct(null);
+    setSalvandoNovoSocio(true);
+    try {
+      await criarSocioRequest(sociedadeId, nomeNovoSocio.trim(), papelNovoSocio);
+      setNomeNovoSocio('');
+      setPapelNovoSocio('MEEIRO');
+      setNovoSocioAberto(false);
+      carregarSocios();
+    } catch {
+      setErroPct('Não foi possível adicionar o sócio');
+    } finally {
+      setSalvandoNovoSocio(false);
     }
   }
 
@@ -210,7 +242,7 @@ export default function ConfiguracoesPage() {
               <div className="flex h-3.5 overflow-hidden rounded-full bg-hf-cream-100">
                 {edicoes.map((s, i) => (
                   <div
-                    key={s.usuario_id}
+                    key={s.id}
                     className={cn('transition-all', CORES_BARRA[i % CORES_BARRA.length])}
                     style={{ width: `${s.percentual_lucro}%` }}
                   />
@@ -229,23 +261,30 @@ export default function ConfiguracoesPage() {
 
               <div>
                 {edicoes.map((s) => (
-                  <div key={s.usuario_id} className="flex items-center justify-between gap-2 border-b border-hf-cream-100 py-3 last:border-b-0">
+                  <div key={s.id} className="flex items-center justify-between gap-2 border-b border-hf-cream-100 py-3 last:border-b-0">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-[13px] font-extrabold text-hf-green-800">
                         {iniciais(s.nome)}
                       </div>
                       <div className="min-w-0">
                         <p className="m-0 truncate text-sm font-bold text-hf-stone-900">{s.nome}</p>
-                        <span className="mt-0.5 inline-block rounded-full bg-hf-green-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-green-700">
-                          {s.papel === 'FINANCIADOR' ? 'Financiador' : s.papel === 'MEEIRO' ? 'Meeiro' : 'Misto'}
-                        </span>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                          <span className="inline-block rounded-full bg-hf-green-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-green-700">
+                            {s.papel === 'FINANCIADOR' ? 'Financiador' : s.papel === 'MEEIRO' ? 'Meeiro' : 'Misto'}
+                          </span>
+                          {!s.usuario_id && (
+                            <span className="inline-block rounded-full bg-hf-cream-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-stone-400">
+                              Sem conta
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2.5">
                       <button
                         type="button"
                         aria-label={`Diminuir percentual de ${s.nome}`}
-                        onClick={() => ajustarPct(s.usuario_id, -5)}
+                        onClick={() => ajustarPct(s.id, -5)}
                         className="flex h-[27px] w-[27px] items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
                       >
                         <Minus className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -256,7 +295,7 @@ export default function ConfiguracoesPage() {
                       <button
                         type="button"
                         aria-label={`Aumentar percentual de ${s.nome}`}
-                        onClick={() => ajustarPct(s.usuario_id, 5)}
+                        onClick={() => ajustarPct(s.id, 5)}
                         className="flex h-[27px] w-[27px] items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
                       >
                         <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -266,6 +305,64 @@ export default function ConfiguracoesPage() {
                 ))}
               </div>
             </>
+          )}
+
+          {!novoSocioAberto && (
+            <button
+              type="button"
+              onClick={() => setNovoSocioAberto(true)}
+              className="flex items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-green-700 py-3 text-[13.5px] font-bold text-hf-green-700"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.4} />
+              Adicionar sócio
+            </button>
+          )}
+
+          {novoSocioAberto && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-hf-line p-3.5">
+              <div>
+                <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Nome do sócio</label>
+                <input
+                  type="text"
+                  value={nomeNovoSocio}
+                  onChange={(e) => setNomeNovoSocio(e.target.value)}
+                  placeholder="Ex: João"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Papel</label>
+                <select
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                  value={papelNovoSocio}
+                  onChange={(e) => setPapelNovoSocio(e.target.value as PapelSocio)}
+                >
+                  <option value="MEEIRO">Meeiro</option>
+                  <option value="FINANCIADOR">Financiador</option>
+                  <option value="MISTO">Misto</option>
+                </select>
+              </div>
+              <p className="m-0 text-xs text-hf-stone-400">
+                Entra com 0% — ajuste o percentual de todos depois de adicionar.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNovoSocioAberto(false)}
+                  className="flex-1 rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={adicionarSocio}
+                  disabled={salvandoNovoSocio || !nomeNovoSocio.trim()}
+                  className="flex-1 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+                >
+                  {salvandoNovoSocio ? 'Adicionando...' : 'Adicionar'}
+                </button>
+              </div>
+            </div>
           )}
 
           {erroPct && <p className="text-center text-sm font-medium text-hf-red">{erroPct}</p>}
@@ -370,11 +467,13 @@ export default function ConfiguracoesPage() {
                   value={socioRegra}
                   onChange={(e) => setSocioRegra(e.target.value)}
                 >
-                  {edicoes.map((s) => (
-                    <option key={s.usuario_id} value={s.usuario_id}>
-                      {s.nome}
-                    </option>
-                  ))}
+                  {edicoes
+                    .filter((s) => s.usuario_id)
+                    .map((s) => (
+                      <option key={s.id} value={s.usuario_id!}>
+                        {s.nome}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div>
