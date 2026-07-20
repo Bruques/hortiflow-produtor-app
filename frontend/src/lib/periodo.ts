@@ -37,6 +37,13 @@ export function dataEstaNoPeriodo(dataISO: string, periodo: PeriodoFiltro): bool
   return data.getUTCFullYear() === hoje.getUTCFullYear() && data.getUTCMonth() === hoje.getUTCMonth();
 }
 
+// Filtro de período personalizado (PeriodoPersonalizadoButton) — mesma comparação por dia UTC
+// usada em dataEstaNoPeriodo, mas contra um intervalo arbitrário em vez dos atalhos fixos.
+export function dataEstaNoIntervalo(dataISO: string, dataInicio: string, dataFim: string): boolean {
+  const data = inicioDoDiaUTC(dataISO);
+  return data >= inicioDoDiaUTC(dataInicio) && data <= inicioDoDiaUTC(dataFim);
+}
+
 // Rótulo relativo pro cabeçalho de grupo de uma lista agrupada por dia (wireframe: "Hoje, 15
 // de julho" / "Ontem, 14 de julho"). Sem depender de biblioteca de datas: só os dois casos
 // relativos mais úteis pro produtor, o resto cai no formato dd/mm/aaaa já usado no app.

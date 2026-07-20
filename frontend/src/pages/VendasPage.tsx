@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Check } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
+import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { listarVendasRequest } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
 import { formatarData, formatarMoeda } from '@/lib/utils';
-import { dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
+import { dataEstaNoIntervalo, dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
 import type { Venda } from '@/types/venda';
 import type { PeriodoFiltro } from '@/types/simulacao';
 
@@ -18,7 +19,18 @@ export default function VendasPage() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>('dia');
+  const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
+  const [periodoPersonalizado, setPeriodoPersonalizado] = useState<PeriodoPersonalizado | null>(null);
+
+  function selecionarPeriodo(valor: PeriodoFiltro) {
+    setPeriodoPersonalizado(null);
+    setPeriodo(valor);
+  }
+
+  function selecionarPeriodoPersonalizado(valor: PeriodoPersonalizado | null) {
+    setPeriodoPersonalizado(valor);
+    setPeriodo(valor ? null : 'dia');
+  }
 
   // Valor por caixa de todas as regras POR_VENDA ativas da sociedade — dá pra calcular a
   // despesa automática que cada Venda gerou (valor = soma_regras × quantidade, docs/specs/
@@ -47,8 +59,13 @@ export default function VendasPage() {
   }, [sociedadeId]);
 
   const vendasDoPeriodo = useMemo(
-    () => vendas.filter((v) => dataEstaNoPeriodo(v.data, periodo)),
-    [vendas, periodo]
+    () =>
+      vendas.filter((v) =>
+        periodoPersonalizado
+          ? dataEstaNoIntervalo(v.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
+          : dataEstaNoPeriodo(v.data, periodo ?? 'dia')
+      ),
+    [vendas, periodo, periodoPersonalizado]
   );
 
   const totalPeriodo = vendasDoPeriodo.reduce((acc, v) => acc + Number(v.total), 0);
@@ -74,7 +91,10 @@ export default function VendasPage() {
           <p className="mt-0.5 text-[12.5px] text-hf-stone-600">{safra.nome}</p>
         </div>
 
-        <PeriodToggle value={periodo} onChange={setPeriodo} />
+        <div className="flex flex-col gap-2">
+          <PeriodToggle value={periodo} onChange={selecionarPeriodo} />
+          <PeriodoPersonalizadoButton value={periodoPersonalizado} onChange={selecionarPeriodoPersonalizado} />
+        </div>
 
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 

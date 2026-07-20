@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { X, Receipt } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
+import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { listarDespesasRequest } from '@/services/despesas';
 import { confirmarSugestaoRequest, listarSugestoesRequest } from '@/services/regrasDespesaRecorrente';
 import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
-import { dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
+import { dataEstaNoIntervalo, dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
 import type { Despesa } from '@/types/despesa';
@@ -21,7 +22,18 @@ export default function DespesasPage() {
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>('dia');
+  const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
+  const [periodoPersonalizado, setPeriodoPersonalizado] = useState<PeriodoPersonalizado | null>(null);
+
+  function selecionarPeriodo(valor: PeriodoFiltro) {
+    setPeriodoPersonalizado(null);
+    setPeriodo(valor);
+  }
+
+  function selecionarPeriodoPersonalizado(valor: PeriodoPersonalizado | null) {
+    setPeriodoPersonalizado(valor);
+    setPeriodo(valor ? null : 'dia');
+  }
 
   const [sugestoes, setSugestoes] = useState<SugestaoDespesaRecorrente[]>([]);
   const [sugestoesDispensadas, setSugestoesDispensadas] = useState<Set<string>>(new Set());
@@ -41,8 +53,13 @@ export default function DespesasPage() {
   }, [safraId]);
 
   const despesasDoPeriodo = useMemo(
-    () => despesas.filter((d) => dataEstaNoPeriodo(d.data, periodo)),
-    [despesas, periodo]
+    () =>
+      despesas.filter((d) =>
+        periodoPersonalizado
+          ? dataEstaNoIntervalo(d.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
+          : dataEstaNoPeriodo(d.data, periodo ?? 'dia')
+      ),
+    [despesas, periodo, periodoPersonalizado]
   );
 
   const totalPeriodo = despesasDoPeriodo.reduce((acc, d) => acc + Number(d.valor), 0);
@@ -90,7 +107,10 @@ export default function DespesasPage() {
           </div>
         </div>
 
-        <PeriodToggle value={periodo} onChange={setPeriodo} />
+        <div className="flex flex-col gap-2">
+          <PeriodToggle value={periodo} onChange={selecionarPeriodo} />
+          <PeriodoPersonalizadoButton value={periodoPersonalizado} onChange={selecionarPeriodoPersonalizado} />
+        </div>
 
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 

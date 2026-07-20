@@ -148,6 +148,15 @@ GET /safras/:id/despesas
 
 Schema Prisma (`model Despesa`): adicionar `descricao String?`, nova migração.
 
+## Adendo (2026-07-20) — filtro de período personalizado nas listas de Despesas e Despesas Pessoais
+
+Origem: mesmo item de backlog do adendo de `05-calculo-e-painel-simulacao.md` (usuário não conseguia filtrar a lista por uma data avulsa, ex: ontem), estendido às telas `DespesasPage` e `DespesasPessoaisPage` depois de validado no painel de Início.
+
+- Reaproveita o `PeriodoPersonalizadoButton` já construído pro painel de Início — mesmo ícone de calendário abaixo do `PeriodToggle`, mesma sheet com duas datas (início/fim)
+- Diferença em relação ao painel de Início: aqui o filtro é **client-side**, sobre a lista já carregada da Safra inteira (`GET /safras/:id/despesas` e `GET /safras/:id/despesas-pessoais` não aceitam filtro de período — nunca aceitaram, mesmo antes deste adendo)
+- Nova função `dataEstaNoIntervalo(dataISO, dataInicio, dataFim)` em `frontend/src/lib/periodo.ts`, ao lado de `dataEstaNoPeriodo` — mesma comparação por dia em UTC, mas contra um intervalo arbitrário em vez dos atalhos fixos
+- Nenhuma mudança de contrato de API nem de schema
+
 ## Critérios de aceite
 
 1. Dado um sócio de uma Sociedade, `POST /sociedades/:id/safras` cria a Safra com status `EM_ANDAMENTO`

@@ -133,6 +133,14 @@ model Despesa {
 
 **Papel `MISTO` incluído na autorização de criar/editar regra:** o CLAUDE.md diz "sempre o financiador — só ele configura", mas o papel `MISTO` (sócio que financia e trabalha) faz parte financeiramente também; tratcandos-o como equivalente a financiador aqui evita bloquear um caso real sem necessidade. Se isso não fizer sentido na prática, é uma linha só pra restringir a `FINANCIADOR` puro.
 
+## Adendo (2026-07-20) — filtro de período personalizado na lista de Vendas
+
+Origem: mesmo item de backlog do adendo em `05-calculo-e-painel-simulacao.md` e `03-safra-despesas-e-despesa-pessoal.md`, estendido à tela `VendasPage`.
+
+- Reaproveita o `PeriodoPersonalizadoButton` (ícone de calendário abaixo do `PeriodToggle`, sheet com data início/fim)
+- Filtro **client-side** sobre a lista já carregada de `GET /safras/:id/vendas` (que não aceita filtro de período) — mesma função `dataEstaNoIntervalo` usada nas outras telas
+- Nenhuma mudança de contrato de API nem de schema
+
 ## Critérios de aceite
 
 1. Dado uma Safra em andamento, `POST /safras/:id/vendas` cria a Venda com `total` calculado no backend
