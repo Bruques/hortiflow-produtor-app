@@ -3,9 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Calendar, ChevronRight, ShoppingCart, Wallet, TrendingUp, Package, CirclePlus, CircleMinus, PiggyBank, FileText } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
+import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest } from '@/services/auth';
-import { buscarSimulacaoRequest } from '@/services/simulacao';
+import { buscarSimulacaoRequest, buscarSimulacaoPersonalizadaRequest } from '@/services/simulacao';
 import { listarSociosRequest } from '@/services/sociedades';
 import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
 import { ROTULO_STATUS_SAFRA, ROTULO_PAPEL_SOCIO } from '@/lib/rotulos';
@@ -21,7 +22,8 @@ export default function ResumoPage() {
 
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [socios, setSocios] = useState<Socio[]>([]);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>('dia');
+  const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
+  const [periodoPersonalizado, setPeriodoPersonalizado] = useState<PeriodoPersonalizado | null>(null);
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -31,14 +33,27 @@ export default function ResumoPage() {
     listarSociosRequest(sociedadeId).then((res) => setSocios(res.socios)).catch(() => {});
   }, [sociedadeId]);
 
+  function selecionarPeriodo(valor: PeriodoFiltro) {
+    setPeriodoPersonalizado(null);
+    setPeriodo(valor);
+  }
+
+  function selecionarPeriodoPersonalizado(valor: PeriodoPersonalizado | null) {
+    setPeriodoPersonalizado(valor);
+    setPeriodo(valor ? null : 'dia');
+  }
+
   useEffect(() => {
     setCarregando(true);
     setErro(null);
-    buscarSimulacaoRequest(safraId, periodo)
+    const requisicao = periodoPersonalizado
+      ? buscarSimulacaoPersonalizadaRequest(safraId, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
+      : buscarSimulacaoRequest(safraId, periodo ?? 'dia');
+    requisicao
       .then(setSimulacao)
       .catch(() => setErro('Não foi possível carregar o resumo'))
       .finally(() => setCarregando(false));
-  }, [safraId, periodo]);
+  }, [safraId, periodo, periodoPersonalizado]);
 
   const meuDivisao = simulacao?.divisao.find((d) => d.socio_id === usuarioId) ?? null;
   const percentualAnel = Math.min(100, Math.max(0, meuDivisao?.percentual ?? 0));
@@ -73,7 +88,10 @@ export default function ResumoPage() {
           </span>
         </button>
 
-        <PeriodToggle value={periodo} onChange={setPeriodo} />
+        <div className="flex flex-col gap-2">
+          <PeriodToggle value={periodo} onChange={selecionarPeriodo} />
+          <PeriodoPersonalizadoButton value={periodoPersonalizado} onChange={selecionarPeriodoPersonalizado} />
+        </div>
 
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 

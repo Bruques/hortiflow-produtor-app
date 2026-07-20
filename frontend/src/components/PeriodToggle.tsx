@@ -9,7 +9,9 @@ const OPCOES: { valor: PeriodoFiltro; label: string }[] = [
 ];
 
 interface PeriodToggleProps {
-  value: PeriodoFiltro;
+  // null quando um período personalizado (ver PeriodoPersonalizadoButton) está ativo —
+  // nenhum dos 4 botões fica marcado nesse caso.
+  value: PeriodoFiltro | null;
   onChange: (valor: PeriodoFiltro) => void;
 }
 

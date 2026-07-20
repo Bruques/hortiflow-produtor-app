@@ -76,6 +76,8 @@ GET /safras/:id/simulacao?data_inicio=YYYY-MM-DD&data_fim=YYYY-MM-DD
 ## Decisões registradas durante a implementação
 
 - **Campo `caixasVendidas` na resposta de `GET /safras/:id/simulacao`** (adicionado durante o redesenho da tela de Início, `docs/design/notas-de-design.md`): o card "Caixas vendidas" do dashboard precisa do total de caixas do período, que não existia na resposta original. Somado no controller a partir da lista de vendas já buscada pro período (`vendas.reduce(...)`), sem tocar em `calcularDivisao` — mantém o service de divisão isolado e focado só em valores monetários, conforme a regra crítica do CLAUDE.md.
+- **Filtro de data personalizada no painel de Início** (item de backlog, 2026-07-20): até aqui o `PeriodToggle` só oferecia Hoje/Semana/Mês/Safra — o usuário não conseguia ver, por exemplo, só o dia de ontem. O backend já suportava `data_inicio`/`data_fim` (rota já documentada acima), então a lacuna era só de UI. Solução: um ícone de calendário ao lado do `PeriodToggle` (não um 5º botão dentro dele, pra não apertar o toggle em telas mobile) que abre uma sheet com dois `DatePickerField` (data início/fim) e reaproveita `buscarSimulacaoPersonalizadaRequest` (já existente, usado até então só pela tela de Acertos). Ao confirmar um intervalo personalizado, nenhum botão do toggle fica marcado; o ícone passa a mostrar a data (ou intervalo) escolhido no lugar do ícone genérico.
+  - Escopo desta rodada: só a tela de Início (`ResumoPage.tsx`). O `PeriodToggle` também é usado em Despesas/Vendas/Despesas Pessoais, mas ali como filtro client-side sobre listas já carregadas (`lib/periodo.ts`), sem chamar a API — aplicar o mesmo filtro personalizado lá é trabalho futuro (pedido explícito do dev de já deixar o componente pronto para essa reutilização).
 
 ## Decisão de arquitetura a registrar
 
@@ -96,3 +98,5 @@ Nenhuma mudança de schema — reaproveita `Despesa`, `Venda` e `SocioSociedade`
 7. `GET /safras/:id/simulacao` sem nenhum filtro retorna 400
 8. Um sócio com papel `MEEIRO` vê exatamente o mesmo resultado que um `FINANCIADOR` veria para o mesmo período (nenhum dado oculto)
 9. Frontend: tela de painel com seletor de dia/semana/mês/safra, mostrando receita, despesas, lucro líquido e a divisão por sócio (nome, percentual, valor)
+10. Frontend (Início): ao lado do `PeriodToggle`, um ícone de calendário abre uma sheet para escolher data início e data fim; ao confirmar, o painel recalcula usando `data_inicio`/`data_fim` (via `buscarSimulacaoPersonalizadaRequest`) e nenhum botão do toggle fica marcado como selecionado
+11. Frontend (Início): ao voltar a tocar em Hoje/Semana/Mês/Safra depois de um filtro personalizado, o painel volta a usar `periodo=` normalmente e o ícone de calendário volta ao estado neutro
