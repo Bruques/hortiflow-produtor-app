@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, ChevronRight, ShoppingCart, Wallet, TrendingUp, Package, CirclePlus, CircleMinus, PiggyBank, FileText } from 'lucide-react';
+import { Calendar, ChevronRight, ShoppingCart, Wallet, TrendingUp, CirclePlus, CircleMinus, PiggyBank, FileText } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
 import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
@@ -8,10 +8,13 @@ import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest } from '@/services/auth';
 import { buscarSimulacaoRequest, buscarSimulacaoPersonalizadaRequest } from '@/services/simulacao';
 import { listarSociosRequest } from '@/services/sociedades';
+import { listarVendasRequest } from '@/services/vendas';
 import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
+import { dataEstaNoIntervalo, dataEstaNoPeriodo } from '@/lib/periodo';
 import { ROTULO_STATUS_SAFRA, ROTULO_PAPEL_SOCIO } from '@/lib/rotulos';
 import type { PeriodoFiltro, Simulacao } from '@/types/simulacao';
 import type { Socio } from '@/types/sociedade';
+import type { Venda } from '@/types/venda';
 
 const RAIO_ANEL = 31;
 const CIRCUNFERENCIA_ANEL = 2 * Math.PI * RAIO_ANEL;
@@ -27,11 +30,16 @@ export default function ResumoPage() {
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [vendas, setVendas] = useState<Venda[]>([]);
 
   useEffect(() => {
     meRequest().then((res) => setUsuarioId(res.usuario.id)).catch(() => {});
     listarSociosRequest(sociedadeId).then((res) => setSocios(res.socios)).catch(() => {});
   }, [sociedadeId]);
+
+  useEffect(() => {
+    listarVendasRequest(safraId).then((res) => setVendas(res.vendas)).catch(() => {});
+  }, [safraId]);
 
   function selecionarPeriodo(valor: PeriodoFiltro) {
     setPeriodoPersonalizado(null);
@@ -58,6 +66,20 @@ export default function ResumoPage() {
   const meuDivisao = simulacao?.divisao.find((d) => d.socio_id === usuarioId) ?? null;
   const percentualAnel = Math.min(100, Math.max(0, meuDivisao?.percentual ?? 0));
   const offsetAnel = CIRCUNFERENCIA_ANEL * (1 - percentualAnel / 100);
+
+  // Mesmo recorte de período do resto da tela (PeriodToggle/PeriodoPersonalizadoButton),
+  // mostrando só as 5 mais recentes — a lista completa fica na tela de Vendas.
+  const ultimasVendas = useMemo(
+    () =>
+      vendas
+        .filter((v) =>
+          periodoPersonalizado
+            ? dataEstaNoIntervalo(v.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
+            : dataEstaNoPeriodo(v.data, periodo ?? 'dia')
+        )
+        .slice(0, 5),
+    [vendas, periodo, periodoPersonalizado]
+  );
 
   return (
     <div>
@@ -149,31 +171,59 @@ export default function ResumoPage() {
                   <span className="text-xs text-hf-stone-600">Despesas</span>
                   <span className="-mt-1.5 text-[17px] font-extrabold tabular-nums">{formatarMoeda(simulacao.despesas)}</span>
                 </div>
-                <div className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5">
-                  <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-hf-green-100">
+                <div className="col-span-2 flex items-center gap-3 rounded-2xl border border-hf-line p-3.5">
+                  <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-hf-green-100">
                     <TrendingUp className="h-[17px] w-[17px] text-hf-green-600" />
                   </div>
-                  <span className="text-xs text-hf-stone-600">Lucro líquido</span>
-                  <span
-                    className={
-                      '-mt-1.5 text-[17px] font-extrabold tabular-nums ' +
-                      (simulacao.lucroLiquido < 0 ? 'text-hf-red' : '')
-                    }
-                  >
-                    {formatarMoeda(simulacao.lucroLiquido)}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5">
-                  <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-hf-amber-bg">
-                    <Package className="h-[17px] w-[17px] text-hf-amber" />
+                  <div className="flex flex-1 items-center justify-between">
+                    <span className="text-xs text-hf-stone-600">Lucro líquido</span>
+                    <span
+                      className={
+                        'text-[17px] font-extrabold tabular-nums ' +
+                        (simulacao.lucroLiquido < 0 ? 'text-hf-red' : '')
+                      }
+                    >
+                      {formatarMoeda(simulacao.lucroLiquido)}
+                    </span>
                   </div>
-                  <span className="text-xs text-hf-stone-600">Vendido</span>
-                  <span className="-mt-1.5 text-[15px] font-extrabold tabular-nums">
-                    {simulacao.quantidadePorUnidade.length > 0
-                      ? simulacao.quantidadePorUnidade.map((u) => `${u.quantidade} ${u.unidade_nome}`).join(' · ')
-                      : '0'}
-                  </span>
                 </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2.5 flex items-baseline justify-between">
+                <h3 className="text-base font-extrabold text-hf-stone-900">Vendas recentes</h3>
+                <Link
+                  to={`/safras/${safraId}/vendas`}
+                  className="flex items-center gap-0.5 text-[12.5px] font-bold text-hf-green-700"
+                >
+                  Ver todas
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+              {ultimasVendas.length === 0 && (
+                <p className="text-center text-sm text-hf-stone-600">Nenhuma venda neste período.</p>
+              )}
+              <div>
+                {ultimasVendas.map((v) => (
+                  <div
+                    key={v.id}
+                    className="flex items-center gap-3 border-b border-hf-cream-100 py-3 last:border-b-0 last:pb-0"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hf-blue-bg">
+                      <ShoppingCart className="h-[18px] w-[18px] text-hf-blue" strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 text-sm font-bold text-hf-stone-900">
+                        {v.quantidade} {v.unidade_nome} × {formatarMoeda(Number(v.preco))}
+                      </p>
+                      <p className="m-0 mt-0.5 text-xs text-hf-stone-600">{formatarData(v.data)}</p>
+                    </div>
+                    <div className="shrink-0 text-[14.5px] font-extrabold tabular-nums text-hf-green-800">
+                      {formatarMoeda(Number(v.total))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

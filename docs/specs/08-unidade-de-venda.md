@@ -14,7 +14,7 @@ Isso resolve o caso concreto do morango fresco/congelado. Não modela ainda "cul
 - `Venda` passa a ter `unidade_id` obrigatório
 - `RegraDespesaRecorrente` do tipo `POR_VENDA` passa a ter `unidade_id` obrigatório — a regra só dispara despesa automática para Vendas daquela unidade específica (ex: regra "R$1/caixa" não dispara para uma Venda em Kg)
 - Migração de dados: cria automaticamente uma unidade "Caixa" para cada Sociedade já existente, e associa a ela todas as Vendas e regras `POR_VENDA` já cadastradas (nenhum dado antigo fica sem unidade)
-- Frontend: seletor de unidade ao lançar Venda; tela de cadastro de unidades em Configurações (mesmo padrão de RegraDespesaRecorrente); card "Caixas vendidas" do painel vira uma quebra por unidade
+- Frontend: seletor de unidade ao lançar Venda; tela de cadastro de unidades em Configurações (mesmo padrão de RegraDespesaRecorrente); card "Caixas vendidas" do painel é substituído por uma lista de "Vendas recentes" (adendo 2026-07-21)
 
 **Fica de fora (não implementar nesta task):**
 - Conceito de Produto/Cultura na Safra (Fase 2 — fora do CLAUDE.md atual, mas citado como motivação)
@@ -48,8 +48,7 @@ Isso resolve o caso concreto do morango fresco/congelado. Não modela ainda "cul
 
 ### Painel de simulação
 - O campo `caixasVendidas` (hoje um único número, somando `quantidade` de todas as Vendas do período — `simulacao.controller.ts`) deixa de fazer sentido como está, já que "quantidade" pode ser caixa ou kg misturados
-- Passa a agrupar por unidade: `quantidadePorUnidade: [{ unidade_id, unidade_nome, quantidade }]`
-- O card "Caixas vendidas" do dashboard (`ResumoPage.tsx`) exibe essa lista (ex: "120 Caixas · 35 Kg") em vez de um número fixo rotulado "caixas"
+- Passa a agrupar por unidade: `quantidadePorUnidade: [{ unidade_id, unidade_nome, quantidade }]` (usado pela tela de Vendas pro resumo do período; ver adendo abaixo sobre o dashboard)
 
 ## Contrato de API
 
@@ -144,4 +143,13 @@ model RegraDespesaRecorrente {
 7. `PATCH /unidades-venda/:id` com `{ ativo: false }` faz a unidade sumir da lista de opções para novas Vendas/Regras, mas Vendas e Regras já existentes continuam funcionando normalmente
 8. Rodada a migração: toda Sociedade existente tem uma unidade "Caixa", e toda Venda/Regra `POR_VENDA` antiga aponta para ela — nenhum dado antigo fica com `unidade_id` nulo
 9. `GET /safras/:id/simulacao` retorna `quantidadePorUnidade` agrupando corretamente por unidade (não existe mais o campo `caixasVendidas`)
-10. Frontend: tela de lançar Venda tem seletor de unidade (obrigatório); tela de Configurações permite cadastrar/desativar unidades (só visível/editável para papel `FINANCIADOR`/`MISTO`); card do dashboard mostra quantidade por unidade
+10. Frontend: tela de lançar Venda tem seletor de unidade (obrigatório); tela de Configurações permite cadastrar/desativar unidades (só visível/editável para papel `FINANCIADOR`/`MISTO`); dashboard mostra "Vendas recentes" (ver adendo abaixo)
+
+## Adendo (2026-07-21) — card "Caixas vendidas" do dashboard vira lista "Vendas recentes"
+
+Origem: ao testar a feature, ficou claro que `quantidadePorUnidade` como texto único num card pequeno ("120 Caixas · 35 Kg · ...") quebra visualmente assim que a sociedade cadastra 3+ unidades — o card estoura o espaço do grid de 2 colunas e vira ilegível. O problema é de fundo: um card pensado pra **um número** não escala pra uma lista de tamanho variável.
+
+- Removido o card "Vendido" do grid "Resumo do período" em `ResumoPage.tsx` (grid de 4 tiles vira 3: Receita, Despesas, Lucro líquido)
+- Adicionada uma seção "Vendas recentes" logo abaixo, no mesmo padrão visual da lista de Divisão do lucro: até 5 vendas mais recentes do período selecionado (`PeriodToggle`/`PeriodoPersonalizadoButton` já existentes na tela), com link "Ver todas" pra tela de Vendas
+- Sem mudança de contrato de API — a tela passa a chamar também `GET /safras/:id/vendas` (já existente) e filtra client-side pelo mesmo período da simulação, reaproveitando `dataEstaNoPeriodo`/`dataEstaNoIntervalo` de `lib/periodo.ts`
+- `quantidadePorUnidade` continua existindo na resposta de `GET /safras/:id/simulacao` e sendo usado na tela de Vendas (resumo do período) — só deixou de ser exibido no dashboard
