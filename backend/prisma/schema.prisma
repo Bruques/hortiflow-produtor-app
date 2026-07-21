@@ -66,6 +66,7 @@ model Sociedade {
   socios            SocioSociedade[]
   safras            Safra[]
   regrasRecorrentes RegraDespesaRecorrente[]
+  unidadesVenda     UnidadeVenda[]
 
   @@map("sociedades")
 }
@@ -161,6 +162,7 @@ model AporteTrabalho {
 model Venda {
   id         String   @id @default(uuid())
   safra_id   String
+  unidade_id String
   data       DateTime
   quantidade Decimal  @db.Decimal(10, 2)
   preco      Decimal  @db.Decimal(10, 2)
@@ -168,10 +170,26 @@ model Venda {
   comprador  String?
   criado_em  DateTime @default(now())
 
-  safra           Safra     @relation(fields: [safra_id], references: [id])
+  safra           Safra        @relation(fields: [safra_id], references: [id])
+  unidade         UnidadeVenda @relation(fields: [unidade_id], references: [id])
   despesasGeradas Despesa[]
 
   @@map("vendas")
+}
+
+model UnidadeVenda {
+  id           String   @id @default(uuid())
+  sociedade_id String
+  nome         String
+  ativo        Boolean  @default(true)
+  criado_em    DateTime @default(now())
+
+  sociedade Sociedade                @relation(fields: [sociedade_id], references: [id])
+  vendas    Venda[]
+  regras    RegraDespesaRecorrente[]
+
+  @@unique([sociedade_id, nome])
+  @@map("unidades_venda")
 }
 
 model RegraDespesaRecorrente {
@@ -182,12 +200,14 @@ model RegraDespesaRecorrente {
   tipo_gatilho TipoGatilhoRegra
   tipo_despesa TipoDespesa
   valor        Decimal          @db.Decimal(10, 2)
+  unidade_id   String?
   ativo        Boolean          @default(true)
   criado_em    DateTime         @default(now())
 
-  sociedade Sociedade @relation(fields: [sociedade_id], references: [id])
-  socio     Usuario   @relation("RegraSocio", fields: [socio_id], references: [id])
-  criador   Usuario   @relation("RegraCriador", fields: [criado_por], references: [id])
+  sociedade Sociedade     @relation(fields: [sociedade_id], references: [id])
+  socio     Usuario       @relation("RegraSocio", fields: [socio_id], references: [id])
+  criador   Usuario       @relation("RegraCriador", fields: [criado_por], references: [id])
+  unidade   UnidadeVenda? @relation(fields: [unidade_id], references: [id])
   despesas  Despesa[]
 
   @@map("regras_despesa_recorrente")

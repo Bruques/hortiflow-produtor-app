@@ -167,8 +167,12 @@ export default function ResumoPage() {
                   <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-hf-amber-bg">
                     <Package className="h-[17px] w-[17px] text-hf-amber" />
                   </div>
-                  <span className="text-xs text-hf-stone-600">Caixas vendidas</span>
-                  <span className="-mt-1.5 text-[17px] font-extrabold tabular-nums">{simulacao.caixasVendidas}</span>
+                  <span className="text-xs text-hf-stone-600">Vendido</span>
+                  <span className="-mt-1.5 text-[15px] font-extrabold tabular-nums">
+                    {simulacao.quantidadePorUnidade.length > 0
+                      ? simulacao.quantidadePorUnidade.map((u) => `${u.quantidade} ${u.unidade_nome}`).join(' · ')
+                      : '0'}
+                  </span>
                 </div>
               </div>
             </div>

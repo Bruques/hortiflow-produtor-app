@@ -3,12 +3,14 @@ import { z } from 'zod';
 import * as safrasService from '../services/safras.service';
 import * as vendasService from '../services/vendas.service';
 import * as acertosService from '../services/acertos.service';
+import * as unidadesService from '../services/unidadesVenda.service';
 
 const criarSchema = z.object({
   data: z.coerce.date(),
   quantidade: z.number().positive(),
   preco: z.number().positive(),
   comprador: z.string().optional(),
+  unidade_id: z.string().min(1),
 });
 
 const atualizarSchema = criarSchema.partial();
@@ -29,6 +31,12 @@ export async function criar(req: Request, res: Response): Promise<void> {
   const parsed = criarSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Dados de venda inválidos' });
+    return;
+  }
+
+  const unidadeValida = await unidadesService.unidadePertenceASociedade(parsed.data.unidade_id, safra.sociedade_id);
+  if (!unidadeValida) {
+    res.status(422).json({ error: 'unidade_id informado não pertence a essa sociedade' });
     return;
   }
 
@@ -78,6 +86,14 @@ export async function atualizar(req: Request, res: Response): Promise<void> {
   if (!parsed.success) {
     res.status(400).json({ error: 'Dados de venda inválidos' });
     return;
+  }
+
+  if (parsed.data.unidade_id) {
+    const unidadeValida = await unidadesService.unidadePertenceASociedade(parsed.data.unidade_id, safra.sociedade_id);
+    if (!unidadeValida) {
+      res.status(422).json({ error: 'unidade_id informado não pertence a essa sociedade' });
+      return;
+    }
   }
 
   const atualizada = await vendasService.atualizarVenda(vendaId, safra.sociedade_id, parsed.data);

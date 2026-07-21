@@ -5,6 +5,8 @@ import { ArrowLeft, Minus, Plus, Store, Info, Trash2 } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarVendaRequest, atualizarVendaRequest, excluirVendaRequest, listarVendasRequest } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
+import { listarUnidadesRequest } from '@/services/unidadesVenda';
+import type { UnidadeVenda } from '@/types/unidadeVenda';
 import { DatePickerField } from '@/components/ui/date-picker-field';
 import { cn, formatarMoeda } from '@/lib/utils';
 
@@ -42,22 +44,40 @@ export default function NovaVendaPage() {
   const [quantidadeTexto, setQuantidadeTexto] = useState('1');
   const [precoCentavos, setPrecoCentavos] = useState(''); // só dígitos, sem formatação
   const [comprador, setComprador] = useState('');
-  const [valorAutoPorCaixa, setValorAutoPorCaixa] = useState(0);
+  const [unidades, setUnidades] = useState<UnidadeVenda[]>([]);
+  const [unidadeId, setUnidadeId] = useState('');
+  const [regrasPorVenda, setRegrasPorVenda] = useState<{ unidade_id: string | null; valor: string }[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [carregandoVenda, setCarregandoVenda] = useState(emEdicao);
 
   useEffect(() => {
-    listarRegrasRequest(sociedadeId)
+    listarUnidadesRequest(sociedadeId)
       .then((res) => {
-        const soma = res.regras
-          .filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo)
-          .reduce((acc, r) => acc + Number(r.valor), 0);
-        setValorAutoPorCaixa(soma);
+        setUnidades(res.unidades);
+        const ativas = res.unidades.filter((u) => u.ativo);
+        if (!emEdicao && ativas.length > 0) {
+          setUnidadeId((atual) => atual || ativas[0].id);
+        }
       })
       .catch(() => {});
-  }, [sociedadeId]);
+    listarRegrasRequest(sociedadeId)
+      .then((res) => {
+        setRegrasPorVenda(
+          res.regras
+            .filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo)
+            .map((r) => ({ unidade_id: r.unidade_id, valor: r.valor }))
+        );
+      })
+      .catch(() => {});
+  }, [sociedadeId, emEdicao]);
+
+  // Regra "por venda" só dispara despesa automática pra unidade a que foi amarrada
+  // (ex: R$1/caixa não se aplica a uma venda em Kg) — soma só as regras da unidade escolhida.
+  const valorAutoPorUnidade = regrasPorVenda
+    .filter((r) => r.unidade_id === unidadeId)
+    .reduce((acc, r) => acc + Number(r.valor), 0);
 
   // Mesma lógica da Nova despesa: sem endpoint de "buscar uma venda", reaproveita a lista que
   // a tela de Vendas já usa e filtra pelo id da rota.
@@ -73,6 +93,7 @@ export default function NovaVendaPage() {
         setQuantidadeTexto(String(encontrada.quantidade));
         setPrecoCentavos(String(Math.round(Number(encontrada.preco) * 100)));
         setComprador(encontrada.comprador ?? '');
+        setUnidadeId(encontrada.unidade_id);
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
       })
@@ -102,8 +123,9 @@ export default function NovaVendaPage() {
   const quantidade = Number(quantidadeTexto) || 0;
   const precoNumero = precoCentavos ? Number(precoCentavos) / 100 : 0;
   const total = quantidade * precoNumero;
-  const valorAuto = valorAutoPorCaixa * quantidade;
-  const formValido = quantidade > 0 && precoNumero > 0 && !!data;
+  const valorAuto = valorAutoPorUnidade * quantidade;
+  const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
+  const formValido = quantidade > 0 && precoNumero > 0 && !!data && !!unidadeId;
 
   function mensagemErro(e: unknown, padrao: string): string {
     return (axios.isAxiosError(e) && e.response?.data?.error) || padrao;
@@ -119,6 +141,7 @@ export default function NovaVendaPage() {
         quantidade,
         preco: precoNumero,
         comprador: comprador || undefined,
+        unidade_id: unidadeId,
       };
       if (emEdicao && vendaId) {
         await atualizarVendaRequest(safraId, vendaId, input);
@@ -211,9 +234,32 @@ export default function NovaVendaPage() {
           )}
         </div>
 
+        {unidades.length > 1 && (
+          <div>
+            <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Unidade</label>
+            <div className="flex flex-wrap gap-2">
+              {unidades.filter((u) => u.ativo || u.id === unidadeId).map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setUnidadeId(u.id)}
+                  className={cn(
+                    'whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[12.5px] font-bold',
+                    unidadeId === u.id
+                      ? 'border-hf-green-800 bg-hf-green-800 text-white'
+                      : 'border-hf-line bg-white text-hf-stone-700'
+                  )}
+                >
+                  {u.nome}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="mb-1 block text-center text-[12.5px] font-bold text-hf-green-700">
-            Quantidade de caixas
+            Quantidade{unidadeSelecionada ? ` (${unidadeSelecionada.nome})` : ''}
           </label>
           <div className="flex items-center justify-center gap-6 py-1.5">
             <button
@@ -229,13 +275,13 @@ export default function NovaVendaPage() {
               <input
                 type="text"
                 inputMode="numeric"
-                aria-label="Quantidade de caixas"
+                aria-label="Quantidade"
                 value={quantidadeTexto}
                 onChange={(e) => alterarQuantidade(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 className="w-full bg-transparent text-center text-[32px] font-extrabold tabular-nums text-hf-stone-900 outline-none"
               />
-              <span className="text-[11px] text-hf-stone-400">caixas</span>
+              <span className="text-[11px] text-hf-stone-400">{unidadeSelecionada?.nome ?? 'unidades'}</span>
             </div>
             <button
               type="button"
@@ -249,7 +295,9 @@ export default function NovaVendaPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Preço por caixa</label>
+          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">
+            Preço por {unidadeSelecionada?.nome.toLowerCase() ?? 'unidade'}
+          </label>
           <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-hf-line px-4 py-3 focus-within:border-hf-green-500 focus-within:ring-2 focus-within:ring-hf-green-100">
             <span className="text-[15px] font-bold text-hf-stone-600">R$</span>
             <input
@@ -290,7 +338,7 @@ export default function NovaVendaPage() {
                 Vai gerar despesa automática de {formatarMoeda(valorAuto)}
               </p>
               <p className="m-0 mt-0.5 text-[11.5px] text-hf-stone-600">
-                Regra recorrente ativa: {formatarMoeda(valorAutoPorCaixa)} por caixa vendida
+                Regra recorrente ativa: {formatarMoeda(valorAutoPorUnidade)} por {unidadeSelecionada?.nome.toLowerCase() ?? 'unidade'} vendida
               </p>
             </div>
           </div>

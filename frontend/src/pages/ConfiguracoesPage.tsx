@@ -13,12 +13,18 @@ import {
   criarRegraRequest,
   listarRegrasRequest,
 } from '@/services/regrasDespesaRecorrente';
+import {
+  atualizarAtivoUnidadeRequest,
+  criarUnidadeRequest,
+  listarUnidadesRequest,
+} from '@/services/unidadesVenda';
 import { cn, formatarMoeda, iniciais } from '@/lib/utils';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
 import type { PapelSocio, Socio } from '@/types/sociedade';
 import type { RegraDespesaRecorrente, TipoGatilhoRegra } from '@/types/regraDespesaRecorrente';
 import type { TipoDespesa } from '@/types/despesa';
+import type { UnidadeVenda } from '@/types/unidadeVenda';
 
 // Cores do gráfico de proporção, na ordem dos sócios retornados pela API — cicla se houver
 // mais de 4 (raro no domínio, mas evita quebrar em vez de travar num índice fora do array).
@@ -72,7 +78,15 @@ export default function ConfiguracoesPage() {
   const [tipoGatilho, setTipoGatilho] = useState<TipoGatilhoRegra>('POR_VENDA');
   const [tipoDespesaRegra, setTipoDespesaRegra] = useState<TipoDespesa>('OUTRO');
   const [valorRegra, setValorRegra] = useState('');
+  const [unidadeRegra, setUnidadeRegra] = useState('');
   const [salvandoRegra, setSalvandoRegra] = useState(false);
+
+  const [unidades, setUnidades] = useState<UnidadeVenda[]>([]);
+  const [carregandoUnidades, setCarregandoUnidades] = useState(true);
+  const [erroUnidades, setErroUnidades] = useState<string | null>(null);
+  const [novaUnidadeAberta, setNovaUnidadeAberta] = useState(false);
+  const [nomeNovaUnidade, setNomeNovaUnidade] = useState('');
+  const [salvandoUnidade, setSalvandoUnidade] = useState(false);
 
   function carregarSocios() {
     if (!sociedadeId) return;
@@ -106,9 +120,23 @@ export default function ConfiguracoesPage() {
       .finally(() => setCarregandoRegras(false));
   }
 
+  function carregarUnidades() {
+    if (!sociedadeId) return;
+    setCarregandoUnidades(true);
+    listarUnidadesRequest(sociedadeId)
+      .then((res) => {
+        setUnidades(res.unidades);
+        const primeiraAtiva = res.unidades.find((u) => u.ativo);
+        if (primeiraAtiva) setUnidadeRegra((atual) => atual || primeiraAtiva.id);
+      })
+      .catch(() => setErroUnidades('Não foi possível carregar as unidades de venda'))
+      .finally(() => setCarregandoUnidades(false));
+  }
+
   useEffect(() => {
     carregarSocios();
     carregarRegras();
+    carregarUnidades();
     meRequest()
       .then((res) => {
         listarSociosRequest(sociedadeId!).then((r) => {
@@ -195,6 +223,7 @@ export default function ConfiguracoesPage() {
 
   async function criarRegra() {
     if (!sociedadeId || !socioRegra || !valorRegra) return;
+    if (tipoGatilho === 'POR_VENDA' && !unidadeRegra) return;
     setErroRegras(null);
     setSalvandoRegra(true);
     try {
@@ -203,6 +232,7 @@ export default function ConfiguracoesPage() {
         tipo_gatilho: tipoGatilho,
         tipo_despesa: tipoDespesaRegra,
         valor: Number(valorRegra),
+        unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
       });
       setValorRegra('');
       setNovaRegraAberta(false);
@@ -211,6 +241,33 @@ export default function ConfiguracoesPage() {
       setErroRegras('Não foi possível criar a regra');
     } finally {
       setSalvandoRegra(false);
+    }
+  }
+
+  async function alternarAtivoUnidade(unidade: UnidadeVenda) {
+    setErroUnidades(null);
+    try {
+      await atualizarAtivoUnidadeRequest(unidade.id, !unidade.ativo);
+      carregarUnidades();
+    } catch {
+      setErroUnidades('Não foi possível atualizar a unidade');
+    }
+  }
+
+  async function adicionarUnidade() {
+    if (!sociedadeId || !nomeNovaUnidade.trim()) return;
+    setErroUnidades(null);
+    setSalvandoUnidade(true);
+    try {
+      await criarUnidadeRequest(sociedadeId, nomeNovaUnidade.trim());
+      setNomeNovaUnidade('');
+      setNovaUnidadeAberta(false);
+      carregarUnidades();
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErroUnidades(data?.error ?? 'Não foi possível criar a unidade');
+    } finally {
+      setSalvandoUnidade(false);
     }
   }
 
@@ -390,6 +447,87 @@ export default function ConfiguracoesPage() {
           )}
         </div>
 
+        {souFinanciador && (
+          <div className="flex flex-col gap-3.5">
+            <div>
+              <h3 className="m-0 text-[15px] font-extrabold text-hf-stone-900">Unidades de venda</h3>
+              <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">Ex: Caixa, Kg — usadas ao lançar uma Venda</p>
+            </div>
+
+            {erroUnidades && <p className="text-center text-sm font-medium text-hf-red">{erroUnidades}</p>}
+            {carregandoUnidades && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
+
+            {!carregandoUnidades && (
+              <div>
+                {unidades.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between gap-2 border-b border-hf-cream-100 py-2.5 last:border-b-0">
+                    <span className="text-sm font-bold text-hf-stone-900">{u.nome}</span>
+                    <button
+                      type="button"
+                      aria-label={u.ativo ? `Desativar unidade ${u.nome}` : `Ativar unidade ${u.nome}`}
+                      onClick={() => alternarAtivoUnidade(u)}
+                      className={cn(
+                        'relative h-6 w-[42px] shrink-0 rounded-full transition-colors',
+                        u.ativo ? 'bg-hf-green-700' : 'bg-hf-line'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
+                          u.ativo ? 'left-[20px]' : 'left-0.5'
+                        )}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!novaUnidadeAberta && (
+              <button
+                type="button"
+                onClick={() => setNovaUnidadeAberta(true)}
+                className="flex items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-green-700 py-3 text-[13.5px] font-bold text-hf-green-700"
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.4} />
+                Nova unidade
+              </button>
+            )}
+
+            {novaUnidadeAberta && (
+              <div className="flex flex-col gap-3 rounded-2xl border border-hf-line p-3.5">
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Nome da unidade</label>
+                  <input
+                    type="text"
+                    value={nomeNovaUnidade}
+                    onChange={(e) => setNomeNovaUnidade(e.target.value)}
+                    placeholder="Ex: Kg"
+                    className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNovaUnidadeAberta(false)}
+                    className="flex-1 rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-700"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={adicionarUnidade}
+                    disabled={salvandoUnidade || !nomeNovaUnidade.trim()}
+                    className="flex-1 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+                  >
+                    {salvandoUnidade ? 'Adicionando...' : 'Adicionar'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-col gap-3.5">
           <div>
             <h3 className="m-0 text-[15px] font-extrabold text-hf-stone-900">Despesa recorrente</h3>
@@ -412,7 +550,8 @@ export default function ConfiguracoesPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="m-0 text-[13.5px] font-bold text-hf-stone-900">
-                    {formatarMoeda(Number(r.valor))} {porVenda ? 'por caixa vendida' : `· ${ROTULO_TIPO_DESPESA[r.tipo_despesa]}`}
+                    {formatarMoeda(Number(r.valor))}{' '}
+                    {porVenda ? `por ${r.unidade_nome?.toLowerCase() ?? 'unidade'} vendida` : `· ${ROTULO_TIPO_DESPESA[r.tipo_despesa]}`}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <span
@@ -483,10 +622,29 @@ export default function ConfiguracoesPage() {
                   value={tipoGatilho}
                   onChange={(e) => setTipoGatilho(e.target.value as TipoGatilhoRegra)}
                 >
-                  <option value="POR_VENDA">Por venda (valor por caixa)</option>
+                  <option value="POR_VENDA">Por venda (valor por unidade)</option>
                   <option value="POR_PERIODO">Por período (valor fixo recorrente)</option>
                 </select>
               </div>
+              {tipoGatilho === 'POR_VENDA' && (
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Unidade</label>
+                  <select
+                    className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                    value={unidadeRegra}
+                    onChange={(e) => setUnidadeRegra(e.target.value)}
+                  >
+                    {unidades.filter((u) => u.ativo).map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {unidades.filter((u) => u.ativo).length === 0 && (
+                    <p className="m-0 mt-1.5 text-xs text-hf-red">Cadastre uma unidade de venda antes de criar essa regra.</p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Tipo de despesa gerada</label>
                 <select
@@ -503,7 +661,7 @@ export default function ConfiguracoesPage() {
               </div>
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">
-                  {tipoGatilho === 'POR_VENDA' ? 'Valor por caixa (R$)' : 'Valor fixo (R$)'}
+                  {tipoGatilho === 'POR_VENDA' ? 'Valor por unidade (R$)' : 'Valor fixo (R$)'}
                 </label>
                 <input
                   type="number"
@@ -525,7 +683,7 @@ export default function ConfiguracoesPage() {
                 <button
                   type="button"
                   onClick={criarRegra}
-                  disabled={salvandoRegra || !socioRegra || !valorRegra}
+                  disabled={salvandoRegra || !socioRegra || !valorRegra || (tipoGatilho === 'POR_VENDA' && !unidadeRegra)}
                   className="flex-1 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
                 >
                   {salvandoRegra ? 'Criando...' : 'Criar regra'}

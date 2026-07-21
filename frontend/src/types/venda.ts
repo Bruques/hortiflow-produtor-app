@@ -5,4 +5,6 @@ export interface Venda {
   preco: string;
   total: string;
   comprador: string | null;
+  unidade_id: string;
+  unidade_nome: string;
 }

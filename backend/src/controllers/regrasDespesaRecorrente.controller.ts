@@ -3,12 +3,14 @@ import { z } from 'zod';
 import { TipoDespesa, TipoGatilhoRegra } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
 import * as regrasService from '../services/regrasDespesaRecorrente.service';
+import * as unidadesService from '../services/unidadesVenda.service';
 
 const criarSchema = z.object({
   socio_id: z.string().min(1),
   tipo_gatilho: z.nativeEnum(TipoGatilhoRegra),
   tipo_despesa: z.nativeEnum(TipoDespesa),
   valor: z.number().positive(),
+  unidade_id: z.string().min(1).optional(),
 });
 
 export async function criar(req: Request, res: Response): Promise<void> {
@@ -30,6 +32,18 @@ export async function criar(req: Request, res: Response): Promise<void> {
   if (!socioValido) {
     res.status(422).json({ error: 'socio_id informado não pertence a essa sociedade' });
     return;
+  }
+
+  if (parsed.data.tipo_gatilho === TipoGatilhoRegra.POR_VENDA) {
+    if (!parsed.data.unidade_id) {
+      res.status(422).json({ error: 'unidade_id é obrigatório para regras do tipo POR_VENDA' });
+      return;
+    }
+    const unidadeValida = await unidadesService.unidadePertenceASociedade(parsed.data.unidade_id, id);
+    if (!unidadeValida) {
+      res.status(422).json({ error: 'unidade_id informado não pertence a essa sociedade' });
+      return;
+    }
   }
 
   const regra = await regrasService.criarRegra(id, req.usuarioId, parsed.data);

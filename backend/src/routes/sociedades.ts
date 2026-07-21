@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as sociedadesController from '../controllers/sociedades.controller';
 import * as safrasController from '../controllers/safras.controller';
 import * as regrasController from '../controllers/regrasDespesaRecorrente.controller';
+import * as unidadesController from '../controllers/unidadesVenda.controller';
 import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
@@ -19,5 +20,7 @@ router.post('/:id/safras', safrasController.abrir);
 router.get('/:id/safras', safrasController.listar);
 router.post('/:id/regras-recorrentes', regrasController.criar);
 router.get('/:id/regras-recorrentes', regrasController.listar);
+router.post('/:id/unidades-venda', unidadesController.criar);
+router.get('/:id/unidades-venda', unidadesController.listar);
 
 export default router;

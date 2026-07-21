@@ -9,6 +9,8 @@ export interface RegraDespesaRecorrente {
   tipo_gatilho: TipoGatilhoRegra;
   tipo_despesa: TipoDespesa;
   valor: string;
+  unidade_id: string | null;
+  unidade_nome: string | null;
   ativo: boolean;
   criado_por: string;
 }

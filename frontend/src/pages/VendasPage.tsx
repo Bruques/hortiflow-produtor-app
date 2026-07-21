@@ -32,12 +32,12 @@ export default function VendasPage() {
     setPeriodo(valor ? null : 'dia');
   }
 
-  // Valor por caixa de todas as regras POR_VENDA ativas da sociedade — dá pra calcular a
-  // despesa automática que cada Venda gerou (valor = soma_regras × quantidade, docs/specs/
-  // 04-vendas-e-despesa-recorrente.md) sem precisar de um campo novo na API. Só é impreciso
-  // se uma regra tiver sido ativada/desativada depois da venda ser lançada — aceitável pra
-  // um selo informativo, já que quem manda no valor de verdade é a lista de Despesas.
-  const [valorAutoPorCaixa, setValorAutoPorCaixa] = useState(0);
+  // Valor por unidade de todas as regras POR_VENDA ativas da sociedade — dá pra calcular a
+  // despesa automática que cada Venda gerou (valor = soma_regras_da_mesma_unidade ×
+  // quantidade, docs/specs/08-unidade-de-venda.md) sem precisar de um campo novo na API. Só
+  // é impreciso se uma regra tiver sido ativada/desativada depois da venda ser lançada —
+  // aceitável pra um selo informativo, já que quem manda no valor de verdade é a lista de Despesas.
+  const [valorAutoPorUnidade, setValorAutoPorUnidade] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setCarregando(true);
@@ -50,10 +50,13 @@ export default function VendasPage() {
   useEffect(() => {
     listarRegrasRequest(sociedadeId)
       .then((res) => {
-        const soma = res.regras
-          .filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo)
-          .reduce((acc, r) => acc + Number(r.valor), 0);
-        setValorAutoPorCaixa(soma);
+        const somaPorUnidade: Record<string, number> = {};
+        res.regras
+          .filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo && r.unidade_id)
+          .forEach((r) => {
+            somaPorUnidade[r.unidade_id!] = (somaPorUnidade[r.unidade_id!] ?? 0) + Number(r.valor);
+          });
+        setValorAutoPorUnidade(somaPorUnidade);
       })
       .catch(() => {});
   }, [sociedadeId]);
@@ -69,7 +72,14 @@ export default function VendasPage() {
   );
 
   const totalPeriodo = vendasDoPeriodo.reduce((acc, v) => acc + Number(v.total), 0);
-  const caixasPeriodo = vendasDoPeriodo.reduce((acc, v) => acc + Number(v.quantidade), 0);
+
+  const quantidadePorUnidadePeriodo = useMemo(() => {
+    const porUnidade = new Map<string, number>();
+    for (const v of vendasDoPeriodo) {
+      porUnidade.set(v.unidade_nome, (porUnidade.get(v.unidade_nome) ?? 0) + Number(v.quantidade));
+    }
+    return [...porUnidade.entries()];
+  }, [vendasDoPeriodo]);
 
   const grupos = useMemo(() => {
     const porDia = new Map<string, Venda[]>();
@@ -102,7 +112,8 @@ export default function VendasPage() {
           <div>
             <p className="m-0 mb-0.5 text-xs text-hf-stone-600">Total vendido no período</p>
             <span className="text-[11px] text-hf-stone-400">
-              {caixasPeriodo} caixas · {vendasDoPeriodo.length} lançamento{vendasDoPeriodo.length === 1 ? '' : 's'}
+              {quantidadePorUnidadePeriodo.map(([nome, qtd]) => `${qtd} ${nome}`).join(' · ') || '0'} ·{' '}
+              {vendasDoPeriodo.length} lançamento{vendasDoPeriodo.length === 1 ? '' : 's'}
             </span>
           </div>
           <p className="m-0 text-[19px] font-extrabold tabular-nums text-hf-green-800">
@@ -122,7 +133,7 @@ export default function VendasPage() {
             </div>
             <div>
               {itens.map((v) => {
-                const valorAuto = valorAutoPorCaixa * Number(v.quantidade);
+                const valorAuto = (valorAutoPorUnidade[v.unidade_id] ?? 0) * Number(v.quantidade);
                 return (
                   <button
                     key={v.id}
@@ -135,7 +146,7 @@ export default function VendasPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="m-0 text-sm font-bold text-hf-stone-900">
-                        {v.quantidade} caixas × {formatarMoeda(Number(v.preco))}
+                        {v.quantidade} {v.unidade_nome} × {formatarMoeda(Number(v.preco))}
                       </p>
                       {v.comprador && (
                         <div className="mt-0.5 text-xs text-hf-stone-600">Comprador: {v.comprador}</div>

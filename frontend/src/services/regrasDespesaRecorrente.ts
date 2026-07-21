@@ -11,6 +11,7 @@ export interface CriarRegraInput {
   tipo_gatilho: TipoGatilhoRegra;
   tipo_despesa: TipoDespesa;
   valor: number;
+  unidade_id?: string;
 }
 
 export async function criarRegraRequest(

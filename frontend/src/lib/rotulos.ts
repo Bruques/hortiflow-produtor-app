@@ -27,7 +27,7 @@ export const ROTULO_TIPO_ACERTO: Record<TipoAcerto, string> = {
 };
 
 export const ROTULO_TIPO_GATILHO: Record<TipoGatilhoRegra, string> = {
-  POR_VENDA: 'Por venda (valor por caixa)',
+  POR_VENDA: 'Por venda (valor por unidade)',
   POR_PERIODO: 'Por período (valor fixo recorrente)',
 };
 

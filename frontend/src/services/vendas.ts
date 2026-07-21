@@ -6,6 +6,7 @@ export interface CriarVendaInput {
   quantidade: number;
   preco: number;
   comprador?: string;
+  unidade_id: string;
 }
 
 export async function criarVendaRequest(safraId: string, input: CriarVendaInput): Promise<{ venda: Venda }> {

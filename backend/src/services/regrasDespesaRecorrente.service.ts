@@ -6,6 +6,7 @@ interface CriarRegraInput {
   tipo_gatilho: TipoGatilhoRegra;
   tipo_despesa: TipoDespesa;
   valor: number;
+  unidade_id?: string;
 }
 
 // Só FINANCIADOR ou MISTO configuram regra recorrente — MISTO também banca a
@@ -34,6 +35,8 @@ export async function criarRegra(sociedadeId: string, criadoPor: string, input: 
       tipo_gatilho: input.tipo_gatilho,
       tipo_despesa: input.tipo_despesa,
       valor: input.valor,
+      // POR_PERIODO nunca tem unidade — não está amarrada a uma Venda específica
+      unidade_id: input.tipo_gatilho === TipoGatilhoRegra.POR_VENDA ? input.unidade_id : null,
     },
   });
 }
@@ -41,7 +44,7 @@ export async function criarRegra(sociedadeId: string, criadoPor: string, input: 
 export async function listarRegras(sociedadeId: string) {
   const regras = await prisma.regraDespesaRecorrente.findMany({
     where: { sociedade_id: sociedadeId },
-    include: { socio: true },
+    include: { socio: true, unidade: true },
     orderBy: { criado_em: 'desc' },
   });
 
@@ -52,6 +55,8 @@ export async function listarRegras(sociedadeId: string) {
     tipo_gatilho: r.tipo_gatilho,
     tipo_despesa: r.tipo_despesa,
     valor: r.valor,
+    unidade_id: r.unidade_id,
+    unidade_nome: r.unidade?.nome ?? null,
     ativo: r.ativo,
     criado_por: r.criado_por,
   }));
