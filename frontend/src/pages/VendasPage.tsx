@@ -33,12 +33,12 @@ export default function VendasPage() {
     setPeriodo(valor ? null : 'dia');
   }
 
-  // Valor por unidade de todas as regras POR_VENDA ativas da sociedade — dá pra calcular a
-  // despesa automática que cada Venda gerou (valor = soma_regras_da_mesma_unidade ×
-  // quantidade, docs/specs/08-unidade-de-venda.md) sem precisar de um campo novo na API. Só
-  // é impreciso se uma regra tiver sido ativada/desativada depois da venda ser lançada —
-  // aceitável pra um selo informativo, já que quem manda no valor de verdade é a lista de Despesas.
-  const [valorAutoPorUnidade, setValorAutoPorUnidade] = useState<Record<string, number>>({});
+  // Valor de cada RegraDespesaRecorrente por id — cruzado com `venda.regras_aplicadas` (as
+  // regras que o sócio realmente deixou marcadas ao lançar/editar essa venda específica, ver
+  // adendo 2026-07-22 da spec 04) pra calcular o selo "gerou despesa automática". Usar o estado
+  // atual (ativo/inativo) da regra aqui seria errado: mudar uma regra em Configurações não pode
+  // mudar retroativamente a tag de vendas já lançadas.
+  const [valorPorRegraId, setValorPorRegraId] = useState<Record<string, number>>({});
 
   // Filtro enviado pro backend já resolver a query no banco (where: { data: { gte, lte }, pago })
   // em vez de trazer a safra inteira e filtrar em memória — evita o custo de memória/rede
@@ -64,13 +64,11 @@ export default function VendasPage() {
   useEffect(() => {
     listarRegrasRequest(sociedadeId)
       .then((res) => {
-        const somaPorUnidade: Record<string, number> = {};
-        res.regras
-          .filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo && r.unidade_id)
-          .forEach((r) => {
-            somaPorUnidade[r.unidade_id!] = (somaPorUnidade[r.unidade_id!] ?? 0) + Number(r.valor);
-          });
-        setValorAutoPorUnidade(somaPorUnidade);
+        const porId: Record<string, number> = {};
+        res.regras.forEach((r) => {
+          porId[r.id] = Number(r.valor);
+        });
+        setValorPorRegraId(porId);
       })
       .catch(() => {});
   }, [sociedadeId]);
@@ -165,7 +163,9 @@ export default function VendasPage() {
             </div>
             <div>
               {itens.map((v) => {
-                const valorAuto = (valorAutoPorUnidade[v.unidade_id] ?? 0) * Number(v.quantidade);
+                const valorAuto =
+                  v.regras_aplicadas.reduce((acc, regraId) => acc + (valorPorRegraId[regraId] ?? 0), 0) *
+                  Number(v.quantidade);
                 return (
                   <button
                     key={v.id}

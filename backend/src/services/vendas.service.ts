@@ -10,6 +10,7 @@ interface CriarVendaInput {
   comprador?: string;
   unidade_id: string;
   pago?: boolean;
+  regras_por_venda_aplicadas?: string[];
 }
 
 type AtualizarVendaInput = Partial<CriarVendaInput>;
@@ -47,23 +48,29 @@ export async function criarVenda(safraId: string, sociedadeId: string, input: Cr
     include: { unidade: true },
   });
 
-  await gerarDespesasPorVenda(prisma, safraId, sociedadeId, venda);
+  await gerarDespesasPorVenda(prisma, safraId, sociedadeId, venda, input.regras_por_venda_aplicadas ?? []);
 
   return comNomeDaUnidade(venda);
 }
 
-// Regra "por caixa vendida" (ou por qualquer outra unidade): toda regra ativa desse tipo
-// **na mesma unidade da venda** gera uma Despesa automática proporcional à quantidade
-// vendida. Recebe o client (global ou de uma transação) porque `atualizarVenda` precisa
-// rodar isso atomicamente junto com o apagar-e-recriar das despesas antigas.
+// Gera Despesa só para as regras POR_VENDA que o sócio deixou marcadas na tela (opt-in
+// explícito — ver adendo 2026-07-22 da spec 04). O filtro por sociedade/tipo/unidade/ativo
+// continua mesmo recebendo ids explícitos, pra não confiar cegamente em id vindo do client:
+// um id de outra sociedade, de outra unidade ou já desativado é ignorado silenciosamente.
+// Recebe o client (global ou de uma transação) porque `atualizarVenda` precisa rodar isso
+// atomicamente junto com o apagar-e-recriar das despesas antigas.
 async function gerarDespesasPorVenda(
   client: PrismaClientOuTx,
   safraId: string,
   sociedadeId: string,
-  venda: Venda
+  venda: Venda,
+  regrasAplicadas: string[]
 ): Promise<void> {
+  if (regrasAplicadas.length === 0) return;
+
   const regras = await client.regraDespesaRecorrente.findMany({
     where: {
+      id: { in: regrasAplicadas },
       sociedade_id: sociedadeId,
       tipo_gatilho: TipoGatilhoRegra.POR_VENDA,
       unidade_id: venda.unidade_id,
@@ -93,7 +100,7 @@ export async function listarVendas(safraId: string, pago?: boolean, filtroData?:
       ...(pago !== undefined ? { pago } : {}),
       ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
     },
-    include: { unidade: true },
+    include: { unidade: true, despesasGeradas: true },
     orderBy: { data: 'desc' },
   });
 
@@ -109,6 +116,9 @@ export async function listarVendas(safraId: string, pago?: boolean, filtroData?:
     unidade_id: v.unidade_id,
     unidade_nome: v.unidade.nome,
     criado_em: v.criado_em,
+    regras_aplicadas: v.despesasGeradas
+      .map((d) => d.regra_origem_id)
+      .filter((id): id is string => id !== null),
   }));
 }
 
@@ -119,6 +129,8 @@ export async function buscarVenda(id: string): Promise<Venda | null> {
 // Editar quantidade/preço/data de uma Venda deixaria as Despesas que a regra POR_VENDA gerou
 // (venda_origem_id) desatualizadas — em vez de tentar ajustar o valor delas, apaga e gera de
 // novo com o valor/data atual, mesma lógica de `gerarDespesasPorVenda` usada na criação.
+// Só recalcula as despesas quando `regras_por_venda_aplicadas` é enviado explicitamente —
+// omitir o campo (ex: só marcando `pago`) preserva as despesas já geradas.
 export async function atualizarVenda(id: string, sociedadeId: string, input: AtualizarVendaInput) {
   const atual = await prisma.venda.findUniqueOrThrow({ where: { id } });
   const quantidade = input.quantidade ?? Number(atual.quantidade);
@@ -139,8 +151,10 @@ export async function atualizarVenda(id: string, sociedadeId: string, input: Atu
       include: { unidade: true },
     });
 
-    await tx.despesa.deleteMany({ where: { venda_origem_id: id } });
-    await gerarDespesasPorVenda(tx, venda.safra_id, sociedadeId, venda);
+    if (input.regras_por_venda_aplicadas !== undefined) {
+      await tx.despesa.deleteMany({ where: { venda_origem_id: id } });
+      await gerarDespesasPorVenda(tx, venda.safra_id, sociedadeId, venda, input.regras_por_venda_aplicadas);
+    }
 
     return comNomeDaUnidade(venda);
   });

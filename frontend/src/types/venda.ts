@@ -8,4 +8,5 @@ export interface Venda {
   pago: boolean;
   unidade_id: string;
   unidade_nome: string;
+  regras_aplicadas: string[];
 }

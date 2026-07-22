@@ -4,6 +4,7 @@ import * as safrasService from '../services/safras.service';
 import * as vendasService from '../services/vendas.service';
 import * as acertosService from '../services/acertos.service';
 import * as unidadesService from '../services/unidadesVenda.service';
+import * as regrasService from '../services/regrasDespesaRecorrente.service';
 import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
 const criarSchema = z.object({
@@ -13,6 +14,7 @@ const criarSchema = z.object({
   comprador: z.string().optional(),
   unidade_id: z.string().min(1),
   pago: z.boolean().optional(),
+  regras_por_venda_aplicadas: z.array(z.string().min(1)).optional(),
 });
 
 const atualizarSchema = criarSchema.partial();
@@ -39,6 +41,16 @@ export async function criar(req: Request, res: Response): Promise<void> {
   const unidadeValida = await unidadesService.unidadePertenceASociedade(parsed.data.unidade_id, safra.sociedade_id);
   if (!unidadeValida) {
     res.status(422).json({ error: 'unidade_id informado não pertence a essa sociedade' });
+    return;
+  }
+
+  const regrasValidas = await regrasService.todasRegrasPorVendaValidas(
+    safra.sociedade_id,
+    parsed.data.unidade_id,
+    parsed.data.regras_por_venda_aplicadas ?? []
+  );
+  if (!regrasValidas) {
+    res.status(422).json({ error: 'regras_por_venda_aplicadas contém regra inválida para essa venda' });
     return;
   }
 
@@ -110,6 +122,19 @@ export async function atualizar(req: Request, res: Response): Promise<void> {
     const unidadeValida = await unidadesService.unidadePertenceASociedade(parsed.data.unidade_id, safra.sociedade_id);
     if (!unidadeValida) {
       res.status(422).json({ error: 'unidade_id informado não pertence a essa sociedade' });
+      return;
+    }
+  }
+
+  if (parsed.data.regras_por_venda_aplicadas !== undefined) {
+    const unidadeParaValidar = parsed.data.unidade_id ?? venda.unidade_id;
+    const regrasValidas = await regrasService.todasRegrasPorVendaValidas(
+      safra.sociedade_id,
+      unidadeParaValidar,
+      parsed.data.regras_por_venda_aplicadas
+    );
+    if (!regrasValidas) {
+      res.status(422).json({ error: 'regras_por_venda_aplicadas contém regra inválida para essa venda' });
       return;
     }
   }

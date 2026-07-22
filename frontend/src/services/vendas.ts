@@ -16,6 +16,7 @@ export interface CriarVendaInput {
   comprador?: string;
   unidade_id: string;
   pago?: boolean;
+  regras_por_venda_aplicadas?: string[];
 }
 
 export async function criarVendaRequest(safraId: string, input: CriarVendaInput): Promise<{ venda: Venda }> {

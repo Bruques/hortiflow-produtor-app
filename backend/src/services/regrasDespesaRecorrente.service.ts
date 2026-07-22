@@ -84,6 +84,29 @@ export async function buscarRegraPorId(regraId: string) {
   return prisma.regraDespesaRecorrente.findUnique({ where: { id: regraId } });
 }
 
+// Valida os ids marcados na tela de Venda (`regras_por_venda_aplicadas`) antes de repassar
+// pro service de vendas: todos precisam ser regra POR_VENDA ativa, da Sociedade e da unidade
+// da venda — evita que um id de outra sociedade/unidade ou desativado passe direto.
+export async function todasRegrasPorVendaValidas(
+  sociedadeId: string,
+  unidadeId: string,
+  ids: string[]
+): Promise<boolean> {
+  if (ids.length === 0) return true;
+
+  const encontradas = await prisma.regraDespesaRecorrente.count({
+    where: {
+      id: { in: ids },
+      sociedade_id: sociedadeId,
+      unidade_id: unidadeId,
+      tipo_gatilho: TipoGatilhoRegra.POR_VENDA,
+      ativo: true,
+    },
+  });
+
+  return encontradas === ids.length;
+}
+
 export async function listarSugestoesDoDia(safraId: string, sociedadeId: string) {
   const inicioDoDia = new Date();
   inicioDoDia.setHours(0, 0, 0, 0);

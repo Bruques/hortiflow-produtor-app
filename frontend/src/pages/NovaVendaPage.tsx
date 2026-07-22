@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Minus, Plus, Store, Info, Trash2 } from 'lucide-react';
@@ -7,8 +7,10 @@ import { criarVendaRequest, atualizarVendaRequest, excluirVendaRequest, listarVe
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
 import { listarUnidadesRequest } from '@/services/unidadesVenda';
 import type { UnidadeVenda } from '@/types/unidadeVenda';
+import type { RegraDespesaRecorrente } from '@/types/regraDespesaRecorrente';
 import { DatePickerField } from '@/components/ui/date-picker-field';
 import { cn, formatarMoeda } from '@/lib/utils';
+import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 
 const MESES_ABREV = [
   'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez',
@@ -47,11 +49,17 @@ export default function NovaVendaPage() {
   const [pago, setPago] = useState(false);
   const [unidades, setUnidades] = useState<UnidadeVenda[]>([]);
   const [unidadeId, setUnidadeId] = useState('');
-  const [regrasPorVenda, setRegrasPorVenda] = useState<{ unidade_id: string | null; valor: string }[]>([]);
+  const [regrasPorVenda, setRegrasPorVenda] = useState<RegraDespesaRecorrente[]>([]);
+  const [regrasMarcadas, setRegrasMarcadas] = useState<string[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [carregandoVenda, setCarregandoVenda] = useState(emEdicao);
+
+  // Guarda a última unidade pra qual os toggles foram calculados — evita resetar os toggles
+  // toda vez que o efeito roda de novo (ex: regras terminando de carregar) sem o usuário ter
+  // de fato trocado a unidade.
+  const unidadeDosTogglesRef = useRef<string | null>(null);
 
   useEffect(() => {
     listarUnidadesRequest(sociedadeId)
@@ -65,20 +73,30 @@ export default function NovaVendaPage() {
       .catch(() => {});
     listarRegrasRequest(sociedadeId)
       .then((res) => {
-        setRegrasPorVenda(
-          res.regras
-            .filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo)
-            .map((r) => ({ unidade_id: r.unidade_id, valor: r.valor }))
-        );
+        setRegrasPorVenda(res.regras.filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo));
       })
       .catch(() => {});
   }, [sociedadeId, emEdicao]);
 
-  // Regra "por venda" só dispara despesa automática pra unidade a que foi amarrada
-  // (ex: R$1/caixa não se aplica a uma venda em Kg) — soma só as regras da unidade escolhida.
-  const valorAutoPorUnidade = regrasPorVenda
-    .filter((r) => r.unidade_id === unidadeId)
-    .reduce((acc, r) => acc + Number(r.valor), 0);
+  // Regra "por venda" só dispara despesa pra unidade a que foi amarrada (ex: R$1/caixa não se
+  // aplica a uma venda em Kg) — só as regras da unidade escolhida viram toggle na tela.
+  const regrasAplicaveis = regrasPorVenda.filter((r) => r.unidade_id === unidadeId);
+
+  // Nova venda: toggles começam marcados (preserva a experiência de "já vem certo"). Edição:
+  // o efeito de carregar a venda já define os toggles a partir do que foi confirmado antes, e
+  // marca `unidadeDosTogglesRef` pra esse efeito não sobrescrever o estado carregado. Trocar de
+  // unidade (em qualquer modo) reseta os toggles pra marcados, já que as regras mudam.
+  useEffect(() => {
+    if (carregandoVenda) return;
+    if (unidadeDosTogglesRef.current === unidadeId) return;
+    unidadeDosTogglesRef.current = unidadeId;
+    setRegrasMarcadas(regrasAplicaveis.map((r) => r.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unidadeId, regrasPorVenda, carregandoVenda]);
+
+  function alternarRegra(regraId: string) {
+    setRegrasMarcadas((atual) => (atual.includes(regraId) ? atual.filter((id) => id !== regraId) : [...atual, regraId]));
+  }
 
   // Mesma lógica da Nova despesa: sem endpoint de "buscar uma venda", reaproveita a lista que
   // a tela de Vendas já usa e filtra pelo id da rota.
@@ -98,6 +116,8 @@ export default function NovaVendaPage() {
         setUnidadeId(encontrada.unidade_id);
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
+        unidadeDosTogglesRef.current = encontrada.unidade_id;
+        setRegrasMarcadas(encontrada.regras_aplicadas);
       })
       .catch(() => setErro('Não foi possível carregar a venda'))
       .finally(() => setCarregandoVenda(false));
@@ -125,7 +145,6 @@ export default function NovaVendaPage() {
   const quantidade = Number(quantidadeTexto) || 0;
   const precoNumero = precoCentavos ? Number(precoCentavos) / 100 : 0;
   const total = quantidade * precoNumero;
-  const valorAuto = valorAutoPorUnidade * quantidade;
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
   const formValido = quantidade > 0 && precoNumero > 0 && !!data && !!unidadeId;
 
@@ -145,6 +164,7 @@ export default function NovaVendaPage() {
         comprador: comprador || undefined,
         unidade_id: unidadeId,
         pago,
+        regras_por_venda_aplicadas: regrasMarcadas,
       };
       if (emEdicao && vendaId) {
         await atualizarVendaRequest(safraId, vendaId, input);
@@ -360,17 +380,51 @@ export default function NovaVendaPage() {
           </button>
         </div>
 
-        {valorAuto > 0 && (
-          <div className="flex items-start gap-2.5 rounded-xl bg-hf-green-100 px-3.5 py-3">
-            <Info className="mt-0.5 h-[18px] w-[18px] shrink-0 text-hf-green-600" strokeWidth={2} />
-            <div>
-              <p className="m-0 text-[12.5px] font-bold text-hf-stone-900">
-                Vai gerar despesa automática de {formatarMoeda(valorAuto)}
-              </p>
-              <p className="m-0 mt-0.5 text-[11.5px] text-hf-stone-600">
-                Regra recorrente ativa: {formatarMoeda(valorAutoPorUnidade)} por {unidadeSelecionada?.nome.toLowerCase() ?? 'unidade'} vendida
+        {regrasAplicaveis.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start gap-2">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-hf-green-600" strokeWidth={2} />
+              <p className="m-0 text-[11.5px] text-hf-stone-600">
+                Despesa recorrente aplicável a essa venda — desmarque se ela não deve ser lançada dessa vez
               </p>
             </div>
+            {regrasAplicaveis.map((regra) => {
+              const marcada = regrasMarcadas.includes(regra.id);
+              const valorRegra = Number(regra.valor) * quantidade;
+              return (
+                <div
+                  key={regra.id}
+                  className="flex items-center justify-between rounded-2xl border-[1.5px] border-hf-line px-4 py-3.5"
+                >
+                  <div>
+                    <p className="m-0 text-[13.5px] font-bold text-hf-stone-900">
+                      {ROTULO_TIPO_DESPESA[regra.tipo_despesa]}: {formatarMoeda(valorRegra)}
+                    </p>
+                    <p className="m-0 mt-0.5 text-[11.5px] text-hf-stone-600">
+                      {formatarMoeda(Number(regra.valor))} por {unidadeSelecionada?.nome.toLowerCase() ?? 'unidade'} vendida
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={marcada}
+                    aria-label={`Aplicar despesa recorrente de ${ROTULO_TIPO_DESPESA[regra.tipo_despesa]}`}
+                    onClick={() => alternarRegra(regra.id)}
+                    className={cn(
+                      'inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors',
+                      marcada ? 'bg-hf-green-800' : 'bg-hf-cream-100'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'h-5 w-5 rounded-full bg-white shadow transition-transform',
+                        marcada ? 'translate-x-5' : 'translate-x-0'
+                      )}
+                    />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
