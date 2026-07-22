@@ -5,23 +5,34 @@ Rascunho livre para anotar ideias, melhorias e bugs observados usando o app no d
 Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentido.
 
 ## Bugs / coisas quebradas
-- Eu abro o app, se eu atualizar a pagina, eu tomo um erro 404, acho que tem algo a ver com a url
+
+- **[ALTA]** Erro 404 ao atualizar a página (F5) em qualquer rota do frontend que não seja a raiz. Suspeita: falta configurar fallback de rota para SPA no servidor (redirecionar qualquer path pra `index.html` e deixar o React Router assumir a partir daí). Precisa investigar a config de deploy/servidor estático.
 
 ## Melhorias de UX
+
 -
 
 ## Ideias de funcionalidade
-- Pedir ajuda para deixar o app privado no github
-- Pedir pra olhar o repo no github pra garantir que não tem nenhum dado sensível sendo vazado
-- Entender se consigo melhorar a url do app
-- Registrar acerto: hoje o período tem que ser preenchido manualmente; pensar em funcionalidades que facilitem e deem mais liberdade ao usuário na hora de definir o que/quando pagar
-- (REPENSAR) A criação de despesa automática, talvez possa ficar no registro de venda, com um botão pro usuario adicionar se quer ou não a respesa recorrente previamente cadastrada, ao inves de sempre ir de forma automatica. Exemplo: o Usuario cadastra uma recorrencia de despesa de 1 real por caixa vendida, mas ela só vai ser adicionada na venda na tela de registro de venda, onde ele veria por exemplo essa opção, e um toggle ou um checkbox dizendo que se ele marcar, uma dispesa de 1 real por caixa vai ser adicionada as caixas que ele registrou na venda
-- Colocar um chatbot para ficar ouvindo as notificações do grupo de preço de morango diário, e colocar isso em uma aba
-- Criar um local para anuncios, promoções etc
-- O backend puxa os dados de toda safra, e só depois filtramos, talvez isso faça gastarmos muita memoria, o ideal talvez seja fazer uma query para filtrarmos, assim inicialmente buscamos só os dados do dia, e caso o usuário queira, a gente busca dados com mais info
-- Troca de senha
-- Mostrar detalhes da safra, observações que o usuário vai colocar: exemplo: Safra 2026 | estufa | Corrego do bom Jesus | 20mil pés
-- Colocar de alguma forma se foi pago ou não, o morango vendido, e colocar um filtro de produtos vendidos que foram pagos ou não - E colocar na edição um botão pra registrar a venda
+
+### Prioridade alta (segurança / risco ativo)
+
+- **[ALTA]** Revisar o histórico completo do repositório no GitHub (não só o estado atual) em busca de credenciais, tokens, strings de conexão de banco ou qualquer dado sensível commitado por engano.
+- **[ALTA]** Depois da revisão acima, tornar o repositório privado no GitHub.
+
+### Prioridade média (melhorias de produto com valor claro)
+
+- **[MÉDIA]** ~~Colocar um tipo de filtro se a venda já foi paga ou não~~ — **parece já resolvido** pelo commit `802d9ed` ("Adiciona campo pago à Venda, com toggle na tela de lançamento/edição"). Confirmar se cobre o caso de uso completo e, se sim, mover para "Já resolvido".
+- **[MÉDIA]** Repensar a criação de despesa recorrente automática (gatilho `por_venda`): hoje ela é gerada automaticamente ao lançar uma venda. Ideia: mover essa decisão para a própria tela de registro de venda, mostrando um checkbox/toggle opcional. Exemplo concreto: o usuário cadastra uma regra de despesa recorrente de R$1 por caixa vendida; ao registrar uma venda de N caixas, a tela mostra essa regra aplicável com um toggle — só se o usuário marcar, é criada a despesa de R$1 × N caixas vinculada àquela venda. Objetivo: dar controle e visibilidade ao usuário no momento do lançamento, em vez de gerar despesa "fantasma" em background.
+- **[MÉDIA]** Registrar Acerto: hoje o período (data início/fim) precisa ser preenchido manualmente pelo usuário. Pensar em atalhos e mais liberdade na hora de definir o intervalo — por exemplo, sugerir automaticamente "desde o último Acerto registrado", ou opções rápidas tipo "mês atual" / "safra inteira" — reduzindo erro de digitação e fricção nesse passo.
+- **[MÉDIA]** Otimizar a query de despesas/vendas por período: hoje o backend busca todos os registros da safra inteira e o filtro por período é aplicado depois (não na query do banco). Com a safra acumulando lançamentos ao longo do tempo, isso pode custar memória e performance desnecessárias. Ideia: fazer o backend já filtrar por período flexível direto no banco, buscando por padrão só os dados do dia atual, e trazendo mais dados sob demanda quando o usuário expandir o filtro.
+- **[MÉDIA]** Troca de senha: permitir que o usuário autenticado troque a própria senha (provavelmente na tela de Configurações).
+- **[MÉDIA]** Detalhes/observações da safra: permitir que o usuário registre informações livres sobre a safra atual, exibidas como texto informativo (sem entrar em nenhum cálculo) — exemplo: "Safra 2026 | Estufa | Córrego do Bom Jesus | 20 mil pés".
+
+### Prioridade baixa / precisa de mais definição antes de virar spec
+
+- **[BAIXA]** Entender se dá pra melhorar a URL do app — ainda não está claro o que exatamente incomoda (domínio próprio? rota feia? falta de HTTPS?). Definir isso antes de repassar pra implementação.
+- **[BAIXA]** Chatbot ouvindo as notificações do grupo (WhatsApp?) de preço de morango diário, exibindo isso em uma aba dedicada do app. Ideia grande, fora do escopo atual de gestão de meação — provavelmente Fase 2. Falta definir de onde vem a notificação (grupo de WhatsApp? outra fonte?) e o que o chatbot faz com a informação (só exibe? resume? alerta variação de preço?).
+- **[BAIXA]** Criar um local dentro do app para anúncios, promoções etc. Ideia ainda sem escopo nem modelo de negócio definido (quem anuncia, como monetiza) — precisa de mais definição antes de virar spec.
 
 ## Dúvidas de negócio
 
