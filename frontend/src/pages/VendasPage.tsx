@@ -7,7 +7,7 @@ import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/compone
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { listarVendasRequest } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
-import { formatarData, formatarMoeda } from '@/lib/utils';
+import { cn, formatarData, formatarMoeda } from '@/lib/utils';
 import { dataEstaNoIntervalo, dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
 import type { Venda } from '@/types/venda';
 import type { PeriodoFiltro } from '@/types/simulacao';
@@ -151,6 +151,14 @@ export default function VendasPage() {
                       {v.comprador && (
                         <div className="mt-0.5 text-xs text-hf-stone-600">Comprador: {v.comprador}</div>
                       )}
+                      <div
+                        className={cn(
+                          'mt-1.5 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold',
+                          v.pago ? 'bg-hf-green-100 text-hf-green-600' : 'bg-hf-cream-100 text-hf-stone-600'
+                        )}
+                      >
+                        {v.pago ? 'Pago' : 'A receber'}
+                      </div>
                       {valorAuto > 0 && (
                         <div className="mt-1.5 inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full bg-hf-green-100 px-2 py-0.5 text-[10px] font-bold text-hf-green-600">
                           <Check className="h-2.5 w-2.5 shrink-0" strokeWidth={3} />

@@ -44,6 +44,7 @@ export default function NovaVendaPage() {
   const [quantidadeTexto, setQuantidadeTexto] = useState('1');
   const [precoCentavos, setPrecoCentavos] = useState(''); // só dígitos, sem formatação
   const [comprador, setComprador] = useState('');
+  const [pago, setPago] = useState(false);
   const [unidades, setUnidades] = useState<UnidadeVenda[]>([]);
   const [unidadeId, setUnidadeId] = useState('');
   const [regrasPorVenda, setRegrasPorVenda] = useState<{ unidade_id: string | null; valor: string }[]>([]);
@@ -93,6 +94,7 @@ export default function NovaVendaPage() {
         setQuantidadeTexto(String(encontrada.quantidade));
         setPrecoCentavos(String(Math.round(Number(encontrada.preco) * 100)));
         setComprador(encontrada.comprador ?? '');
+        setPago(encontrada.pago);
         setUnidadeId(encontrada.unidade_id);
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
@@ -142,6 +144,7 @@ export default function NovaVendaPage() {
         preco: precoNumero,
         comprador: comprador || undefined,
         unidade_id: unidadeId,
+        pago,
       };
       if (emEdicao && vendaId) {
         await atualizarVendaRequest(safraId, vendaId, input);
@@ -328,6 +331,33 @@ export default function NovaVendaPage() {
               className="w-full bg-transparent text-[15px] text-hf-stone-900 outline-none placeholder:text-hf-stone-400"
             />
           </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-2xl border-[1.5px] border-hf-line px-4 py-3.5">
+          <div>
+            <p className="m-0 text-[13.5px] font-bold text-hf-stone-900">Já foi pago?</p>
+            <p className="m-0 mt-0.5 text-[11.5px] text-hf-stone-600">
+              Se o comprador ainda não pagou, deixe desmarcado e edite depois
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={pago}
+            aria-label="Já foi pago?"
+            onClick={() => setPago((v) => !v)}
+            className={cn(
+              'inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors',
+              pago ? 'bg-hf-green-800' : 'bg-hf-cream-100'
+            )}
+          >
+            <span
+              className={cn(
+                'h-5 w-5 rounded-full bg-white shadow transition-transform',
+                pago ? 'translate-x-5' : 'translate-x-0'
+              )}
+            />
+          </button>
         </div>
 
         {valorAuto > 0 && (

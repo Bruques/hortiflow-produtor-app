@@ -11,6 +11,7 @@ const criarSchema = z.object({
   preco: z.number().positive(),
   comprador: z.string().optional(),
   unidade_id: z.string().min(1),
+  pago: z.boolean().optional(),
 });
 
 const atualizarSchema = criarSchema.partial();

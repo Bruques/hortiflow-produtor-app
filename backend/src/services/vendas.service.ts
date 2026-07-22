@@ -9,6 +9,7 @@ interface CriarVendaInput {
   preco: number;
   comprador?: string;
   unidade_id: string;
+  pago?: boolean;
 }
 
 type AtualizarVendaInput = Partial<CriarVendaInput>;
@@ -22,6 +23,7 @@ function comNomeDaUnidade(venda: Venda & { unidade: { nome: string } }) {
     preco: venda.preco,
     total: venda.total,
     comprador: venda.comprador,
+    pago: venda.pago,
     unidade_id: venda.unidade_id,
     unidade_nome: venda.unidade.nome,
     criado_em: venda.criado_em,
@@ -40,6 +42,7 @@ export async function criarVenda(safraId: string, sociedadeId: string, input: Cr
       total,
       comprador: input.comprador,
       unidade_id: input.unidade_id,
+      pago: input.pago ?? false,
     },
     include: { unidade: true },
   });
@@ -98,6 +101,7 @@ export async function listarVendas(safraId: string) {
     preco: v.preco,
     total: v.total,
     comprador: v.comprador,
+    pago: v.pago,
     unidade_id: v.unidade_id,
     unidade_nome: v.unidade.nome,
     criado_em: v.criado_em,
@@ -125,6 +129,7 @@ export async function atualizarVenda(id: string, sociedadeId: string, input: Atu
         preco,
         total: quantidade * preco,
         comprador: input.comprador,
+        pago: input.pago ?? atual.pago,
         unidade_id: input.unidade_id ?? atual.unidade_id,
       },
       include: { unidade: true },

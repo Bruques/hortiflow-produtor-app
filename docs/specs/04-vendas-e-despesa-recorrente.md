@@ -14,7 +14,6 @@ Permitir lançar as Vendas de uma Safra e configurar `RegraDespesaRecorrente`, q
 - Autorização: mesma regra das tasks anteriores — toda rota exige ser sócio da Sociedade dona da Safra/regra
 
 **Fica de fora (não implementar nesta task):**
-- Edição/exclusão de Venda (não pedido no roadmap; só criar/listar, mesma decisão já tomada para Despesa na task 3)
 - Cálculo de divisão / painel de simulação (task 5)
 - Acerto (task 6)
 - `POR_PERIODO` virando 100% automático sem confirmação (Fase 2, listado explicitamente no CLAUDE.md)
@@ -28,6 +27,7 @@ Permitir lançar as Vendas de uma Safra e configurar `RegraDespesaRecorrente`, q
 - `quantidade` e `preco` positivos
 - Após criar a Venda, o service busca todas as `RegraDespesaRecorrente` **ativas** da Sociedade com `tipo_gatilho = POR_VENDA` e, para cada uma, cria automaticamente uma Despesa: `valor = regra.valor × venda.quantidade`, `socio_id = regra.socio_id`, `tipo = regra.tipo_despesa`, `data = venda.data`, `regra_origem_id = regra.id` (rastreia a origem automática)
 - `GET /safras/:id/vendas` — lista vendas da Safra, requer ser sócio
+- `PUT /safras/:id/vendas/:vendaId` e `DELETE /safras/:id/vendas/:vendaId` — edição e exclusão foram implementadas depois desta task (sem adendo registrado na época); regravado aqui para a spec refletir o estado real. Ambas bloqueiam com 409 se a data da venda já estiver coberta por um Acerto registrado. Editar recalcula (apaga e recria) as Despesas geradas por regra `POR_VENDA`, já que quantidade/data podem ter mudado
 
 ### RegraDespesaRecorrente
 - `POST /sociedades/:id/regras-recorrentes` com `{ socio_id, tipo_gatilho, tipo_despesa, valor }`, autenticado, requer que o autenticado seja sócio da Sociedade `:id` **com papel `FINANCIADOR` ou `MISTO`** (papel `MEEIRO` autenticado: 403)
@@ -141,6 +141,16 @@ Origem: mesmo item de backlog do adendo em `05-calculo-e-painel-simulacao.md` e 
 - Filtro **client-side** sobre a lista já carregada de `GET /safras/:id/vendas` (que não aceita filtro de período) — mesma função `dataEstaNoIntervalo` usada nas outras telas
 - Nenhuma mudança de contrato de API nem de schema
 
+## Adendo (2026-07-20) — campo `pago` na Venda
+
+Origem: nem sempre o pagamento da venda acontece no ato — o produtor pode vender o morango hoje e só receber do comprador dias/semanas depois. Hoje não existe nenhum jeito de sinalizar isso.
+
+- Novo campo `pago Boolean @default(false)` no model `Venda` — nova migration Prisma
+- `POST /safras/:id/vendas` aceita `pago?: boolean` no body (default `false` se omitido); `PUT /safras/:id/vendas/:vendaId` também aceita `pago?: boolean` pra permitir marcar como pago depois
+- **Não afeta `calcularDivisao` nem nenhum outro cálculo** — a venda entra no faturamento/lucro no momento em que é registrada, independente do status de pagamento (regime de competência, não caixa). `pago` é puramente informativo nesta task
+- Frontend: toggle "Já foi pago?" na mesma tela `NovaVendaPage.tsx` (serve tanto pra criar quanto editar), desmarcado por padrão; a listagem `VendasPage.tsx` mostra o status (ex: badge "Pago" / "A receber") em cada item
+- **Fica de fora desta task:** filtro por status de pagamento na listagem (mencionado como ideia futura, não implementar agora); qualquer mudança em `calcularDivisao` que leve em conta status de pagamento — se isso vier a ser necessário, é uma decisão de negócio separada (mudaria de regime de competência para regime de caixa) e precisa de spec própria
+
 ## Critérios de aceite
 
 1. Dado uma Safra em andamento, `POST /safras/:id/vendas` cria a Venda com `total` calculado no backend
@@ -154,3 +164,7 @@ Origem: mesmo item de backlog do adendo em `05-calculo-e-painel-simulacao.md` e 
 9. Confirmar a mesma regra duas vezes no mesmo dia: segunda chamada retorna 409
 10. `PATCH /regras-recorrentes/:id` com `{ ativo: false }` desativa a regra; ela deixa de gerar despesa automática (`POR_VENDA`) e de aparecer nas sugestões (`POR_PERIODO`)
 11. Frontend: tela de lançamento e lista de Vendas; tela de configuração de regras recorrentes (só visível/editável para papel `FINANCIADOR`/`MISTO`, mas listagem visível a todos); um bloco de "sugestões do dia" com botão de confirmação de 1 clique, visível na home ou na tela de despesas
+12. Dado uma Venda criada sem informar `pago`, ela é salva com `pago = false`
+13. Dado uma Venda existente com `pago = false`, `PUT /safras/:id/vendas/:vendaId` com `{ pago: true }` atualiza só esse campo, sem exigir os demais
+14. Marcar uma Venda como paga ou não paga **não altera** o valor calculado em `calcularDivisao` no mesmo período
+15. Frontend: toggle "Já foi pago?" em `NovaVendaPage.tsx` (criar e editar) e indicação visual do status em `VendasPage.tsx`

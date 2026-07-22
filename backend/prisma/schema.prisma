@@ -168,6 +168,7 @@ model Venda {
   preco      Decimal  @db.Decimal(10, 2)
   total      Decimal  @db.Decimal(10, 2)
   comprador  String?
+  pago       Boolean  @default(false)
   criado_em  DateTime @default(now())
 
   safra           Safra        @relation(fields: [safra_id], references: [id])
