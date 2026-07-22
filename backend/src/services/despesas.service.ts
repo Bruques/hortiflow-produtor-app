@@ -55,9 +55,12 @@ export async function excluirDespesa(id: string): Promise<void> {
   await prisma.despesa.delete({ where: { id } });
 }
 
-export async function listarDespesas(safraId: string) {
+export async function listarDespesas(safraId: string, filtroData?: { gte?: Date; lte?: Date }) {
   const despesas = await prisma.despesa.findMany({
-    where: { safra_id: safraId },
+    where: {
+      safra_id: safraId,
+      ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
+    },
     include: { socio: true },
     orderBy: { data: 'desc' },
   });

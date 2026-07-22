@@ -5,10 +5,10 @@ import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
 import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { listarDespesasRequest } from '@/services/despesas';
+import { listarDespesasRequest, type FiltroDespesas } from '@/services/despesas';
 import { confirmarSugestaoRequest, listarSugestoesRequest } from '@/services/regrasDespesaRecorrente';
 import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
-import { dataEstaNoIntervalo, dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
+import { rotuloDia } from '@/lib/periodo';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
 import type { Despesa } from '@/types/despesa';
@@ -38,13 +38,24 @@ export default function DespesasPage() {
   const [sugestoes, setSugestoes] = useState<SugestaoDespesaRecorrente[]>([]);
   const [sugestoesDispensadas, setSugestoesDispensadas] = useState<Set<string>>(new Set());
 
+  // Filtro enviado pro backend já resolver a query no banco (where: { data: { gte, lte } })
+  // em vez de trazer a safra inteira e filtrar em memória — evita o custo de memória/rede
+  // que cresce junto com o acúmulo de lançamentos ao longo da safra.
+  const filtro: FiltroDespesas = useMemo(
+    () =>
+      periodoPersonalizado
+        ? { data_inicio: periodoPersonalizado.dataInicio, data_fim: periodoPersonalizado.dataFim }
+        : { periodo: periodo ?? 'dia' },
+    [periodo, periodoPersonalizado]
+  );
+
   useEffect(() => {
     setCarregando(true);
-    listarDespesasRequest(safraId)
+    listarDespesasRequest(safraId, filtro)
       .then((res) => setDespesas(res.despesas))
       .catch(() => setErro('Não foi possível carregar as despesas'))
       .finally(() => setCarregando(false));
-  }, [safraId]);
+  }, [safraId, filtro]);
 
   useEffect(() => {
     listarSugestoesRequest(safraId)
@@ -52,15 +63,7 @@ export default function DespesasPage() {
       .catch(() => setErro('Não foi possível carregar as sugestões do dia'));
   }, [safraId]);
 
-  const despesasDoPeriodo = useMemo(
-    () =>
-      despesas.filter((d) =>
-        periodoPersonalizado
-          ? dataEstaNoIntervalo(d.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
-          : dataEstaNoPeriodo(d.data, periodo ?? 'dia')
-      ),
-    [despesas, periodo, periodoPersonalizado]
-  );
+  const despesasDoPeriodo = despesas;
 
   const totalPeriodo = despesasDoPeriodo.reduce((acc, d) => acc + Number(d.valor), 0);
 
@@ -82,7 +85,7 @@ export default function DespesasPage() {
       await confirmarSugestaoRequest(safraId, regraId);
       const [resSugestoes, resDespesas] = await Promise.all([
         listarSugestoesRequest(safraId),
-        listarDespesasRequest(safraId),
+        listarDespesasRequest(safraId, filtro),
       ]);
       setSugestoes(resSugestoes.sugestoes);
       setDespesas(resDespesas.despesas);

@@ -4,6 +4,7 @@ import { TipoDespesa } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
 import * as despesasService from '../services/despesas.service';
 import * as acertosService from '../services/acertos.service';
+import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
 const criarSchema = z.object({
   socio_id: z.string().min(1),
@@ -61,7 +62,20 @@ export async function listar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const despesas = await despesasService.listarDespesas(id);
+  // Sem periodo/data_inicio/data_fim na query, assume "hoje" — evita que o primeiro
+  // carregamento da tela busque a safra inteira quando o cliente ainda não escolheu período.
+  const query = { ...req.query };
+  if (!query.periodo && !query.data_inicio && !query.data_fim) {
+    query.periodo = 'dia';
+  }
+
+  const intervalo = resolverPeriodo(query);
+  if (intervalo === null) {
+    res.status(400).json({ error: 'periodo inválido (use dia, semana, mes, safra ou data_inicio/data_fim)' });
+    return;
+  }
+
+  const despesas = await despesasService.listarDespesas(id, filtroDataPrisma(intervalo));
   res.json({ despesas });
 }
 

@@ -86,9 +86,13 @@ async function gerarDespesasPorVenda(
   });
 }
 
-export async function listarVendas(safraId: string, pago?: boolean) {
+export async function listarVendas(safraId: string, pago?: boolean, filtroData?: { gte?: Date; lte?: Date }) {
   const vendas = await prisma.venda.findMany({
-    where: { safra_id: safraId, ...(pago !== undefined ? { pago } : {}) },
+    where: {
+      safra_id: safraId,
+      ...(pago !== undefined ? { pago } : {}),
+      ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
+    },
     include: { unidade: true },
     orderBy: { data: 'desc' },
   });

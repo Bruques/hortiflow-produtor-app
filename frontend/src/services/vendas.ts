@@ -1,5 +1,13 @@
 import apiClient from './apiClient';
 import type { Venda } from '@/types/venda';
+import type { PeriodoFiltro } from '@/types/simulacao';
+
+export interface FiltroVendas {
+  periodo?: PeriodoFiltro;
+  data_inicio?: string;
+  data_fim?: string;
+  pago?: boolean;
+}
 
 export interface CriarVendaInput {
   data: string;
@@ -15,8 +23,8 @@ export async function criarVendaRequest(safraId: string, input: CriarVendaInput)
   return data;
 }
 
-export async function listarVendasRequest(safraId: string): Promise<{ vendas: Venda[] }> {
-  const { data } = await apiClient.get(`/safras/${safraId}/vendas`);
+export async function listarVendasRequest(safraId: string, filtro?: FiltroVendas): Promise<{ vendas: Venda[] }> {
+  const { data } = await apiClient.get(`/safras/${safraId}/vendas`, { params: filtro });
   return data;
 }
 

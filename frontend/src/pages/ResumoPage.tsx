@@ -8,9 +8,8 @@ import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest } from '@/services/auth';
 import { buscarSimulacaoRequest, buscarSimulacaoPersonalizadaRequest } from '@/services/simulacao';
 import { listarSociosRequest } from '@/services/sociedades';
-import { listarVendasRequest } from '@/services/vendas';
+import { listarVendasRequest, type FiltroVendas } from '@/services/vendas';
 import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
-import { dataEstaNoIntervalo, dataEstaNoPeriodo } from '@/lib/periodo';
 import { ROTULO_STATUS_SAFRA, ROTULO_PAPEL_SOCIO } from '@/lib/rotulos';
 import type { PeriodoFiltro, Simulacao } from '@/types/simulacao';
 import type { Socio } from '@/types/sociedade';
@@ -37,9 +36,19 @@ export default function ResumoPage() {
     listarSociosRequest(sociedadeId).then((res) => setSocios(res.socios)).catch(() => {});
   }, [sociedadeId]);
 
+  // Filtro enviado pro backend já resolver a query no banco em vez de trazer a safra
+  // inteira e filtrar em memória — mesmo padrão usado em VendasPage/DespesasPage.
+  const filtroVendas: FiltroVendas = useMemo(
+    () =>
+      periodoPersonalizado
+        ? { data_inicio: periodoPersonalizado.dataInicio, data_fim: periodoPersonalizado.dataFim }
+        : { periodo: periodo ?? 'dia' },
+    [periodo, periodoPersonalizado]
+  );
+
   useEffect(() => {
-    listarVendasRequest(safraId).then((res) => setVendas(res.vendas)).catch(() => {});
-  }, [safraId]);
+    listarVendasRequest(safraId, filtroVendas).then((res) => setVendas(res.vendas)).catch(() => {});
+  }, [safraId, filtroVendas]);
 
   function selecionarPeriodo(valor: PeriodoFiltro) {
     setPeriodoPersonalizado(null);
@@ -67,19 +76,9 @@ export default function ResumoPage() {
   const percentualAnel = Math.min(100, Math.max(0, meuDivisao?.percentual ?? 0));
   const offsetAnel = CIRCUNFERENCIA_ANEL * (1 - percentualAnel / 100);
 
-  // Mesmo recorte de período do resto da tela (PeriodToggle/PeriodoPersonalizadoButton),
-  // mostrando só as 5 mais recentes — a lista completa fica na tela de Vendas.
-  const ultimasVendas = useMemo(
-    () =>
-      vendas
-        .filter((v) =>
-          periodoPersonalizado
-            ? dataEstaNoIntervalo(v.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
-            : dataEstaNoPeriodo(v.data, periodo ?? 'dia')
-        )
-        .slice(0, 5),
-    [vendas, periodo, periodoPersonalizado]
-  );
+  // `vendas` já vem filtrada por período do backend (ordenada por data desc) — mostra só
+  // as 5 mais recentes, a lista completa fica na tela de Vendas.
+  const ultimasVendas = useMemo(() => vendas.slice(0, 5), [vendas]);
 
   return (
     <div>

@@ -1,5 +1,12 @@
 import apiClient from './apiClient';
 import type { Despesa, TipoDespesa } from '@/types/despesa';
+import type { PeriodoFiltro } from '@/types/simulacao';
+
+export interface FiltroDespesas {
+  periodo?: PeriodoFiltro;
+  data_inicio?: string;
+  data_fim?: string;
+}
 
 export interface CriarDespesaInput {
   socio_id: string;
@@ -18,8 +25,11 @@ export async function criarDespesaRequest(
   return data;
 }
 
-export async function listarDespesasRequest(safraId: string): Promise<{ despesas: Despesa[] }> {
-  const { data } = await apiClient.get(`/safras/${safraId}/despesas`);
+export async function listarDespesasRequest(
+  safraId: string,
+  filtro?: FiltroDespesas
+): Promise<{ despesas: Despesa[] }> {
+  const { data } = await apiClient.get(`/safras/${safraId}/despesas`, { params: filtro });
   return data;
 }
 

@@ -5,10 +5,10 @@ import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
 import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { listarVendasRequest } from '@/services/vendas';
+import { listarVendasRequest, type FiltroVendas } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
 import { cn, formatarData, formatarMoeda } from '@/lib/utils';
-import { dataEstaNoIntervalo, dataEstaNoPeriodo, rotuloDia } from '@/lib/periodo';
+import { rotuloDia } from '@/lib/periodo';
 import type { Venda } from '@/types/venda';
 import type { PeriodoFiltro } from '@/types/simulacao';
 
@@ -40,13 +40,26 @@ export default function VendasPage() {
   // aceitável pra um selo informativo, já que quem manda no valor de verdade é a lista de Despesas.
   const [valorAutoPorUnidade, setValorAutoPorUnidade] = useState<Record<string, number>>({});
 
+  // Filtro enviado pro backend já resolver a query no banco (where: { data: { gte, lte }, pago })
+  // em vez de trazer a safra inteira e filtrar em memória — evita o custo de memória/rede
+  // que cresce junto com o acúmulo de lançamentos ao longo da safra.
+  const filtro: FiltroVendas = useMemo(
+    () => ({
+      ...(periodoPersonalizado
+        ? { data_inicio: periodoPersonalizado.dataInicio, data_fim: periodoPersonalizado.dataFim }
+        : { periodo: periodo ?? 'dia' }),
+      ...(statusPagamento !== 'todas' ? { pago: statusPagamento === 'pagas' } : {}),
+    }),
+    [periodo, periodoPersonalizado, statusPagamento]
+  );
+
   useEffect(() => {
     setCarregando(true);
-    listarVendasRequest(safraId)
+    listarVendasRequest(safraId, filtro)
       .then((res) => setVendas(res.vendas))
       .catch(() => setErro('Não foi possível carregar as vendas'))
       .finally(() => setCarregando(false));
-  }, [safraId]);
+  }, [safraId, filtro]);
 
   useEffect(() => {
     listarRegrasRequest(sociedadeId)
@@ -62,21 +75,7 @@ export default function VendasPage() {
       .catch(() => {});
   }, [sociedadeId]);
 
-  const vendasDoPeriodo = useMemo(
-    () =>
-      vendas
-        .filter((v) =>
-          periodoPersonalizado
-            ? dataEstaNoIntervalo(v.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
-            : dataEstaNoPeriodo(v.data, periodo ?? 'dia')
-        )
-        .filter((v) => {
-          if (statusPagamento === 'pagas') return v.pago;
-          if (statusPagamento === 'a_receber') return !v.pago;
-          return true;
-        }),
-    [vendas, periodo, periodoPersonalizado, statusPagamento]
-  );
+  const vendasDoPeriodo = vendas;
 
   const totalPeriodo = vendasDoPeriodo.reduce((acc, v) => acc + Number(v.total), 0);
 

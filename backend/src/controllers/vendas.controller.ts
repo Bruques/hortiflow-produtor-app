@@ -4,6 +4,7 @@ import * as safrasService from '../services/safras.service';
 import * as vendasService from '../services/vendas.service';
 import * as acertosService from '../services/acertos.service';
 import * as unidadesService from '../services/unidadesVenda.service';
+import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
 const criarSchema = z.object({
   data: z.coerce.date(),
@@ -61,7 +62,20 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const { pago } = req.query;
   const pagoFiltro = pago === 'true' ? true : pago === 'false' ? false : undefined;
 
-  const vendas = await vendasService.listarVendas(id, pagoFiltro);
+  // Sem periodo/data_inicio/data_fim na query, assume "hoje" — evita que o primeiro
+  // carregamento da tela busque a safra inteira quando o cliente ainda não escolheu período.
+  const query = { ...req.query };
+  if (!query.periodo && !query.data_inicio && !query.data_fim) {
+    query.periodo = 'dia';
+  }
+
+  const intervalo = resolverPeriodo(query);
+  if (intervalo === null) {
+    res.status(400).json({ error: 'periodo inválido (use dia, semana, mes, safra ou data_inicio/data_fim)' });
+    return;
+  }
+
+  const vendas = await vendasService.listarVendas(id, pagoFiltro, filtroDataPrisma(intervalo));
   res.json({ vendas });
 }
 
