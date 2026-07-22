@@ -6,7 +6,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Bugs / coisas quebradas
 
-- **[ALTA]** Erro 404 ao atualizar a página (F5) em qualquer rota do frontend que não seja a raiz. Suspeita: falta configurar fallback de rota para SPA no servidor (redirecionar qualquer path pra `index.html` e deixar o React Router assumir a partir daí). Precisa investigar a config de deploy/servidor estático.
+-
 
 ## Melhorias de UX
 
@@ -44,6 +44,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 (mover pra cá o que foi feito ou decidido não fazer, pra não perder o histórico da decisão)
 
+- Erro 404 ao atualizar (F5) rotas internas do frontend: faltava `vercel.json` com rewrite de fallback para SPA (`/(.*)` → `/index.html`), corrigido em `frontend/vercel.json`
 - Header da safra agora leva para "/" (Início), que decide sozinho pra onde ir
 - Despesas e Vendas agora podem ser editadas e excluídas (bloqueado se já fizerem parte de um Acerto registrado)
 - Toggle de período da tela Início/Despesas/Vendas agora abre em "Hoje"
