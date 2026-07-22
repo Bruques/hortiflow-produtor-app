@@ -58,7 +58,10 @@ export async function listar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const vendas = await vendasService.listarVendas(id);
+  const { pago } = req.query;
+  const pagoFiltro = pago === 'true' ? true : pago === 'false' ? false : undefined;
+
+  const vendas = await vendasService.listarVendas(id, pagoFiltro);
   res.json({ vendas });
 }
 

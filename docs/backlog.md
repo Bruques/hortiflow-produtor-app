@@ -16,12 +16,10 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ### Prioridade alta (segurança / risco ativo)
 
-- **[ALTA]** Revisar o histórico completo do repositório no GitHub (não só o estado atual) em busca de credenciais, tokens, strings de conexão de banco ou qualquer dado sensível commitado por engano.
-- **[ALTA]** Depois da revisão acima, tornar o repositório privado no GitHub.
+- **[ALTA]** Tornar o repositório privado no GitHub.
 
 ### Prioridade média (melhorias de produto com valor claro)
 
-- **[MÉDIA]** ~~Colocar um tipo de filtro se a venda já foi paga ou não~~ — **parece já resolvido** pelo commit `802d9ed` ("Adiciona campo pago à Venda, com toggle na tela de lançamento/edição"). Confirmar se cobre o caso de uso completo e, se sim, mover para "Já resolvido".
 - **[MÉDIA]** Repensar a criação de despesa recorrente automática (gatilho `por_venda`): hoje ela é gerada automaticamente ao lançar uma venda. Ideia: mover essa decisão para a própria tela de registro de venda, mostrando um checkbox/toggle opcional. Exemplo concreto: o usuário cadastra uma regra de despesa recorrente de R$1 por caixa vendida; ao registrar uma venda de N caixas, a tela mostra essa regra aplicável com um toggle — só se o usuário marcar, é criada a despesa de R$1 × N caixas vinculada àquela venda. Objetivo: dar controle e visibilidade ao usuário no momento do lançamento, em vez de gerar despesa "fantasma" em background.
 - **[MÉDIA]** Registrar Acerto: hoje o período (data início/fim) precisa ser preenchido manualmente pelo usuário. Pensar em atalhos e mais liberdade na hora de definir o intervalo — por exemplo, sugerir automaticamente "desde o último Acerto registrado", ou opções rápidas tipo "mês atual" / "safra inteira" — reduzindo erro de digitação e fricção nesse passo.
 - **[MÉDIA]** Otimizar a query de despesas/vendas por período: hoje o backend busca todos os registros da safra inteira e o filtro por período é aplicado depois (não na query do banco). Com a safra acumulando lançamentos ao longo do tempo, isso pode custar memória e performance desnecessárias. Ideia: fazer o backend já filtrar por período flexível direto no banco, buscando por padrão só os dados do dia atual, e trazendo mais dados sob demanda quando o usuário expandir o filtro.
@@ -45,6 +43,8 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 (mover pra cá o que foi feito ou decidido não fazer, pra não perder o histórico da decisão)
 
 - Erro 404 ao atualizar (F5) rotas internas do frontend: faltava `vercel.json` com rewrite de fallback para SPA (`/(.*)` → `/index.html`), corrigido em `frontend/vercel.json`
+- Filtro de venda paga/a receber na tela de listagem de Vendas: adicionado segmented control "Todas / Pagas / A receber" em `VendasPage.tsx`, além do backend passar a aceitar `?pago=true/false` em `GET /:id/vendas`
+- Revisão do histórico completo do repositório (48 commits) em busca de dados sensíveis: nenhum `.env` real, credencial, string de conexão, chave privada ou token foi encontrado commitado — só `.env.example` com valores placeholder
 - Header da safra agora leva para "/" (Início), que decide sozinho pra onde ir
 - Despesas e Vendas agora podem ser editadas e excluídas (bloqueado se já fizerem parte de um Acerto registrado)
 - Toggle de período da tela Início/Despesas/Vendas agora abre em "Hoje"

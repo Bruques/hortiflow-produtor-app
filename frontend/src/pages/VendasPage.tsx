@@ -21,6 +21,7 @@ export default function VendasPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
   const [periodoPersonalizado, setPeriodoPersonalizado] = useState<PeriodoPersonalizado | null>(null);
+  const [statusPagamento, setStatusPagamento] = useState<'todas' | 'pagas' | 'a_receber'>('todas');
 
   function selecionarPeriodo(valor: PeriodoFiltro) {
     setPeriodoPersonalizado(null);
@@ -63,12 +64,18 @@ export default function VendasPage() {
 
   const vendasDoPeriodo = useMemo(
     () =>
-      vendas.filter((v) =>
-        periodoPersonalizado
-          ? dataEstaNoIntervalo(v.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
-          : dataEstaNoPeriodo(v.data, periodo ?? 'dia')
-      ),
-    [vendas, periodo, periodoPersonalizado]
+      vendas
+        .filter((v) =>
+          periodoPersonalizado
+            ? dataEstaNoIntervalo(v.data, periodoPersonalizado.dataInicio, periodoPersonalizado.dataFim)
+            : dataEstaNoPeriodo(v.data, periodo ?? 'dia')
+        )
+        .filter((v) => {
+          if (statusPagamento === 'pagas') return v.pago;
+          if (statusPagamento === 'a_receber') return !v.pago;
+          return true;
+        }),
+    [vendas, periodo, periodoPersonalizado, statusPagamento]
   );
 
   const totalPeriodo = vendasDoPeriodo.reduce((acc, v) => acc + Number(v.total), 0);
@@ -104,6 +111,32 @@ export default function VendasPage() {
         <div className="flex flex-col gap-2">
           <PeriodToggle value={periodo} onChange={selecionarPeriodo} />
           <PeriodoPersonalizadoButton value={periodoPersonalizado} onChange={selecionarPeriodoPersonalizado} />
+        </div>
+
+        <div role="tablist" aria-label="Status de pagamento" className="flex gap-0.5 rounded-xl bg-hf-cream-100 p-1">
+          {(
+            [
+              { valor: 'todas', label: 'Todas' },
+              { valor: 'pagas', label: 'Pagas' },
+              { valor: 'a_receber', label: 'A receber' },
+            ] as const
+          ).map((opcao) => (
+            <button
+              key={opcao.valor}
+              type="button"
+              role="tab"
+              aria-selected={statusPagamento === opcao.valor}
+              onClick={() => setStatusPagamento(opcao.valor)}
+              className={cn(
+                'flex-1 rounded-lg py-2 text-[12.5px] font-bold transition-colors',
+                statusPagamento === opcao.valor
+                  ? 'bg-white text-hf-green-800 shadow-sm'
+                  : 'text-hf-stone-600 hover:text-hf-stone-900'
+              )}
+            >
+              {opcao.label}
+            </button>
+          ))}
         </div>
 
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
