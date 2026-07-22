@@ -29,7 +29,9 @@ export async function criarDespesaPessoal(
 export async function listarDespesasPessoais(safraId: string, usuarioId: string): Promise<DespesaPessoal[]> {
   return prisma.despesaPessoal.findMany({
     where: { safra_id: safraId, usuario_id: usuarioId },
-    orderBy: { data: 'desc' },
+    // Mesmo critério de vendas/despesas: `data` sozinha empata no mesmo dia, `criado_em`
+    // desempata mostrando o mais recentemente registrado primeiro.
+    orderBy: [{ data: 'desc' }, { criado_em: 'desc' }],
   });
 }
 

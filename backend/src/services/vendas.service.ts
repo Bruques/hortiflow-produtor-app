@@ -101,7 +101,9 @@ export async function listarVendas(safraId: string, pago?: boolean, filtroData?:
       ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
     },
     include: { unidade: true, despesasGeradas: true },
-    orderBy: { data: 'desc' },
+    // `data` é só a data do lançamento (sem hora) — dois registros do mesmo dia empatam nesse
+    // critério. `criado_em` desempata mostrando o mais recentemente registrado primeiro.
+    orderBy: [{ data: 'desc' }, { criado_em: 'desc' }],
   });
 
   return vendas.map((v) => ({
