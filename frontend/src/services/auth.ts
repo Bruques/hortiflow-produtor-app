@@ -24,3 +24,7 @@ export async function meRequest(): Promise<{ usuario: Usuario }> {
   const { data } = await apiClient.get<{ usuario: Usuario }>('/auth/me');
   return data;
 }
+
+export async function trocarSenhaRequest(senha_atual: string, senha_nova: string): Promise<void> {
+  await apiClient.put('/auth/senha', { senha_atual, senha_nova });
+}

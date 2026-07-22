@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy } from 'lucide-react';
-import { meRequest } from '@/services/auth';
+import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy, Eye, EyeOff } from 'lucide-react';
+import { meRequest, trocarSenhaRequest } from '@/services/auth';
 import {
   atualizarPercentuaisRequest,
   criarSocioRequest,
@@ -87,6 +87,14 @@ export default function ConfiguracoesPage() {
   const [novaUnidadeAberta, setNovaUnidadeAberta] = useState(false);
   const [nomeNovaUnidade, setNomeNovaUnidade] = useState('');
   const [salvandoUnidade, setSalvandoUnidade] = useState(false);
+
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [senhaNova, setSenhaNova] = useState('');
+  const [senhaNovaConfirmacao, setSenhaNovaConfirmacao] = useState('');
+  const [salvandoSenha, setSalvandoSenha] = useState(false);
+  const [erroSenha, setErroSenha] = useState<string | null>(null);
+  const [sucessoSenha, setSucessoSenha] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   function carregarSocios() {
     if (!sociedadeId) return;
@@ -268,6 +276,34 @@ export default function ConfiguracoesPage() {
       setErroUnidades(data?.error ?? 'Não foi possível criar a unidade');
     } finally {
       setSalvandoUnidade(false);
+    }
+  }
+
+  async function trocarSenha() {
+    setErroSenha(null);
+    setSucessoSenha(false);
+
+    if (senhaNova.length < 6) {
+      setErroSenha('A nova senha precisa ter no mínimo 6 caracteres');
+      return;
+    }
+    if (senhaNova !== senhaNovaConfirmacao) {
+      setErroSenha('A confirmação não bate com a nova senha');
+      return;
+    }
+
+    setSalvandoSenha(true);
+    try {
+      await trocarSenhaRequest(senhaAtual, senhaNova);
+      setSenhaAtual('');
+      setSenhaNova('');
+      setSenhaNovaConfirmacao('');
+      setSucessoSenha(true);
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErroSenha(data?.error ?? 'Não foi possível trocar a senha');
+    } finally {
+      setSalvandoSenha(false);
     }
   }
 
@@ -691,6 +727,65 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="flex flex-col gap-3.5">
+          <div>
+            <h3 className="m-0 text-[15px] font-extrabold text-hf-stone-900">Trocar senha</h3>
+            <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">Confirme a senha atual para definir uma nova</p>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-2xl border border-hf-line p-3.5">
+            <div>
+              <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Senha atual</label>
+              <div className="relative">
+                <input
+                  type={mostrarSenha ? 'text' : 'password'}
+                  value={senhaAtual}
+                  onChange={(e) => setSenhaAtual(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 pr-11 text-sm outline-none focus:border-hf-green-500"
+                />
+                <button
+                  type="button"
+                  aria-label={mostrarSenha ? 'Ocultar senhas' : 'Mostrar senhas'}
+                  onClick={() => setMostrarSenha((v) => !v)}
+                  className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-hf-stone-400"
+                >
+                  {mostrarSenha ? <EyeOff className="h-[18px] w-[18px]" strokeWidth={2} /> : <Eye className="h-[18px] w-[18px]" strokeWidth={2} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Nova senha</label>
+              <input
+                type={mostrarSenha ? 'text' : 'password'}
+                value={senhaNova}
+                onChange={(e) => setSenhaNova(e.target.value)}
+                className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Confirmar nova senha</label>
+              <input
+                type={mostrarSenha ? 'text' : 'password'}
+                value={senhaNovaConfirmacao}
+                onChange={(e) => setSenhaNovaConfirmacao(e.target.value)}
+                className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+              />
+            </div>
+
+            {erroSenha && <p className="m-0 text-center text-sm font-medium text-hf-red">{erroSenha}</p>}
+            {sucessoSenha && <p className="m-0 text-center text-sm font-medium text-hf-green-700">Senha atualizada!</p>}
+
+            <button
+              type="button"
+              onClick={trocarSenha}
+              disabled={salvandoSenha || !senhaAtual || !senhaNova || !senhaNovaConfirmacao}
+              className="w-full rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+            >
+              {salvandoSenha ? 'Salvando...' : 'Trocar senha'}
+            </button>
+          </div>
         </div>
       </div>
 
