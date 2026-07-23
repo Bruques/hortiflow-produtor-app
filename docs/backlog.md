@@ -14,6 +14,8 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Ideias de funcionalidade
 
+- Criar um ambiente de desenvolvimento alem do de produção atual, para que eu consiga pedir pro meu primo testar ou eu mesmo testar no celular antes de mandar para os usuarios reais 
+
 ### Prioridade alta (segurança / risco ativo)
 
 - **[ALTA]** Tornar o repositório privado no GitHub.
@@ -21,8 +23,6 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 ### Prioridade média (melhorias de produto com valor claro)
 
 - **[MÉDIA]** Registrar Acerto: hoje o período (data início/fim) precisa ser preenchido manualmente pelo usuário. Pensar em atalhos e mais liberdade na hora de definir o intervalo — por exemplo, sugerir automaticamente "desde o último Acerto registrado", ou opções rápidas tipo "mês atual" / "safra inteira" — reduzindo erro de digitação e fricção nesse passo.
-- **[MÉDIA]** Troca de senha: permitir que o usuário autenticado troque a própria senha (provavelmente na tela de Configurações).
-- **[MÉDIA]** Detalhes/observações da safra: permitir que o usuário registre informações livres sobre a safra atual, exibidas como texto informativo (sem entrar em nenhum cálculo) — exemplo: "Safra 2026 | Estufa | Córrego do Bom Jesus | 20 mil pés".
 
 ### Prioridade baixa / precisa de mais definição antes de virar spec
 

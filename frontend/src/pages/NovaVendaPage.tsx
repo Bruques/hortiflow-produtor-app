@@ -102,7 +102,9 @@ export default function NovaVendaPage() {
   // a tela de Vendas já usa e filtra pelo id da rota.
   useEffect(() => {
     if (!vendaId) return;
-    listarVendasRequest(safraId)
+    // periodo 'safra' pra não cair no default 'dia' do backend — a venda editada
+    // pode ter sido lançada em qualquer data, não só hoje.
+    listarVendasRequest(safraId, { periodo: 'safra' })
       .then((res) => {
         const encontrada = res.vendas.find((v) => v.id === vendaId);
         if (!encontrada) {

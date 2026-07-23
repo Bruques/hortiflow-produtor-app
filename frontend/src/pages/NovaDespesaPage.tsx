@@ -85,7 +85,9 @@ export default function NovaDespesaPage() {
   // de Despesas usa, então reaproveita ela e filtra pelo id da rota em vez de criar uma rota nova.
   useEffect(() => {
     if (!despesaId) return;
-    listarDespesasRequest(safraId)
+    // periodo 'safra' pra não cair no default 'dia' do backend — a despesa editada
+    // pode ter sido lançada em qualquer data, não só hoje.
+    listarDespesasRequest(safraId, { periodo: 'safra' })
       .then((res) => {
         const encontrada = res.despesas.find((d) => d.id === despesaId);
         if (!encontrada) {
