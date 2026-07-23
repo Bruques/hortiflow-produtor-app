@@ -14,6 +14,7 @@ export default function NovaSafraPage() {
   const navigate = useNavigate();
 
   const [nome, setNome] = useState(nomeSugerido());
+  const [observacoes, setObservacoes] = useState('');
   const [safraEmAndamento, setSafraEmAndamento] = useState<Safra | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -33,7 +34,7 @@ export default function NovaSafraPage() {
     setErro(null);
     setSalvando(true);
     try {
-      const { safra } = await abrirSafraRequest(sociedadeId, nome.trim());
+      const { safra } = await abrirSafraRequest(sociedadeId, nome.trim(), observacoes.trim() || undefined);
       navigate(`/safras/${safra.id}`);
     } catch {
       setErro('Não foi possível criar a safra');
@@ -87,6 +88,21 @@ export default function NovaSafraPage() {
           </div>
           <p className="mt-1.5 text-[11.5px] text-hf-stone-400">
             Sugerido a partir da data de hoje — pode editar livremente
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Observações (opcional)</label>
+          <textarea
+            placeholder="Ex: Estufa | Córrego do Bom Jesus | 20 mil pés | meeiro: João"
+            value={observacoes}
+            onChange={(e) => setObservacoes(e.target.value)}
+            maxLength={500}
+            rows={3}
+            className="w-full resize-none rounded-2xl border-[1.5px] border-hf-line px-4 py-3 text-[14px] text-hf-stone-900 outline-none placeholder:text-hf-stone-400 focus:border-hf-green-500 focus:ring-2 focus:ring-hf-green-100"
+          />
+          <p className="mt-1.5 text-[11.5px] text-hf-stone-400">
+            Texto livre, só pra ajudar a identificar a safra — não entra em nenhum cálculo
           </p>
         </div>
 

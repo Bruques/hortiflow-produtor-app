@@ -15,6 +15,7 @@ router.use(authMiddleware);
 router.get('/', safrasController.listarMinhas);
 router.get('/:id', safrasController.obter);
 router.patch('/:id/encerrar', safrasController.encerrar);
+router.patch('/:id/observacoes', safrasController.atualizarObservacoes);
 router.post('/:id/despesas', despesasController.criar);
 router.get('/:id/despesas', despesasController.listar);
 router.put('/:id/despesas/:despesaId', despesasController.atualizar);

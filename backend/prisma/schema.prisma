@@ -92,6 +92,7 @@ model Safra {
   id           String      @id @default(uuid())
   sociedade_id String
   nome         String
+  observacoes  String?
   status       StatusSafra @default(PLANEJADA)
   data_inicio  DateTime?
   data_fim     DateTime?

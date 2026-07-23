@@ -100,13 +100,18 @@ export default function ResumoPage() {
               <Calendar className="h-3.5 w-3.5" />
               {safra.data_inicio && safra.data_fim
                 ? `${formatarData(safra.data_inicio)} a ${formatarData(safra.data_fim)}`
-                : 'Datas não definidas'}
+                : safra.data_inicio
+                  ? `Aberta em ${formatarData(safra.data_inicio)}`
+                  : 'Datas não definidas'}
             </span>
             <span className="flex items-center gap-1.5 rounded-full bg-hf-green-100 px-2.5 py-1 text-[11.5px] font-bold text-hf-green-700">
               <span className="h-1.5 w-1.5 rounded-full bg-hf-green-600" />
               {ROTULO_STATUS_SAFRA[safra.status]}
             </span>
           </span>
+          {safra.observacoes && (
+            <span className="mt-0.5 w-full truncate text-[12.5px] text-hf-stone-400">{safra.observacoes}</span>
+          )}
         </button>
 
         <div className="flex flex-col gap-2">

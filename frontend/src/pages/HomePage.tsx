@@ -173,9 +173,12 @@ export default function HomePage() {
               onClick={() => navigate(`/safras/${s.id}`)}
               className="flex items-center gap-3 rounded-2xl border border-hf-line bg-white p-4 text-left"
             >
-              <div className="flex-1">
-                <p className="text-sm font-bold text-hf-stone-900">{s.nome}</p>
-                <p className="text-xs text-hf-stone-600">{s.sociedade_nome}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-hf-stone-900">{s.nome}</p>
+                <p className="truncate text-xs text-hf-stone-600">{s.sociedade_nome}</p>
+                {s.observacoes && (
+                  <p className="truncate text-xs text-hf-stone-400">{s.observacoes}</p>
+                )}
               </div>
               <span className="rounded-full bg-hf-green-100 px-2.5 py-1 text-[11px] font-bold text-hf-green-700">
                 {ROTULO_STATUS_SAFRA[s.status]}

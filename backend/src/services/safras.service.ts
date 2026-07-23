@@ -2,11 +2,12 @@ import { Safra, StatusSafra } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { ehSocio } from './sociedades.service';
 
-export async function abrirSafra(sociedadeId: string, nome: string): Promise<Safra> {
+export async function abrirSafra(sociedadeId: string, nome: string, observacoes?: string): Promise<Safra> {
   return prisma.safra.create({
     data: {
       sociedade_id: sociedadeId,
       nome,
+      observacoes: observacoes || null,
       status: StatusSafra.EM_ANDAMENTO,
       data_inicio: new Date(),
     },
@@ -35,6 +36,7 @@ export async function listarSafrasDoUsuario(usuarioId: string) {
     sociedade_id: s.sociedade_id,
     sociedade_nome: s.sociedade.nome,
     nome: s.nome,
+    observacoes: s.observacoes,
     status: s.status,
     data_inicio: s.data_inicio,
     data_fim: s.data_fim,
@@ -53,6 +55,19 @@ export async function ehSocioDaSafra(
   }
   const autorizado = await ehSocio(usuarioId, safra.sociedade_id);
   return { safra, autorizado };
+}
+
+export async function atualizarObservacoes(
+  safraId: string,
+  observacoes: string | null
+): Promise<Safra | null> {
+  const safra = await prisma.safra.findUnique({ where: { id: safraId } });
+  if (!safra) return null;
+
+  return prisma.safra.update({
+    where: { id: safraId },
+    data: { observacoes },
+  });
 }
 
 type EncerrarResultado =
