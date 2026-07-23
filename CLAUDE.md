@@ -44,6 +44,25 @@ hortiflow-produtor-app/
 
 ---
 
+## Ambientes e fluxo de deploy
+
+Existem dois ambientes, cada um com seu próprio frontend (Vercel), backend (Railway) e banco (Neon) — nenhum recurso é compartilhado entre eles:
+
+| | Branch | Frontend | Backend | Banco |
+|---|---|---|---|---|
+| **Produção** | `main` | `hortiflow-produtor-frontend.vercel.app` (projeto `hortiflow-produtor`) | ambiente `production` no Railway | branch `main`/produção do Neon |
+| **Staging** | `develop` | `hortiflow-produtor-develop.vercel.app` (projeto `hortiflow-produtor-develop`) | ambiente `develop` no Railway | branch `develop` do Neon (isolada, criada a partir da produção) |
+
+**Fluxo de trabalho, sempre nessa ordem:**
+
+1. Commits e pushes do dia a dia vão para a branch `develop` — nunca direto para `main`
+2. Cada push em `develop` builda automaticamente o staging (frontend + backend), sem afetar produção — é onde se testa no navegador, no celular (inclusive iPhone) e onde se manda o link para terceiros validarem (ex: primo, cliente), já que essa URL não exige login
+3. Só depois de validado em staging, faz-se merge (ou PR) de `develop` → `main`, o que dispara o deploy real de produção
+
+O projeto de staging na Vercel foi criado com a proteção de SSO desativada (`ssoProtection: null` via API) porque o plano Hobby não permite desligar isso pela tela de "Deployment Protection" — só assim a URL fica acessível sem exigir login na conta Vercel.
+
+---
+
 ## Diferenças importantes em relação ao HortiFlow original
 
 - **Nada de NF-e/Focus NFe** — é divisão de lucro interna entre sócios, não venda entre partes
