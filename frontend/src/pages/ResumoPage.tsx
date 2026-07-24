@@ -72,7 +72,8 @@ export default function ResumoPage() {
       .finally(() => setCarregando(false));
   }, [safraId, periodo, periodoPersonalizado]);
 
-  const meuDivisao = simulacao?.divisao.find((d) => d.socio_id === usuarioId) ?? null;
+  const meuSocio = socios.find((s) => s.usuario_id === usuarioId);
+  const meuDivisao = simulacao?.divisao.find((d) => d.socio_id === meuSocio?.id) ?? null;
   const percentualAnel = Math.min(100, Math.max(0, meuDivisao?.percentual ?? 0));
   const offsetAnel = CIRCUNFERENCIA_ANEL * (1 - percentualAnel / 100);
 

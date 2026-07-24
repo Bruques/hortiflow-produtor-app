@@ -13,8 +13,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 -
 
 ## Ideias de funcionalidade
-
-- Criar um ambiente de desenvolvimento alem do de produção atual, para que eu consiga pedir pro meu primo testar ou eu mesmo testar no celular antes de mandar para os usuarios reais 
+- 
 
 ### Prioridade alta (segurança / risco ativo)
 
@@ -26,7 +25,6 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ### Prioridade baixa / precisa de mais definição antes de virar spec
 
-- **[BAIXA]** Entender se dá pra melhorar a URL do app — ainda não está claro o que exatamente incomoda (domínio próprio? rota feia? falta de HTTPS?). Definir isso antes de repassar pra implementação.
 - **[BAIXA]** Chatbot ouvindo as notificações do grupo (WhatsApp?) de preço de morango diário, exibindo isso em uma aba dedicada do app. Ideia grande, fora do escopo atual de gestão de meação — provavelmente Fase 2. Falta definir de onde vem a notificação (grupo de WhatsApp? outra fonte?) e o que o chatbot faz com a informação (só exibe? resume? alerta variação de preço?).
 - **[BAIXA]** Criar um local dentro do app para anúncios, promoções etc. Ideia ainda sem escopo nem modelo de negócio definido (quem anuncia, como monetiza) — precisa de mais definição antes de virar spec.
 
