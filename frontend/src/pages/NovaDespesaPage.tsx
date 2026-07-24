@@ -205,8 +205,11 @@ export default function NovaDespesaPage() {
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
-        {carregandoDespesa && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
 
+        {carregandoDespesa ? (
+          <p className="text-center text-sm text-hf-stone-600">Carregando...</p>
+        ) : (
+          <>
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Quem bancou?</label>
           <div className="flex gap-2 overflow-x-auto">
@@ -371,6 +374,8 @@ export default function NovaDespesaPage() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       <div className="border-t border-hf-cream-100 bg-white px-[22px] py-4">
