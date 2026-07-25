@@ -7,6 +7,10 @@ import EntrarSociedadePage from '@/pages/EntrarSociedadePage';
 import SafrasPage from '@/pages/SafrasPage';
 import NovaSafraPage from '@/pages/NovaSafraPage';
 import ConfiguracoesPage from '@/pages/ConfiguracoesPage';
+import ConfiguracoesSociosPage from '@/pages/ConfiguracoesSociosPage';
+import ConfiguracoesRegrasDespesaPage from '@/pages/ConfiguracoesRegrasDespesaPage';
+import ConfiguracoesUnidadesVendaPage from '@/pages/ConfiguracoesUnidadesVendaPage';
+import ConfiguracoesContaPage from '@/pages/ConfiguracoesContaPage';
 import DespesasPage from '@/pages/DespesasPage';
 import NovaDespesaPage from '@/pages/NovaDespesaPage';
 import NovaDespesaCompartilhadaPage from '@/pages/NovaDespesaCompartilhadaPage';
@@ -32,6 +36,10 @@ export default function App() {
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />
           <Route path="/sociedades/:id/safras/nova" element={<NovaSafraPage />} />
           <Route path="/sociedades/:id/configuracoes" element={<ConfiguracoesPage />} />
+          <Route path="/sociedades/:id/configuracoes/socios" element={<ConfiguracoesSociosPage />} />
+          <Route path="/sociedades/:id/configuracoes/regras-despesa" element={<ConfiguracoesRegrasDespesaPage />} />
+          <Route path="/sociedades/:id/configuracoes/unidades-de-venda" element={<ConfiguracoesUnidadesVendaPage />} />
+          <Route path="/sociedades/:id/configuracoes/conta" element={<ConfiguracoesContaPage />} />
           <Route path="/acertos/:id" element={<AcertoDetalhePage />} />
           <Route path="/safras/:id" element={<SafraLayout />}>
             <Route index element={<ResumoPage />} />
