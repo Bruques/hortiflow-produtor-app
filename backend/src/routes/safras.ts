@@ -13,6 +13,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', safrasController.listarMinhas);
+router.get('/resumo', simulacaoController.resumo);
 router.get('/:id', safrasController.obter);
 router.patch('/:id/encerrar', safrasController.encerrar);
 router.patch('/:id/observacoes', safrasController.atualizarObservacoes);

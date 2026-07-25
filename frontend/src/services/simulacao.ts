@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { PeriodoFiltro, Simulacao } from '@/types/simulacao';
+import type { PeriodoFiltro, ResumoConsolidado, Simulacao } from '@/types/simulacao';
 
 export async function buscarSimulacaoRequest(safraId: string, periodo: PeriodoFiltro): Promise<Simulacao> {
   const { data } = await apiClient.get(`/safras/${safraId}/simulacao`, { params: { periodo } });
@@ -17,5 +17,12 @@ export async function buscarSimulacaoPersonalizadaRequest(
   const { data } = await apiClient.get(`/safras/${safraId}/simulacao`, {
     params: { data_inicio: dataInicio, data_fim: dataFim },
   });
+  return data;
+}
+
+// Soma "quanto eu recebo" de todas as safras ativas do usuário — usado na tela inicial
+// quando ele tem 2+ safras (ex: financiador com uma Sociedade por meeiro).
+export async function buscarResumoConsolidadoRequest(periodo: PeriodoFiltro): Promise<ResumoConsolidado> {
+  const { data } = await apiClient.get('/safras/resumo', { params: { periodo } });
   return data;
 }

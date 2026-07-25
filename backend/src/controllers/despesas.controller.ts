@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { TipoDespesa } from '@prisma/client';
+import { TipoDespesa, StatusSafra } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
 import * as despesasService from '../services/despesas.service';
 import * as acertosService from '../services/acertos.service';
@@ -16,6 +16,81 @@ const criarSchema = z.object({
 });
 
 const atualizarSchema = criarSchema.partial();
+
+const compartilhadaSchema = z.object({
+  safra_ids: z.array(z.string().min(1)).min(2, 'Informe pelo menos 2 safras'),
+  tipo: z.nativeEnum(TipoDespesa),
+  valor_total: z.number().positive(),
+  data: z.coerce.date(),
+  descricao: z.string().optional(),
+  foto_comprovante: z.string().optional(),
+  rateio: z.discriminatedUnion('modo', [
+    z.object({ modo: z.literal('igual') }),
+    z.object({
+      modo: z.literal('percentual'),
+      percentuais: z
+        .array(z.object({ safra_id: z.string().min(1), percentual: z.number().positive() }))
+        .min(1),
+    }),
+  ]),
+});
+
+// "Tudo ou nada": valida TODAS as safras (dono + EM_ANDAMENTO) e o rateio antes de criar
+// qualquer despesa; a criação em si roda em transação (despesasService.criarDespesaCompartilhada)
+// pra nenhuma safra ficar com despesa órfã se outra falhar no meio (docs/specs/11).
+export async function criarCompartilhada(req: Request, res: Response): Promise<void> {
+  const parsed = compartilhadaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Dados de despesa compartilhada inválidos' });
+    return;
+  }
+  const { safra_ids, tipo, valor_total, data, descricao, foto_comprovante, rateio } = parsed.data;
+
+  if (new Set(safra_ids).size !== safra_ids.length) {
+    res.status(422).json({ error: 'safra_ids não pode repetir a mesma safra' });
+    return;
+  }
+
+  if (rateio.modo === 'percentual') {
+    const idsRateio = new Set(rateio.percentuais.map((p) => p.safra_id));
+    const idsInformados = new Set(safra_ids);
+    const mesmoConjunto =
+      idsRateio.size === idsInformados.size && [...idsRateio].every((id) => idsInformados.has(id));
+    if (!mesmoConjunto) {
+      res.status(422).json({ error: 'rateio.percentuais precisa cobrir exatamente as safras de safra_ids' });
+      return;
+    }
+    const soma = rateio.percentuais.reduce((acc, p) => acc + p.percentual, 0);
+    if (Math.abs(soma - 100) > 0.01) {
+      res.status(422).json({ error: 'A soma dos percentuais precisa fechar em 100%' });
+      return;
+    }
+  }
+
+  const checagens = await Promise.all(
+    safra_ids.map((id) => safrasService.ehSocioDaSafra(req.usuarioId, id))
+  );
+  const todasValidas = checagens.every(
+    ({ safra, autorizado }) => safra && autorizado && safra.status === StatusSafra.EM_ANDAMENTO
+  );
+  if (!todasValidas) {
+    res.status(422).json({
+      error: 'Todas as safras precisam ser suas e estar em andamento',
+    });
+    return;
+  }
+
+  const despesas = await despesasService.criarDespesaCompartilhada(req.usuarioId, safra_ids, {
+    tipo,
+    valorTotal: valor_total,
+    data,
+    descricao,
+    foto_comprovante,
+    rateio,
+  });
+
+  res.status(201).json({ despesas });
+}
 
 export async function criar(req: Request, res: Response): Promise<void> {
   const { id } = req.params; // safra id

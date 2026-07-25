@@ -47,3 +47,27 @@ export async function atualizarDespesaRequest(
 export async function excluirDespesaRequest(safraId: string, despesaId: string): Promise<void> {
   await apiClient.delete(`/safras/${safraId}/despesas/${despesaId}`);
 }
+
+export type RateioCompartilhado =
+  | { modo: 'igual' }
+  | { modo: 'percentual'; percentuais: { safra_id: string; percentual: number }[] };
+
+export interface CriarDespesaCompartilhadaInput {
+  safra_ids: string[];
+  tipo: TipoDespesa;
+  valor_total: number;
+  data: string;
+  descricao?: string;
+  foto_comprovante?: string;
+  rateio: RateioCompartilhado;
+}
+
+// Lança a mesma despesa (já rateada) em várias safras de uma vez — caso de um financiador
+// com uma Sociedade por meeiro e um custo genuinamente compartilhado entre eles (docs/specs/
+// 11-resumo-consolidado-e-despesa-compartilhada.md).
+export async function criarDespesaCompartilhadaRequest(
+  input: CriarDespesaCompartilhadaInput
+): Promise<{ despesas: { safra_id: string; despesa: Despesa }[] }> {
+  const { data } = await apiClient.post('/despesas/compartilhada', input);
+  return data;
+}

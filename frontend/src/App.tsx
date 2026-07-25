@@ -9,6 +9,7 @@ import NovaSafraPage from '@/pages/NovaSafraPage';
 import ConfiguracoesPage from '@/pages/ConfiguracoesPage';
 import DespesasPage from '@/pages/DespesasPage';
 import NovaDespesaPage from '@/pages/NovaDespesaPage';
+import NovaDespesaCompartilhadaPage from '@/pages/NovaDespesaCompartilhadaPage';
 import DespesasPessoaisPage from '@/pages/DespesasPessoaisPage';
 import NovaDespesaPessoalPage from '@/pages/NovaDespesaPessoalPage';
 import VendasPage from '@/pages/VendasPage';
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<PrivateRoute />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/despesas/compartilhada" element={<NovaDespesaCompartilhadaPage />} />
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />
           <Route path="/sociedades/:id/safras/nova" element={<NovaSafraPage />} />

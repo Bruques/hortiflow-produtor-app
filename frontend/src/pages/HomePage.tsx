@@ -5,11 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BrandLockup } from '@/components/BrandMark';
+import { PeriodToggle } from '@/components/PeriodToggle';
 import { meRequest } from '@/services/auth';
 import { criarSociedadeRequest } from '@/services/sociedades';
 import { abrirSafraRequest, listarMinhasSafrasRequest } from '@/services/safras';
+import { buscarResumoConsolidadoRequest } from '@/services/simulacao';
+import { formatarMoeda } from '@/lib/utils';
 import { ROTULO_STATUS_SAFRA } from '@/lib/rotulos';
 import type { MinhaSafra } from '@/types/safra';
+import type { PeriodoFiltro, ResumoConsolidado } from '@/types/simulacao';
 import type { Usuario } from '@/types/usuario';
 
 // Tela de entrada pós-login. Não existe mais uma "lista de sociedades" — o usuário pensa
@@ -28,6 +32,12 @@ export default function HomePage() {
   const [nomeSafra, setNomeSafra] = useState('');
   const [criando, setCriando] = useState(false);
   const [erroCriacao, setErroCriacao] = useState<string | null>(null);
+
+  // Resumo consolidado ("quanto eu recebo somando todas as safras ativas") — só faz sentido
+  // buscar quando há 2+ safras; com 1 só, o usuário já é redirecionado direto pra ela.
+  const [periodoResumo, setPeriodoResumo] = useState<PeriodoFiltro>('mes');
+  const [resumo, setResumo] = useState<ResumoConsolidado | null>(null);
+  const [carregandoResumo, setCarregandoResumo] = useState(false);
 
   function carregar() {
     setCarregando(true);
@@ -48,6 +58,15 @@ export default function HomePage() {
       navigate(`/safras/${safras[0].id}`, { replace: true });
     }
   }, [carregando, erro, safras, navigate]);
+
+  useEffect(() => {
+    if (safras.length < 2) return;
+    setCarregandoResumo(true);
+    buscarResumoConsolidadoRequest(periodoResumo)
+      .then(setResumo)
+      .catch(() => setResumo(null))
+      .finally(() => setCarregandoResumo(false));
+  }, [safras.length, periodoResumo]);
 
   async function criarPrimeiraSafra() {
     if (!nomePropriedade.trim() || !nomeSafra.trim()) return;
@@ -162,7 +181,24 @@ export default function HomePage() {
           <h1 className="font-rounded text-xl font-extrabold text-hf-stone-900">
             {usuario ? `Olá, ${usuario.nome.split(' ')[0]}` : 'Suas safras'}
           </h1>
-          <p className="text-sm text-hf-stone-600">Escolha uma safra pra continuar</p>
+          <p className="text-sm text-hf-stone-600">Resumo de tudo, ou escolha uma safra pra continuar</p>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-2xl bg-gradient-to-br from-hf-green-800 to-hf-green-900 p-4 text-white">
+          <div>
+            <p className="m-0 mb-1 text-[12.5px] opacity-80">Você recebe (estimado) · todas as safras ativas</p>
+            <p className="m-0 text-[26px] font-extrabold tabular-nums tracking-tight">
+              {carregandoResumo && !resumo ? '...' : formatarMoeda(resumo?.totalReceber ?? 0)}
+            </p>
+          </div>
+          <PeriodToggle value={periodoResumo} onChange={setPeriodoResumo} />
+          <button
+            type="button"
+            onClick={() => navigate('/despesas/compartilhada')}
+            className="text-left text-[12.5px] font-bold text-white/85 underline underline-offset-2"
+          >
+            Lançar despesa compartilhada entre safras
+          </button>
         </div>
 
         <div className="flex flex-col gap-2.5">
