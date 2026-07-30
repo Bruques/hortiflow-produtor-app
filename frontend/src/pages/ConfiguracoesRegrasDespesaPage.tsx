@@ -19,6 +19,8 @@ import type { UnidadeVenda } from '@/types/unidadeVenda';
 
 const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
 
+type ModoRateio = 'padrao' | 'exclusivo' | 'personalizado';
+
 export default function ConfiguracoesRegrasDespesaPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -45,6 +47,9 @@ export default function ConfiguracoesRegrasDespesaPage() {
   const [valorRegra, setValorRegra] = useState('');
   const [unidadeRegra, setUnidadeRegra] = useState('');
   const [salvandoRegra, setSalvandoRegra] = useState(false);
+  const [modoRateio, setModoRateio] = useState<ModoRateio>('padrao');
+  const [rateioExclusivoId, setRateioExclusivoId] = useState('');
+  const [rateioPercentuais, setRateioPercentuais] = useState<Record<string, string>>({});
 
   const [unidades, setUnidades] = useState<UnidadeVenda[]>([]);
 
@@ -64,6 +69,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
       setSocios(res.socios);
       const comConta = res.socios.find((s) => s.usuario_id);
       if (comConta) setSocioRegra(comConta.usuario_id!);
+      if (res.socios.length > 0) setRateioExclusivoId(res.socios[0].id);
     });
     listarUnidadesRequest(sociedadeId).then((res) => {
       setUnidades(res.unidades);
@@ -91,8 +97,25 @@ export default function ConfiguracoesRegrasDespesaPage() {
     }
   }
 
+  const somaRateioPersonalizado = socios.reduce(
+    (acc, s) => acc + (Number(rateioPercentuais[s.id]?.replace(',', '.')) || 0),
+    0
+  );
+  const rateioValido =
+    modoRateio === 'padrao' ||
+    (modoRateio === 'exclusivo' && !!rateioExclusivoId) ||
+    (modoRateio === 'personalizado' && Math.abs(somaRateioPersonalizado - 100) <= 0.01);
+
+  function rateioParaEnviar(): { socio_id: string; percentual: number }[] | undefined {
+    if (modoRateio === 'padrao') return undefined;
+    if (modoRateio === 'exclusivo') return [{ socio_id: rateioExclusivoId, percentual: 100 }];
+    return socios
+      .map((s) => ({ socio_id: s.id, percentual: Number(rateioPercentuais[s.id]?.replace(',', '.')) || 0 }))
+      .filter((r) => r.percentual > 0);
+  }
+
   async function criarRegra() {
-    if (!sociedadeId || !socioRegra || !valorRegra) return;
+    if (!sociedadeId || !socioRegra || !valorRegra || !rateioValido) return;
     if (tipoGatilho === 'POR_VENDA' && !unidadeRegra) return;
     setErroRegras(null);
     setSalvandoRegra(true);
@@ -103,8 +126,11 @@ export default function ConfiguracoesRegrasDespesaPage() {
         tipo_despesa: tipoDespesaRegra,
         valor: Number(valorRegra),
         unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
+        rateio: rateioParaEnviar(),
       });
       setValorRegra('');
+      setModoRateio('padrao');
+      setRateioPercentuais({});
       setNovaRegraAberta(false);
       carregarRegras();
     } catch {
@@ -164,6 +190,13 @@ export default function ConfiguracoesRegrasDespesaPage() {
                       {porVenda ? 'Por venda' : 'Por período · sugestão'}
                     </span>
                     <span className="text-[11px] text-hf-stone-400">Atribuído a: {r.socio_nome}</span>
+                    {r.rateio && (
+                      <span className="rounded-full bg-hf-cream-100 px-2 py-0.5 text-[10px] font-bold text-hf-stone-600">
+                        {r.rateio.length === 1
+                          ? `Rateio: só ${r.rateio[0].socio_nome}`
+                          : 'Rateio personalizado'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -273,6 +306,78 @@ export default function ConfiguracoesRegrasDespesaPage() {
                   className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
                 />
               </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">
+                  Quem paga a despesa gerada por essa regra?
+                </label>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {(['padrao', 'exclusivo', 'personalizado'] as ModoRateio[]).map((modo) => (
+                    <button
+                      key={modo}
+                      type="button"
+                      onClick={() => setModoRateio(modo)}
+                      className={cn(
+                        'shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3 py-1.5 text-[11.5px] font-bold',
+                        modoRateio === modo
+                          ? 'border-hf-green-800 bg-hf-green-800 text-white'
+                          : 'border-hf-line bg-white text-hf-stone-700'
+                      )}
+                    >
+                      {modo === 'padrao' && 'Dividir como o lucro'}
+                      {modo === 'exclusivo' && 'Só de um sócio'}
+                      {modo === 'personalizado' && 'Personalizado'}
+                    </button>
+                  ))}
+                </div>
+
+                {modoRateio === 'exclusivo' && (
+                  <select
+                    className="mt-2 h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                    value={rateioExclusivoId}
+                    onChange={(e) => setRateioExclusivoId(e.target.value)}
+                  >
+                    {socios.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nome}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {modoRateio === 'personalizado' && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    {socios.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 flex-1 truncate text-[12.5px] text-hf-stone-700">{s.nome}</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={rateioPercentuais[s.id] ?? ''}
+                            onChange={(e) =>
+                              setRateioPercentuais((atual) => ({
+                                ...atual,
+                                [s.id]: e.target.value.replace(/[^\d,]/g, ''),
+                              }))
+                            }
+                            className="w-16 rounded-lg border-[1.5px] border-hf-line bg-white px-2 py-1.5 text-right text-[13px] font-bold outline-none focus:border-hf-green-700"
+                          />
+                          <span className="text-[12.5px] text-hf-stone-600">%</span>
+                        </div>
+                      </div>
+                    ))}
+                    <p
+                      className={cn(
+                        'text-right text-[11.5px] font-bold',
+                        Math.abs(somaRateioPersonalizado - 100) <= 0.01 ? 'text-hf-green-700' : 'text-hf-red'
+                      )}
+                    >
+                      Soma: {somaRateioPersonalizado.toFixed(2)}% (precisa fechar em 100%)
+                    </p>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -284,7 +389,13 @@ export default function ConfiguracoesRegrasDespesaPage() {
                 <button
                   type="button"
                   onClick={criarRegra}
-                  disabled={salvandoRegra || !socioRegra || !valorRegra || (tipoGatilho === 'POR_VENDA' && !unidadeRegra)}
+                  disabled={
+                    salvandoRegra ||
+                    !socioRegra ||
+                    !valorRegra ||
+                    !rateioValido ||
+                    (tipoGatilho === 'POR_VENDA' && !unidadeRegra)
+                  }
                   className="flex-1 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
                 >
                   {salvandoRegra ? 'Criando...' : 'Criar regra'}

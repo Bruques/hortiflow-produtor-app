@@ -12,6 +12,8 @@ export interface CriarRegraInput {
   tipo_despesa: TipoDespesa;
   valor: number;
   unidade_id?: string;
+  // Ausente = despesas geradas seguem o rateio padrão; definido só na criação (sem edição depois)
+  rateio?: { socio_id: string; percentual: number }[];
 }
 
 export async function criarRegraRequest(

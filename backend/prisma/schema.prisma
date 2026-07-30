@@ -80,9 +80,11 @@ model SocioSociedade {
   papel            PapelSocio
   criado_em        DateTime   @default(now())
 
-  usuario      Usuario?      @relation(fields: [usuario_id], references: [id])
-  sociedade    Sociedade     @relation(fields: [sociedade_id], references: [id])
-  acertoSocios AcertoSocio[]
+  usuario        Usuario?        @relation(fields: [usuario_id], references: [id])
+  sociedade      Sociedade       @relation(fields: [sociedade_id], references: [id])
+  acertoSocios   AcertoSocio[]
+  rateiosDespesa RateioDespesa[]
+  rateiosRegra   RateioRegra[]
 
   @@unique([usuario_id, sociedade_id])
   @@map("socio_sociedades")
@@ -125,8 +127,41 @@ model Despesa {
   socio       Usuario                 @relation(fields: [socio_id], references: [id])
   regraOrigem RegraDespesaRecorrente? @relation(fields: [regra_origem_id], references: [id])
   vendaOrigem Venda?                  @relation(fields: [venda_origem_id], references: [id])
+  rateios     RateioDespesa[]
 
   @@map("despesas")
+}
+
+// Rateio próprio de uma Despesa entre sócios, independente do percentual_lucro da
+// sociedade (docs/specs/13-rateio-de-despesas.md). Ausência de linhas pra uma Despesa
+// significa "rateio padrão" (segue o percentual_lucro vigente no momento do cálculo).
+model RateioDespesa {
+  id                 String  @id @default(uuid())
+  despesa_id         String
+  socio_sociedade_id String
+  percentual         Decimal @db.Decimal(5, 2)
+
+  despesa        Despesa        @relation(fields: [despesa_id], references: [id])
+  socioSociedade SocioSociedade @relation(fields: [socio_sociedade_id], references: [id])
+
+  @@unique([despesa_id, socio_sociedade_id])
+  @@map("rateios_despesa")
+}
+
+// Mesmo conceito de RateioDespesa, mas como "receita" de uma RegraDespesaRecorrente —
+// copiado (congelado) em RateioDespesa a cada Despesa gerada pela regra, pra não recalcular
+// despesas antigas se o rateio da regra mudar depois.
+model RateioRegra {
+  id                 String  @id @default(uuid())
+  regra_id           String
+  socio_sociedade_id String
+  percentual         Decimal @db.Decimal(5, 2)
+
+  regra          RegraDespesaRecorrente @relation(fields: [regra_id], references: [id])
+  socioSociedade SocioSociedade         @relation(fields: [socio_sociedade_id], references: [id])
+
+  @@unique([regra_id, socio_sociedade_id])
+  @@map("rateios_regra")
 }
 
 model DespesaPessoal {
@@ -211,6 +246,7 @@ model RegraDespesaRecorrente {
   criador   Usuario       @relation("RegraCriador", fields: [criado_por], references: [id])
   unidade   UnidadeVenda? @relation(fields: [unidade_id], references: [id])
   despesas  Despesa[]
+  rateios   RateioRegra[]
 
   @@map("regras_despesa_recorrente")
 }

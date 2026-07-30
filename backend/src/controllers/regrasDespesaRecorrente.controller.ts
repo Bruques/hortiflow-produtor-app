@@ -11,6 +11,7 @@ const criarSchema = z.object({
   tipo_despesa: z.nativeEnum(TipoDespesa),
   valor: z.number().positive(),
   unidade_id: z.string().min(1).optional(),
+  rateio: z.array(z.object({ socio_id: z.string().min(1), percentual: z.number().positive() })).optional(),
 });
 
 export async function criar(req: Request, res: Response): Promise<void> {
@@ -42,6 +43,14 @@ export async function criar(req: Request, res: Response): Promise<void> {
     const unidadeValida = await unidadesService.unidadePertenceASociedade(parsed.data.unidade_id, id);
     if (!unidadeValida) {
       res.status(422).json({ error: 'unidade_id informado não pertence a essa sociedade' });
+      return;
+    }
+  }
+
+  if (parsed.data.rateio) {
+    const rateioValido = await regrasService.rateioValido(id, parsed.data.rateio);
+    if (!rateioValido) {
+      res.status(422).json({ error: 'rateio precisa somar 100% entre sócios da mesma sociedade' });
       return;
     }
   }

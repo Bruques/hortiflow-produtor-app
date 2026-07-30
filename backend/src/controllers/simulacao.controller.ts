@@ -3,7 +3,7 @@ import { StatusSafra } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as safrasService from '../services/safras.service';
 import * as sociedadesService from '../services/sociedades.service';
-import { calcularDivisao } from '../services/divisao.service';
+import { calcularDivisao, mapearRateioParaDivisao } from '../services/divisao.service';
 import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
 export async function simular(req: Request, res: Response): Promise<void> {
@@ -30,6 +30,7 @@ export async function simular(req: Request, res: Response): Promise<void> {
   const [despesas, vendas, socios] = await Promise.all([
     prisma.despesa.findMany({
       where: { safra_id: id, ...(Object.keys(filtroData).length > 0 && { data: filtroData }) },
+      include: { rateios: true },
     }),
     prisma.venda.findMany({
       where: { safra_id: id, ...(Object.keys(filtroData).length > 0 && { data: filtroData }) },
@@ -39,7 +40,7 @@ export async function simular(req: Request, res: Response): Promise<void> {
   ]);
 
   const resultado = calcularDivisao(
-    despesas.map((d) => ({ valor: Number(d.valor) })),
+    despesas.map((d) => ({ valor: Number(d.valor), rateio: mapearRateioParaDivisao(d.rateios) })),
     vendas.map((v) => ({ total: Number(v.total) })),
     socios.map((s) => ({ socio_id: s.id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
   );
@@ -90,6 +91,7 @@ export async function resumo(req: Request, res: Response): Promise<void> {
       const [despesas, vendas, socios] = await Promise.all([
         prisma.despesa.findMany({
           where: { safra_id: safra.id, ...(Object.keys(filtroData).length > 0 && { data: filtroData }) },
+          include: { rateios: true },
         }),
         prisma.venda.findMany({
           where: { safra_id: safra.id, ...(Object.keys(filtroData).length > 0 && { data: filtroData }) },
@@ -98,7 +100,7 @@ export async function resumo(req: Request, res: Response): Promise<void> {
       ]);
 
       const resultado = calcularDivisao(
-        despesas.map((d) => ({ valor: Number(d.valor) })),
+        despesas.map((d) => ({ valor: Number(d.valor), rateio: mapearRateioParaDivisao(d.rateios) })),
         vendas.map((v) => ({ total: Number(v.total) })),
         socios.map((s) => ({ socio_id: s.id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
       );

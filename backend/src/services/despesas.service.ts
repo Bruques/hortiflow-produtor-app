@@ -1,5 +1,23 @@
-import { TipoDespesa } from '@prisma/client';
+import { TipoDespesa, RateioDespesa, SocioSociedade, Usuario } from '@prisma/client';
 import prisma from '../lib/prisma';
+
+export interface RateioInput {
+  socio_id: string;
+  percentual: number;
+}
+
+type RateioComSocio = RateioDespesa & { socioSociedade: SocioSociedade & { usuario: Usuario | null } };
+
+// null representa "rateio padrão" (nenhuma linha em RateioDespesa) — não confundir com
+// array vazio, que não deveria acontecer (soma teria que fechar em 100%).
+function mapearRateio(rateios: RateioComSocio[]): { socio_id: string; socio_nome: string; percentual: number }[] | null {
+  if (rateios.length === 0) return null;
+  return rateios.map((r) => ({
+    socio_id: r.socio_sociedade_id,
+    socio_nome: r.socioSociedade.usuario?.nome ?? r.socioSociedade.nome ?? '',
+    percentual: Number(r.percentual),
+  }));
+}
 
 interface CriarDespesaInput {
   socio_id: string;
@@ -8,9 +26,14 @@ interface CriarDespesaInput {
   data: Date;
   foto_comprovante?: string;
   descricao?: string;
+  // Ausente = rateio padrão (segue o percentual_lucro vigente); ver docs/specs/13-rateio-de-despesas.md.
+  rateio?: RateioInput[];
 }
 
-type AtualizarDespesaInput = Partial<CriarDespesaInput>;
+// Não é Partial<CriarDespesaInput> porque `rateio` aqui distingue 3 estados: ausente (não
+// mexe no rateio atual), `null` (remove o rateio customizado, volta ao padrão) ou array
+// (substitui) — Partial só daria ausente/array.
+type AtualizarDespesaInput = Partial<Omit<CriarDespesaInput, 'rateio'>> & { rateio?: RateioInput[] | null };
 
 export async function socioPertenceASociedade(usuarioId: string, sociedadeId: string): Promise<boolean> {
   const vinculo = await prisma.socioSociedade.findUnique({
@@ -19,8 +42,21 @@ export async function socioPertenceASociedade(usuarioId: string, sociedadeId: st
   return vinculo !== null;
 }
 
+// Valida que todo socio_id do rateio é um SocioSociedade da mesma sociedade e que a soma
+// dos percentuais fecha em 100% (tolerância 0.01, mesma da spec 11).
+export async function rateioValido(sociedadeId: string, rateio: RateioInput[]): Promise<boolean> {
+  if (rateio.length === 0) return false;
+  const soma = rateio.reduce((acc, r) => acc + r.percentual, 0);
+  if (Math.abs(soma - 100) > 0.01) return false;
+
+  const encontrados = await prisma.socioSociedade.count({
+    where: { id: { in: rateio.map((r) => r.socio_id) }, sociedade_id: sociedadeId },
+  });
+  return encontrados === new Set(rateio.map((r) => r.socio_id)).size;
+}
+
 export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
-  return prisma.despesa.create({
+  const despesa = await prisma.despesa.create({
     data: {
       safra_id: safraId,
       socio_id: input.socio_id,
@@ -29,8 +65,16 @@ export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
       data: input.data,
       foto_comprovante: input.foto_comprovante,
       descricao: input.descricao,
+      ...(input.rateio && {
+        rateios: {
+          create: input.rateio.map((r) => ({ socio_sociedade_id: r.socio_id, percentual: r.percentual })),
+        },
+      }),
     },
+    include: { rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
   });
+  const { rateios, ...resto } = despesa;
+  return { ...resto, rateio: mapearRateio(rateios) };
 }
 
 export async function buscarDespesa(id: string) {
@@ -38,16 +82,34 @@ export async function buscarDespesa(id: string) {
 }
 
 export async function atualizarDespesa(id: string, input: AtualizarDespesaInput) {
-  return prisma.despesa.update({
-    where: { id },
-    data: {
-      socio_id: input.socio_id,
-      tipo: input.tipo,
-      valor: input.valor,
-      data: input.data,
-      foto_comprovante: input.foto_comprovante,
-      descricao: input.descricao,
-    },
+  return prisma.$transaction(async (tx) => {
+    if (input.rateio !== undefined) {
+      await tx.rateioDespesa.deleteMany({ where: { despesa_id: id } });
+      if (input.rateio !== null) {
+        await tx.rateioDespesa.createMany({
+          data: input.rateio.map((r) => ({
+            despesa_id: id,
+            socio_sociedade_id: r.socio_id,
+            percentual: r.percentual,
+          })),
+        });
+      }
+    }
+
+    const despesa = await tx.despesa.update({
+      where: { id },
+      data: {
+        socio_id: input.socio_id,
+        tipo: input.tipo,
+        valor: input.valor,
+        data: input.data,
+        foto_comprovante: input.foto_comprovante,
+        descricao: input.descricao,
+      },
+      include: { rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
+    });
+    const { rateios, ...resto } = despesa;
+    return { ...resto, rateio: mapearRateio(rateios) };
   });
 }
 
@@ -146,7 +208,7 @@ export async function listarDespesas(safraId: string, filtroData?: { gte?: Date;
       safra_id: safraId,
       ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
     },
-    include: { socio: true },
+    include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
     // `data` é só a data do lançamento (sem hora) — dois registros do mesmo dia empatam nesse
     // critério. `criado_em` desempata mostrando o mais recentemente registrado primeiro.
     orderBy: [{ data: 'desc' }, { criado_em: 'desc' }],
@@ -161,5 +223,6 @@ export async function listarDespesas(safraId: string, filtroData?: { gte?: Date;
     data: d.data,
     foto_comprovante: d.foto_comprovante,
     descricao: d.descricao,
+    rateio: mapearRateio(d.rateios),
   }));
 }

@@ -186,11 +186,16 @@ export default function DespesasPage() {
                       {d.descricao && (
                         <p className="m-0 mt-0.5 truncate text-xs text-hf-stone-600">{d.descricao}</p>
                       )}
-                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-hf-stone-600">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-hf-stone-600">
                         <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-[8.5px] font-extrabold text-hf-green-800">
                           {iniciais(d.socio_nome)}
                         </span>
                         {d.socio_nome}
+                        {d.rateio && (
+                          <span className="rounded-full bg-hf-cream-100 px-2 py-0.5 text-[10px] font-bold text-hf-stone-600">
+                            {d.rateio.length === 1 ? `Rateio: só ${d.rateio[0].socio_nome}` : 'Rateio personalizado'}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">

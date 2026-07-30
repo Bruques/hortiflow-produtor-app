@@ -76,21 +76,35 @@ async function gerarDespesasPorVenda(
       unidade_id: venda.unidade_id,
       ativo: true,
     },
+    include: { rateios: true },
   });
 
   if (regras.length === 0) return;
 
-  await client.despesa.createMany({
-    data: regras.map((regra) => ({
-      safra_id: safraId,
-      socio_id: regra.socio_id,
-      tipo: regra.tipo_despesa,
-      valor: Number(regra.valor) * Number(venda.quantidade),
-      data: venda.data,
-      regra_origem_id: regra.id,
-      venda_origem_id: venda.id,
-    })),
-  });
+  // createMany não aceita relação aninhada (rateios), então cada despesa é criada
+  // individualmente quando a regra tem rateio customizado pra copiar (congelar) as linhas
+  // de RateioDespesa junto — mesmo princípio usado em confirmarSugestao (docs/specs/13).
+  for (const regra of regras) {
+    await client.despesa.create({
+      data: {
+        safra_id: safraId,
+        socio_id: regra.socio_id,
+        tipo: regra.tipo_despesa,
+        valor: Number(regra.valor) * Number(venda.quantidade),
+        data: venda.data,
+        regra_origem_id: regra.id,
+        venda_origem_id: venda.id,
+        ...(regra.rateios.length > 0 && {
+          rateios: {
+            create: regra.rateios.map((r) => ({
+              socio_sociedade_id: r.socio_sociedade_id,
+              percentual: r.percentual,
+            })),
+          },
+        }),
+      },
+    });
+  }
 }
 
 export async function listarVendas(safraId: string, pago?: boolean, filtroData?: { gte?: Date; lte?: Date }) {

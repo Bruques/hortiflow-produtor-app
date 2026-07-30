@@ -1,4 +1,4 @@
-import type { TipoDespesa } from './despesa';
+import type { ItemRateio, TipoDespesa } from './despesa';
 
 export type TipoGatilhoRegra = 'POR_VENDA' | 'POR_PERIODO';
 
@@ -13,6 +13,9 @@ export interface RegraDespesaRecorrente {
   unidade_nome: string | null;
   ativo: boolean;
   criado_por: string;
+  // null = despesas geradas seguem o rateio padrão; array = rateio definido na criação da
+  // regra, copiado pra cada despesa gerada (docs/specs/13-rateio-de-despesas.md)
+  rateio: ItemRateio[] | null;
 }
 
 export interface SugestaoDespesaRecorrente {

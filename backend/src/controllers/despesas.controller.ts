@@ -6,6 +6,8 @@ import * as despesasService from '../services/despesas.service';
 import * as acertosService from '../services/acertos.service';
 import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
+const rateioSchema = z.array(z.object({ socio_id: z.string().min(1), percentual: z.number().positive() }));
+
 const criarSchema = z.object({
   socio_id: z.string().min(1),
   tipo: z.nativeEnum(TipoDespesa),
@@ -13,9 +15,13 @@ const criarSchema = z.object({
   data: z.coerce.date(),
   foto_comprovante: z.string().optional(),
   descricao: z.string().optional(),
+  rateio: rateioSchema.optional(),
 });
 
-const atualizarSchema = criarSchema.partial();
+const atualizarSchema = criarSchema.partial().extend({
+  // null explícito remove o rateio customizado (volta ao padrão); omitido não mexe no rateio atual.
+  rateio: rateioSchema.nullable().optional(),
+});
 
 const compartilhadaSchema = z.object({
   safra_ids: z.array(z.string().min(1)).min(2, 'Informe pelo menos 2 safras'),
@@ -120,6 +126,14 @@ export async function criar(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  if (parsed.data.rateio) {
+    const rateioValido = await despesasService.rateioValido(safra.sociedade_id, parsed.data.rateio);
+    if (!rateioValido) {
+      res.status(422).json({ error: 'rateio precisa somar 100% entre sócios da mesma sociedade' });
+      return;
+    }
+  }
+
   const despesa = await despesasService.criarDespesa(id, parsed.data);
   res.status(201).json({ despesa });
 }
@@ -185,6 +199,14 @@ export async function atualizar(req: Request, res: Response): Promise<void> {
     const socioValido = await despesasService.socioPertenceASociedade(parsed.data.socio_id, safra.sociedade_id);
     if (!socioValido) {
       res.status(422).json({ error: 'socio_id informado não pertence a essa sociedade' });
+      return;
+    }
+  }
+
+  if (parsed.data.rateio) {
+    const rateioValido = await despesasService.rateioValido(safra.sociedade_id, parsed.data.rateio);
+    if (!rateioValido) {
+      res.status(422).json({ error: 'rateio precisa somar 100% entre sócios da mesma sociedade' });
       return;
     }
   }

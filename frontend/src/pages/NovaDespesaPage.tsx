@@ -10,8 +10,18 @@ import { DatePickerField } from '@/components/ui/date-picker-field';
 import { cn, iniciais } from '@/lib/utils';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
-import type { TipoDespesa } from '@/types/despesa';
+import type { ItemRateio, TipoDespesa } from '@/types/despesa';
 import type { Socio } from '@/types/sociedade';
+
+type ModoRateio = 'padrao' | 'exclusivo' | 'personalizado';
+
+// Deriva o modo de rateio a partir do que veio salvo (edição): null é padrão, uma linha só
+// com 100% é "só um sócio", qualquer outra combinação é personalizado.
+function modoRateioDe(rateio: ItemRateio[] | null): ModoRateio {
+  if (!rateio || rateio.length === 0) return 'padrao';
+  if (rateio.length === 1 && Math.abs(rateio[0].percentual - 100) <= 0.01) return 'exclusivo';
+  return 'personalizado';
+}
 
 const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
 
@@ -54,9 +64,13 @@ export default function NovaDespesaPage() {
   const emEdicao = !!despesaId;
 
   const [socios, setSocios] = useState<Socio[]>([]);
+  const [todosSocios, setTodosSocios] = useState<Socio[]>([]);
   const [meuId, setMeuId] = useState<string | null>(null);
   const [socioId, setSocioId] = useState('');
   const [tipo, setTipo] = useState<TipoDespesa>('OUTRO');
+  const [modoRateio, setModoRateio] = useState<ModoRateio>('padrao');
+  const [rateioExclusivoId, setRateioExclusivoId] = useState('');
+  const [rateioPercentuais, setRateioPercentuais] = useState<Record<string, string>>({});
   const [descricao, setDescricao] = useState('');
   const [valorCentavos, setValorCentavos] = useState(''); // só dígitos, sem formatação
   const [outraData, setOutraData] = useState(false);
@@ -77,6 +91,10 @@ export default function NovaDespesaPage() {
         const comConta = res.socios.filter((s) => s.usuario_id);
         setSocios(comConta);
         if (!emEdicao && comConta.length > 0) setSocioId(comConta[0].usuario_id!);
+        // O rateio referencia o vínculo SocioSociedade (não o Usuario), então inclui todo
+        // sócio da sociedade, mesmo sem conta ainda — ver docs/specs/13-rateio-de-despesas.md.
+        setTodosSocios(res.socios);
+        if (!emEdicao && res.socios.length > 0) setRateioExclusivoId(res.socios[0].id);
       })
       .catch(() => setErro('Não foi possível carregar os sócios'));
   }, [sociedadeId, emEdicao]);
@@ -101,6 +119,14 @@ export default function NovaDespesaPage() {
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
         setFoto(encontrada.foto_comprovante ?? null);
+        setModoRateio(modoRateioDe(encontrada.rateio));
+        if (encontrada.rateio && encontrada.rateio.length === 1) {
+          setRateioExclusivoId(encontrada.rateio[0].socio_id);
+        } else if (encontrada.rateio) {
+          setRateioPercentuais(
+            Object.fromEntries(encontrada.rateio.map((r) => [r.socio_id, String(r.percentual)]))
+          );
+        }
       })
       .catch(() => setErro('Não foi possível carregar a despesa'))
       .finally(() => setCarregandoDespesa(false));
@@ -121,7 +147,25 @@ export default function NovaDespesaPage() {
   }
 
   const valorNumero = valorCentavos ? Number(valorCentavos) / 100 : 0;
-  const formValido = !!socioId && valorCentavos !== '' && valorNumero > 0 && !!data;
+
+  const somaRateioPersonalizado = todosSocios.reduce(
+    (acc, s) => acc + (Number(rateioPercentuais[s.id]?.replace(',', '.')) || 0),
+    0
+  );
+  const rateioValido =
+    modoRateio === 'padrao' ||
+    (modoRateio === 'exclusivo' && !!rateioExclusivoId) ||
+    (modoRateio === 'personalizado' && Math.abs(somaRateioPersonalizado - 100) <= 0.01);
+
+  const formValido = !!socioId && valorCentavos !== '' && valorNumero > 0 && !!data && rateioValido;
+
+  function rateioParaEnviar(): { socio_id: string; percentual: number }[] | undefined {
+    if (modoRateio === 'padrao') return undefined;
+    if (modoRateio === 'exclusivo') return [{ socio_id: rateioExclusivoId, percentual: 100 }];
+    return todosSocios
+      .map((s) => ({ socio_id: s.id, percentual: Number(rateioPercentuais[s.id]?.replace(',', '.')) || 0 }))
+      .filter((r) => r.percentual > 0);
+  }
 
   async function escolherFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
@@ -138,18 +182,27 @@ export default function NovaDespesaPage() {
     setErro(null);
     setSalvando(true);
     try {
-      const input = {
-        socio_id: socioId,
-        tipo,
-        valor: valorNumero,
-        data,
-        foto_comprovante: foto ?? undefined,
-        descricao: descricao.trim() || undefined,
-      };
+      const rateio = rateioParaEnviar();
       if (emEdicao && despesaId) {
-        await atualizarDespesaRequest(safraId, despesaId, input);
+        await atualizarDespesaRequest(safraId, despesaId, {
+          socio_id: socioId,
+          tipo,
+          valor: valorNumero,
+          data,
+          foto_comprovante: foto ?? undefined,
+          descricao: descricao.trim() || undefined,
+          rateio: rateio ?? null,
+        });
       } else {
-        await criarDespesaRequest(safraId, input);
+        await criarDespesaRequest(safraId, {
+          socio_id: socioId,
+          tipo,
+          valor: valorNumero,
+          data,
+          foto_comprovante: foto ?? undefined,
+          descricao: descricao.trim() || undefined,
+          rateio,
+        });
       }
       navigate(`/safras/${safraId}/despesas`);
     } catch (e) {
@@ -241,6 +294,85 @@ export default function NovaDespesaPage() {
               );
             })}
           </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Quem paga essa despesa?</label>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {(['padrao', 'exclusivo', 'personalizado'] as ModoRateio[]).map((modo) => (
+              <button
+                key={modo}
+                type="button"
+                onClick={() => setModoRateio(modo)}
+                className={cn(
+                  'shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[12.5px] font-bold',
+                  modoRateio === modo
+                    ? 'border-hf-green-800 bg-hf-green-800 text-white'
+                    : 'border-hf-line bg-white text-hf-stone-700'
+                )}
+              >
+                {modo === 'padrao' && 'Dividir como o lucro'}
+                {modo === 'exclusivo' && 'Só de um sócio'}
+                {modo === 'personalizado' && 'Personalizado'}
+              </button>
+            ))}
+          </div>
+
+          {modoRateio === 'exclusivo' && (
+            <div className="mt-2.5 flex gap-2 overflow-x-auto">
+              {todosSocios.map((s) => {
+                const ativo = s.id === rateioExclusivoId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setRateioExclusivoId(s.id)}
+                    className={cn(
+                      'shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[12.5px] font-bold',
+                      ativo ? 'border-hf-green-700 bg-hf-green-100 text-hf-green-800' : 'border-hf-line bg-white text-hf-stone-700'
+                    )}
+                  >
+                    {s.nome}
+                    {s.usuario_id === meuId ? ' (Você)' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {modoRateio === 'personalizado' && (
+            <div className="mt-2.5 flex flex-col gap-2">
+              {todosSocios.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-hf-stone-700">{s.nome}</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={rateioPercentuais[s.id] ?? ''}
+                      onChange={(e) =>
+                        setRateioPercentuais((atual) => ({
+                          ...atual,
+                          [s.id]: e.target.value.replace(/[^\d,]/g, ''),
+                        }))
+                      }
+                      className="w-16 rounded-lg border-[1.5px] border-hf-line bg-white px-2 py-1.5 text-right text-[13px] font-bold outline-none focus:border-hf-green-700"
+                    />
+                    <span className="text-[12.5px] text-hf-stone-600">%</span>
+                  </div>
+                </div>
+              ))}
+              <p
+                className={cn(
+                  'text-right text-[11.5px] font-bold',
+                  Math.abs(somaRateioPersonalizado - 100) <= 0.01 ? 'text-hf-green-700' : 'text-hf-red'
+                )}
+              >
+                Soma: {somaRateioPersonalizado.toFixed(2)}% (precisa fechar em 100%)
+              </p>
+            </div>
+          )}
         </div>
 
         <div>

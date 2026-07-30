@@ -1,7 +1,7 @@
 import { StatusSafra, TipoAcerto } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as sociedadesService from './sociedades.service';
-import { calcularDivisao } from './divisao.service';
+import { calcularDivisao, mapearRateioParaDivisao } from './divisao.service';
 
 export interface AcertoSocioDetalhe {
   socio_id: string;
@@ -81,13 +81,13 @@ export async function criarAcerto(
   const filtroData = { gte: dataInicio, lte: dataFim };
 
   const [despesas, vendas, socios] = await Promise.all([
-    prisma.despesa.findMany({ where: { safra_id: safraId, data: filtroData } }),
+    prisma.despesa.findMany({ where: { safra_id: safraId, data: filtroData }, include: { rateios: true } }),
     prisma.venda.findMany({ where: { safra_id: safraId, data: filtroData } }),
     sociedadesService.listarSocios(safra.sociedade_id),
   ]);
 
   const resultado = calcularDivisao(
-    despesas.map((d) => ({ valor: Number(d.valor) })),
+    despesas.map((d) => ({ valor: Number(d.valor), rateio: mapearRateioParaDivisao(d.rateios) })),
     vendas.map((v) => ({ total: Number(v.total) })),
     socios.map((s) => ({ socio_id: s.id, nome: s.nome, percentual_lucro: Number(s.percentual_lucro) }))
   );

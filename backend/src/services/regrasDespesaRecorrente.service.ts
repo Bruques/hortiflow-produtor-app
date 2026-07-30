@@ -1,5 +1,10 @@
-import { PapelSocio, TipoDespesa, TipoGatilhoRegra } from '@prisma/client';
+import { PapelSocio, RateioRegra, SocioSociedade, TipoDespesa, TipoGatilhoRegra, Usuario } from '@prisma/client';
 import prisma from '../lib/prisma';
+
+export interface RateioInput {
+  socio_id: string;
+  percentual: number;
+}
 
 interface CriarRegraInput {
   socio_id: string;
@@ -7,6 +12,34 @@ interface CriarRegraInput {
   tipo_despesa: TipoDespesa;
   valor: number;
   unidade_id?: string;
+  // Ausente = despesas geradas pela regra seguem o rateio padrão (percentual de lucro
+  // vigente); ver docs/specs/13-rateio-de-despesas.md. Definido só na criação — não há
+  // endpoint pra editar o rateio de uma regra já existente.
+  rateio?: RateioInput[];
+}
+
+type RateioComSocio = RateioRegra & { socioSociedade: SocioSociedade & { usuario: Usuario | null } };
+
+function mapearRateio(rateios: RateioComSocio[]): { socio_id: string; socio_nome: string; percentual: number }[] | null {
+  if (rateios.length === 0) return null;
+  return rateios.map((r) => ({
+    socio_id: r.socio_sociedade_id,
+    socio_nome: r.socioSociedade.usuario?.nome ?? r.socioSociedade.nome ?? '',
+    percentual: Number(r.percentual),
+  }));
+}
+
+// Mesma validação usada em Despesa (docs/specs/13): todo socio_id precisa ser um
+// SocioSociedade da mesma sociedade e a soma dos percentuais precisa fechar em 100%.
+export async function rateioValido(sociedadeId: string, rateio: RateioInput[]): Promise<boolean> {
+  if (rateio.length === 0) return false;
+  const soma = rateio.reduce((acc, r) => acc + r.percentual, 0);
+  if (Math.abs(soma - 100) > 0.01) return false;
+
+  const encontrados = await prisma.socioSociedade.count({
+    where: { id: { in: rateio.map((r) => r.socio_id) }, sociedade_id: sociedadeId },
+  });
+  return encontrados === new Set(rateio.map((r) => r.socio_id)).size;
 }
 
 // Só FINANCIADOR ou MISTO configuram regra recorrente — MISTO também banca a
@@ -27,7 +60,7 @@ export async function socioPertenceASociedade(usuarioId: string, sociedadeId: st
 }
 
 export async function criarRegra(sociedadeId: string, criadoPor: string, input: CriarRegraInput) {
-  return prisma.regraDespesaRecorrente.create({
+  const regra = await prisma.regraDespesaRecorrente.create({
     data: {
       sociedade_id: sociedadeId,
       socio_id: input.socio_id,
@@ -37,14 +70,26 @@ export async function criarRegra(sociedadeId: string, criadoPor: string, input: 
       valor: input.valor,
       // POR_PERIODO nunca tem unidade — não está amarrada a uma Venda específica
       unidade_id: input.tipo_gatilho === TipoGatilhoRegra.POR_VENDA ? input.unidade_id : null,
+      ...(input.rateio && {
+        rateios: {
+          create: input.rateio.map((r) => ({ socio_sociedade_id: r.socio_id, percentual: r.percentual })),
+        },
+      }),
     },
+    include: { rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
   });
+  const { rateios, ...resto } = regra;
+  return { ...resto, rateio: mapearRateio(rateios) };
 }
 
 export async function listarRegras(sociedadeId: string) {
   const regras = await prisma.regraDespesaRecorrente.findMany({
     where: { sociedade_id: sociedadeId },
-    include: { socio: true, unidade: true },
+    include: {
+      socio: true,
+      unidade: true,
+      rateios: { include: { socioSociedade: { include: { usuario: true } } } },
+    },
     orderBy: { criado_em: 'desc' },
   });
 
@@ -59,6 +104,7 @@ export async function listarRegras(sociedadeId: string) {
     unidade_nome: r.unidade?.nome ?? null,
     ativo: r.ativo,
     criado_por: r.criado_por,
+    rateio: mapearRateio(r.rateios),
   }));
 }
 
@@ -143,7 +189,10 @@ type ConfirmarResultado =
   | { despesa: Awaited<ReturnType<typeof prisma.despesa.create>> };
 
 export async function confirmarSugestao(safraId: string, regraId: string): Promise<ConfirmarResultado> {
-  const regra = await prisma.regraDespesaRecorrente.findUnique({ where: { id: regraId } });
+  const regra = await prisma.regraDespesaRecorrente.findUnique({
+    where: { id: regraId },
+    include: { rateios: true },
+  });
   if (!regra || !regra.ativo || regra.tipo_gatilho !== TipoGatilhoRegra.POR_PERIODO) {
     return { erro: 'NAO_ENCONTRADA' };
   }
@@ -166,6 +215,16 @@ export async function confirmarSugestao(safraId: string, regraId: string): Promi
       valor: regra.valor,
       data: new Date(),
       regra_origem_id: regra.id,
+      // Copia (congela) o rateio da regra pra despesa gerada — não referencia a regra ao
+      // vivo, mesmo princípio do `percentual_aplicado` do Acerto (docs/specs/13).
+      ...(regra.rateios.length > 0 && {
+        rateios: {
+          create: regra.rateios.map((r) => ({
+            socio_sociedade_id: r.socio_sociedade_id,
+            percentual: r.percentual,
+          })),
+        },
+      }),
     },
   });
 

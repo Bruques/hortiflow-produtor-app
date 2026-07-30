@@ -8,6 +8,11 @@ export interface FiltroDespesas {
   data_fim?: string;
 }
 
+export interface RateioInput {
+  socio_id: string;
+  percentual: number;
+}
+
 export interface CriarDespesaInput {
   socio_id: string;
   tipo: TipoDespesa;
@@ -15,6 +20,8 @@ export interface CriarDespesaInput {
   data: string;
   foto_comprovante?: string;
   descricao?: string;
+  // Ausente = rateio padrão (segue o percentual de lucro)
+  rateio?: RateioInput[];
 }
 
 export async function criarDespesaRequest(
@@ -33,7 +40,9 @@ export async function listarDespesasRequest(
   return data;
 }
 
-export type AtualizarDespesaInput = Partial<CriarDespesaInput>;
+// `rateio: null` explícito remove o rateio customizado (volta ao padrão); omitido não mexe
+// no rateio atual — distinção que Partial<CriarDespesaInput> sozinho não conseguiria expressar.
+export type AtualizarDespesaInput = Partial<Omit<CriarDespesaInput, 'rateio'>> & { rateio?: RateioInput[] | null };
 
 export async function atualizarDespesaRequest(
   safraId: string,
