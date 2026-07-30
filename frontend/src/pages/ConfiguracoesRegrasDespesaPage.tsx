@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Check, Percent, Plus, SlidersHorizontal, User } from 'lucide-react';
 import { meRequest } from '@/services/auth';
 import { listarSociosRequest } from '@/services/sociedades';
 import {
@@ -9,7 +9,7 @@ import {
   listarRegrasRequest,
 } from '@/services/regrasDespesaRecorrente';
 import { listarUnidadesRequest } from '@/services/unidadesVenda';
-import { cn, formatarMoeda } from '@/lib/utils';
+import { cn, formatarMoeda, iniciais } from '@/lib/utils';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
 import type { Socio } from '@/types/sociedade';
@@ -20,6 +20,19 @@ import type { UnidadeVenda } from '@/types/unidadeVenda';
 const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
 
 type ModoRateio = 'padrao' | 'exclusivo' | 'personalizado';
+
+const CORES_RATEIO = [
+  { seg: '#17482d', bg: '#e3f3e2', texto: '#17482d' },
+  { seg: '#3b9b5e', bg: '#eef6ee', texto: '#278049' },
+  { seg: '#c98a1f', bg: '#faedd0', texto: '#c98a1f' },
+  { seg: '#2f6fd6', bg: '#e2edfb', texto: '#2f6fd6' },
+];
+
+const MODOS_RATEIO: { modo: ModoRateio; titulo: string; sub: string; Icone: typeof Percent }[] = [
+  { modo: 'padrao', titulo: 'Dividir como o lucro', sub: 'Mesmo percentual combinado entre os sócios', Icone: Percent },
+  { modo: 'exclusivo', titulo: 'Só de um sócio', sub: 'Um único sócio arca com 100% dessa despesa', Icone: User },
+  { modo: 'personalizado', titulo: 'Personalizado', sub: 'Você define o percentual de cada sócio', Icone: SlidersHorizontal },
+];
 
 export default function ConfiguracoesRegrasDespesaPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
@@ -105,6 +118,25 @@ export default function ConfiguracoesRegrasDespesaPage() {
     modoRateio === 'padrao' ||
     (modoRateio === 'exclusivo' && !!rateioExclusivoId) ||
     (modoRateio === 'personalizado' && Math.abs(somaRateioPersonalizado - 100) <= 0.01);
+
+  function selecionarPersonalizado() {
+    setModoRateio('personalizado');
+    if (Object.keys(rateioPercentuais).length === 0 && socios.length > 0) {
+      const base = Math.floor(100 / socios.length);
+      const resto = 100 - base * socios.length;
+      setRateioPercentuais(
+        Object.fromEntries(socios.map((s, i) => [s.id, String(base + (i === 0 ? resto : 0))]))
+      );
+    }
+  }
+
+  function ajustarPercentual(socioId: string, delta: number) {
+    setRateioPercentuais((atual) => {
+      const valorAtual = Number(atual[socioId]?.replace(',', '.')) || 0;
+      const novoValor = Math.min(100, Math.max(0, valorAtual + delta));
+      return { ...atual, [socioId]: String(novoValor) };
+    });
+  }
 
   function rateioParaEnviar(): { socio_id: string; percentual: number }[] | undefined {
     if (modoRateio === 'padrao') return undefined;
@@ -310,24 +342,44 @@ export default function ConfiguracoesRegrasDespesaPage() {
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">
                   Quem paga a despesa gerada por essa regra?
                 </label>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {(['padrao', 'exclusivo', 'personalizado'] as ModoRateio[]).map((modo) => (
-                    <button
-                      key={modo}
-                      type="button"
-                      onClick={() => setModoRateio(modo)}
-                      className={cn(
-                        'shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3 py-1.5 text-[11.5px] font-bold',
-                        modoRateio === modo
-                          ? 'border-hf-green-800 bg-hf-green-800 text-white'
-                          : 'border-hf-line bg-white text-hf-stone-700'
-                      )}
-                    >
-                      {modo === 'padrao' && 'Dividir como o lucro'}
-                      {modo === 'exclusivo' && 'Só de um sócio'}
-                      {modo === 'personalizado' && 'Personalizado'}
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-1.5">
+                  {MODOS_RATEIO.map(({ modo, titulo, sub, Icone }) => {
+                    const ativo = modoRateio === modo;
+                    return (
+                      <button
+                        key={modo}
+                        type="button"
+                        onClick={() => (modo === 'personalizado' ? selecionarPersonalizado() : setModoRateio(modo))}
+                        className={cn(
+                          'flex items-start gap-2 rounded-xl border-[1.5px] px-3 py-2.5 text-left',
+                          ativo ? 'border-hf-green-700 bg-hf-green-100' : 'border-hf-line bg-white'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]',
+                            ativo ? 'bg-white' : 'bg-hf-cream-100'
+                          )}
+                        >
+                          <Icone className={cn('h-3.5 w-3.5', ativo ? 'text-hf-green-700' : 'text-hf-stone-600')} strokeWidth={2} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="m-0 text-[12.5px] font-bold text-hf-stone-900">{titulo}</p>
+                          <p className={cn('m-0 mt-0.5 text-[10.5px] leading-tight', ativo ? 'text-hf-green-700' : 'text-hf-stone-400')}>
+                            {sub}
+                          </p>
+                        </div>
+                        <div
+                          className={cn(
+                            'mt-0.5 flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border-[1.5px]',
+                            ativo ? 'border-hf-green-800 bg-hf-green-800' : 'border-hf-line'
+                          )}
+                        >
+                          {ativo && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {modoRateio === 'exclusivo' && (
@@ -345,36 +397,70 @@ export default function ConfiguracoesRegrasDespesaPage() {
                 )}
 
                 {modoRateio === 'personalizado' && (
-                  <div className="mt-2 flex flex-col gap-2">
-                    {socios.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 flex-1 truncate text-[12.5px] text-hf-stone-700">{s.nome}</span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="0"
-                            value={rateioPercentuais[s.id] ?? ''}
-                            onChange={(e) =>
-                              setRateioPercentuais((atual) => ({
-                                ...atual,
-                                [s.id]: e.target.value.replace(/[^\d,]/g, ''),
-                              }))
-                            }
-                            className="w-16 rounded-lg border-[1.5px] border-hf-line bg-white px-2 py-1.5 text-right text-[13px] font-bold outline-none focus:border-hf-green-700"
-                          />
-                          <span className="text-[12.5px] text-hf-stone-600">%</span>
-                        </div>
-                      </div>
-                    ))}
-                    <p
+                  <div className="mt-2 flex flex-col gap-2.5 rounded-xl border-[1.5px] border-hf-green-100 bg-[#fafcfa] p-3">
+                    <div className="flex h-[11px] overflow-hidden rounded-full bg-hf-cream-100">
+                      {socios.map((s, i) => (
+                        <div
+                          key={s.id}
+                          className="h-full transition-all"
+                          style={{
+                            width: `${Number(rateioPercentuais[s.id]?.replace(',', '.')) || 0}%`,
+                            background: CORES_RATEIO[i % CORES_RATEIO.length].seg,
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <div
                       className={cn(
-                        'text-right text-[11.5px] font-bold',
-                        Math.abs(somaRateioPersonalizado - 100) <= 0.01 ? 'text-hf-green-700' : 'text-hf-red'
+                        'inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold',
+                        Math.abs(somaRateioPersonalizado - 100) <= 0.01 ? 'bg-hf-green-100 text-hf-green-700' : 'bg-hf-red-bg text-hf-red'
                       )}
                     >
-                      Soma: {somaRateioPersonalizado.toFixed(2)}% (precisa fechar em 100%)
-                    </p>
+                      {Math.abs(somaRateioPersonalizado - 100) <= 0.01 && <Check className="h-2.5 w-2.5" strokeWidth={2.6} />}
+                      <span>Total: {somaRateioPersonalizado.toFixed(0)}%{Math.abs(somaRateioPersonalizado - 100) > 0.01 ? ' (precisa fechar em 100%)' : ''}</span>
+                    </div>
+
+                    <div className="flex flex-col">
+                      {socios.map((s, i) => {
+                        const cor = CORES_RATEIO[i % CORES_RATEIO.length];
+                        const valor = Number(rateioPercentuais[s.id]?.replace(',', '.')) || 0;
+                        return (
+                          <div key={s.id} className="flex items-center justify-between gap-2 border-b border-hf-cream-100 py-2 last:border-b-0">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span
+                                className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold"
+                                style={{ background: cor.bg, color: cor.texto }}
+                              >
+                                {iniciais(s.nome)}
+                              </span>
+                              <span className="min-w-0 truncate text-[12px] font-bold text-hf-stone-900">{s.nome}</span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <button
+                                type="button"
+                                aria-label={`Diminuir percentual de ${s.nome}`}
+                                onClick={() => ajustarPercentual(s.id, -5)}
+                                className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] border-hf-line bg-white text-hf-green-800"
+                              >
+                                −
+                              </button>
+                              <span className="min-w-[30px] text-center text-[12.5px] font-extrabold tabular-nums text-hf-stone-900">
+                                {valor}%
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Aumentar percentual de ${s.nome}`}
+                                onClick={() => ajustarPercentual(s.id, 5)}
+                                className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] border-hf-line bg-white text-hf-green-800"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
