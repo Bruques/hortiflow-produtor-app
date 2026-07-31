@@ -10,10 +10,31 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Melhorias de UX
 
--
+- Quando clico em 'ver socios' na home ele manda pra tela de configuração ao inves de mandar direto pra tela de socios
+- Na tela de despesas automaticas, colocar o mesmo filtro dos campos de dinheiro (valor) no campo do Valor por unidade
+- Hoje temos uma seção bem legal de cards na tela de configurações, mas na tela anterior já temos varias coisas também, porem num formato diferente, entender se não ficaria legal tudo numa tela só, e com o layout igual o da tela de configurações
+- Ajustar tela de acerto partcial, colocar um calendario ou pickers mais facil do que digitar a data na mão
+- Remover atalhos da parte de baixo da home
+- Quando usuário criar conta e for tentar registrar venda e não tiver unidade registrada ainda mostrar um botão atalho para registrar unidade
+- por que o get retorna um 304 ao inves de um 200? - curiosidade
 
 ## Ideias de funcionalidade
 - 
+
+## App mobile nativo (React Native/Expo) — roadmap de specs
+
+Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura registradas no `CLAUDE.md`). Specs em `docs/specs/mobile/`, todas já escritas e aprovadas — implementação segue uma sessão por spec, nesta ordem.
+
+**Regra permanente**: assim que uma spec abaixo for implementada e validada (rodando o app, não só type-check — mesmo critério do SDD no `CLAUDE.md`), marcar `[x]` aqui nesta lista.
+
+- [ ] `00-setup-e-infra.md` — scaffold Expo/TS, cliente de API, persistência local + fila de sincronização genérica, CI por pasta
+- [ ] `01-auth.md` — cadastro, login, bootstrap de sessão offline, logout, troca de senha
+- [ ] `02-sociedade-e-socios.md` — criar/entrar por código, sócio sem conta, percentuais
+- [ ] `03-safra.md` — abrir/encerrar safra, observações, `SafraContext`
+- [ ] `04-despesas-da-sociedade.md` — despesa com rateio, foto via câmera, fila offline
+- [ ] `05-painel-e-acerto.md` — painel de simulação e Acerto (sem cálculo local)
+- [ ] `06-vendas-e-despesa-recorrente.md` — unidades de venda, vendas, regra recorrente, sugestões do dia
+- [ ] `07-despesa-pessoal.md` — despesa pessoal isolada, offline sem dependência de cache de sócios
 
 ### Prioridade alta (segurança / risco ativo)
 
@@ -39,7 +60,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 (perguntas que exigem validar com a contadora/produtores — ver também "Perguntas em aberto" no `CLAUDE.md`)
 
--
+- 
 
 ## Já resolvido / descartado
 
@@ -55,3 +76,4 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 - Bottom nav: Vendas passou para a esquerda, Despesas para a direita
 - Despesa recorrente automática (gatilho `POR_VENDA`) deixou de ser automática/incondicional: a tela de lançamento de venda agora mostra um toggle por regra aplicável (marcado por padrão, editável), e só as regras marcadas geram despesa — ver adendo 2026-07-22 em `docs/specs/04-vendas-e-despesa-recorrente.md`. Corrigido junto um bug no selo "gerou despesa automática" da listagem de Vendas, que calculava a partir do estado *atual* da regra em vez do que cada venda realmente aplicou (mudava retroativamente ao ativar/desativar a regra em Configurações)
 - Ordenação de Vendas/Despesas/Despesas Pessoais no mesmo dia: antes ordenava só por `data` (sem hora), então lançamentos do mesmo dia empatavam e apareciam em ordem não previsível (geralmente o primeiro registrado primeiro). Agora ordena por `data desc` e, em caso de empate, por `criado_em desc` — o último registrado no dia aparece primeiro
+- Removido o seletor "Sócio (recebe a despesa)" da criação de regra recorrente: o campo era, na prática, "quem bancou" (auditoria/extrato do Acerto), não "quem recebe" — rótulo invertido que podia atribuir a despesa ao sócio errado no extrato. `socio_id` da regra (e da despesa gerada por ela) passa a ser sempre quem criou a regra. Ver adendo 2026-07-31 em `docs/specs/04-vendas-e-despesa-recorrente.md`

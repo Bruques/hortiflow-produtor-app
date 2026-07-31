@@ -54,7 +54,6 @@ export default function ConfiguracoesRegrasDespesaPage() {
   const [erroRegras, setErroRegras] = useState<string | null>(null);
 
   const [novaRegraAberta, setNovaRegraAberta] = useState(false);
-  const [socioRegra, setSocioRegra] = useState('');
   const [tipoGatilho, setTipoGatilho] = useState<TipoGatilhoRegra>('POR_VENDA');
   const [tipoDespesaRegra, setTipoDespesaRegra] = useState<TipoDespesa>('OUTRO');
   const [valorRegra, setValorRegra] = useState('');
@@ -80,8 +79,6 @@ export default function ConfiguracoesRegrasDespesaPage() {
     carregarRegras();
     listarSociosRequest(sociedadeId).then((res) => {
       setSocios(res.socios);
-      const comConta = res.socios.find((s) => s.usuario_id);
-      if (comConta) setSocioRegra(comConta.usuario_id!);
       if (res.socios.length > 0) setRateioExclusivoId(res.socios[0].id);
     });
     listarUnidadesRequest(sociedadeId).then((res) => {
@@ -147,13 +144,12 @@ export default function ConfiguracoesRegrasDespesaPage() {
   }
 
   async function criarRegra() {
-    if (!sociedadeId || !socioRegra || !valorRegra || !rateioValido) return;
+    if (!sociedadeId || !valorRegra || !rateioValido) return;
     if (tipoGatilho === 'POR_VENDA' && !unidadeRegra) return;
     setErroRegras(null);
     setSalvandoRegra(true);
     try {
       await criarRegraRequest(sociedadeId, {
-        socio_id: socioRegra,
         tipo_gatilho: tipoGatilho,
         tipo_despesa: tipoDespesaRegra,
         valor: Number(valorRegra),
@@ -224,7 +220,6 @@ export default function ConfiguracoesRegrasDespesaPage() {
                     >
                       {porVenda ? 'Por venda' : 'Por período · sugestão'}
                     </span>
-                    <span className="text-[11px] text-hf-stone-400">Atribuído a: {r.socio_nome}</span>
                     {r.rateio && (
                       <span className="rounded-full bg-hf-cream-100 px-2 py-0.5 text-[10px] font-bold text-hf-stone-600">
                         {r.rateio.length === 1
@@ -268,22 +263,6 @@ export default function ConfiguracoesRegrasDespesaPage() {
 
           {souFinanciador && novaRegraAberta && (
             <div className="flex flex-col gap-3 rounded-2xl border border-hf-line p-3.5">
-              <div>
-                <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Sócio (recebe a despesa)</label>
-                <select
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
-                  value={socioRegra}
-                  onChange={(e) => setSocioRegra(e.target.value)}
-                >
-                  {socios
-                    .filter((s) => s.usuario_id)
-                    .map((s) => (
-                      <option key={s.id} value={s.usuario_id!}>
-                        {s.nome}
-                      </option>
-                    ))}
-                </select>
-              </div>
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Gatilho</label>
                 <select
@@ -480,7 +459,6 @@ export default function ConfiguracoesRegrasDespesaPage() {
                   onClick={criarRegra}
                   disabled={
                     salvandoRegra ||
-                    !socioRegra ||
                     !valorRegra ||
                     !rateioValido ||
                     (tipoGatilho === 'POR_VENDA' && !unidadeRegra)

@@ -7,7 +7,6 @@ import type {
 } from '@/types/regraDespesaRecorrente';
 
 export interface CriarRegraInput {
-  socio_id: string;
   tipo_gatilho: TipoGatilhoRegra;
   tipo_despesa: TipoDespesa;
   valor: number;

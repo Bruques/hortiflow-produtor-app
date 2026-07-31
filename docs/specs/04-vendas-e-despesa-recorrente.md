@@ -184,6 +184,28 @@ where: { id: { in: regras_por_venda_aplicadas }, sociedade_id, tipo_gatilho: POR
 
 **Fica de fora desta mudança:** qualquer alteração no fluxo `POR_PERIODO` (sugestão do dia continua igual); mudança de `calcularDivisao` (despesas geradas continuam entrando no cálculo normalmente, só muda como/quando são criadas).
 
+## Adendo (2026-07-31) — remove o seletor "Sócio (recebe a despesa)" da criação de regra recorrente
+
+Origem: item de backlog "Acho que agora não faz sentido na criação de despesas automáticas ter a opção 'quem recebe a despesa'".
+
+**Problema:** `RegraDespesaRecorrente.socio_id` vira `Despesa.socio_id` na despesa gerada, e esse campo significa "quem lançou/registrou a despesa" — usado só para auditoria e para compor `despesas_bancadas` no Acerto (ver [docs/specs/13-rateio-de-despesas.md](13-rateio-de-despesas.md), que já deixou explícito que esse campo é independente do rateio/divisão de lucro). Em toda a tela manual de despesa (`NovaDespesaPage.tsx`) o mesmo campo é rotulado "Quem bancou?" — mas na tela de criar regra recorrente ele aparece como "Sócio (recebe a despesa)", com o sentido invertido.
+
+Isso não é só inconsistência de rótulo: numa regra que paga o meeiro por caixa vendida, o financiador tende a escolher o meeiro nesse campo (afinal é ele quem recebe o valor) — o que grava `Despesa.socio_id = meeiro`, e o Acerto passa a contar essa despesa como "bancada pelo meeiro" quando na prática é o financiador quem está pagando. O rateio (que decide o efeito na divisão do lucro) não é afetado — o estrago é só no número de `despesas_bancadas` exibido no extrato.
+
+**Decisão:** já que só `FINANCIADOR`/`MISTO` podem criar regra recorrente, `socio_id` da regra passa a ser sempre `req.usuarioId` (quem está criando a regra) — deixa de ser um campo escolhido na tela. O mesmo vale para a Despesa gerada a partir dela (`POR_VENDA` ou `POR_PERIODO` confirmada).
+
+### Mudança de contrato de API
+
+- `POST /sociedades/:id/regras-recorrentes` deixa de aceitar `socio_id` no body — `socio_id` é sempre `req.usuarioId`. Enviar o campo é ignorado (não gera erro, por simplicidade — não há necessidade de rejeitar campos extras não usados aqui)
+- `GET /sociedades/:id/regras-recorrentes` e `GET /safras/:id/regras-recorrentes/sugestoes` continuam retornando `socio_id`/`socio_nome` (sem mudança de formato), só que agora sempre iguais a `criado_por`/ao nome de quem criou
+
+### Frontend (`ConfiguracoesRegrasDespesaPage.tsx`)
+
+- Remove o `<select>` "Sócio (recebe a despesa)" do formulário de nova regra — nada substitui visualmente esse campo, o financiador não precisa mais escolher
+- A listagem de regras deixa de exibir "recebe a despesa" associado a um sócio (segue mostrando `tipo_despesa`, `tipo_gatilho`, valor e rateio, como já faz hoje)
+
+**Fica de fora desta mudança:** qualquer alteração em `calcularDivisao`, rateio, ou no fluxo de confirmação de sugestão do dia — só o preenchimento de `socio_id` muda, de "escolhido na tela" para "sempre quem criou a regra".
+
 ## Critérios de aceite
 
 1. Dado uma Safra em andamento, `POST /safras/:id/vendas` cria a Venda com `total` calculado no backend
@@ -204,6 +226,8 @@ where: { id: { in: regras_por_venda_aplicadas }, sociedade_id, tipo_gatilho: POR
 16. Dado 2 regras `POR_VENDA` ativas da mesma unidade da venda, a tela de lançamento mostra 2 toggles, ambos marcados por padrão; desmarcar um e salvar gera despesa só da regra que ficou marcada
 17. Enviar `POST /safras/:id/vendas` com `regras_por_venda_aplicadas` omitido ou `[]` não gera nenhuma Despesa, mesmo havendo regras `POR_VENDA` ativas aplicáveis
 18. Enviar um id de regra que não pertence à Sociedade, está inativa, ou é de outra unidade em `regras_por_venda_aplicadas`: `422`, nenhuma despesa é criada a partir desse id
+19. Dado um sócio com papel `FINANCIADOR` (usuário A) criando uma regra recorrente, `POST /sociedades/:id/regras-recorrentes` grava `socio_id = A` mesmo sem `socio_id` no body (ver adendo 2026-07-31); a Despesa gerada a partir dessa regra (por `POR_VENDA` ou por confirmação de sugestão `POR_PERIODO`) também tem `socio_id = A`
+20. Frontend: a tela de criar regra recorrente não mostra mais nenhum seletor de sócio
 19. `GET /safras/:id/vendas` retorna `regras_aplicadas` com os ids das regras que geraram despesa para cada venda
 20. Dado uma Venda editada com um novo `regras_por_venda_aplicadas` diferente do estado salvo, `PUT /safras/:id/vendas/:vendaId` apaga as despesas antigas dessa venda e recria só para os ids da nova lista; se o campo for omitido no `PUT`, as despesas já geradas não são alteradas
 21. Frontend: ao abrir a tela para editar uma Venda existente, os toggles de regra `POR_VENDA` vêm marcados conforme `regras_aplicadas` daquela venda, não todos marcados por padrão

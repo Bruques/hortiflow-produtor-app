@@ -6,7 +6,6 @@ import * as regrasService from '../services/regrasDespesaRecorrente.service';
 import * as unidadesService from '../services/unidadesVenda.service';
 
 const criarSchema = z.object({
-  socio_id: z.string().min(1),
   tipo_gatilho: z.nativeEnum(TipoGatilhoRegra),
   tipo_despesa: z.nativeEnum(TipoDespesa),
   valor: z.number().positive(),
@@ -26,12 +25,6 @@ export async function criar(req: Request, res: Response): Promise<void> {
   const parsed = criarSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Dados de regra inválidos' });
-    return;
-  }
-
-  const socioValido = await regrasService.socioPertenceASociedade(parsed.data.socio_id, id);
-  if (!socioValido) {
-    res.status(422).json({ error: 'socio_id informado não pertence a essa sociedade' });
     return;
   }
 

@@ -7,7 +7,6 @@ export interface RateioInput {
 }
 
 interface CriarRegraInput {
-  socio_id: string;
   tipo_gatilho: TipoGatilhoRegra;
   tipo_despesa: TipoDespesa;
   valor: number;
@@ -63,7 +62,10 @@ export async function criarRegra(sociedadeId: string, criadoPor: string, input: 
   const regra = await prisma.regraDespesaRecorrente.create({
     data: {
       sociedade_id: sociedadeId,
-      socio_id: input.socio_id,
+      // A despesa gerada é sempre atribuída a quem criou a regra — ver adendo 2026-07-31 em
+      // docs/specs/04-vendas-e-despesa-recorrente.md. Só FINANCIADOR/MISTO criam regra, e
+      // esse campo é só auditoria (não afeta calcularDivisao, que usa o rateio).
+      socio_id: criadoPor,
       criado_por: criadoPor,
       tipo_gatilho: input.tipo_gatilho,
       tipo_despesa: input.tipo_despesa,
