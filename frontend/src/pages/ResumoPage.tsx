@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, ChevronRight, ShoppingCart, Wallet, TrendingUp, CirclePlus, CircleMinus, PiggyBank, FileText } from 'lucide-react';
+import { Calendar, ChevronRight, ShoppingCart, Wallet, TrendingUp } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
 import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
@@ -287,59 +287,6 @@ export default function ResumoPage() {
               </div>
             </div>
 
-            <div>
-              <h3 className="mb-2.5 text-base font-extrabold text-hf-stone-900">Atalhos rápidos</h3>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/safras/${safraId}/vendas`)}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-hf-green-100">
-                    <CirclePlus className="h-[21px] w-[21px] text-hf-green-600" />
-                  </div>
-                  <span className="text-center text-[10.5px] font-bold leading-tight text-hf-stone-700">
-                    Nova venda
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/safras/${safraId}/despesas`)}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-hf-red-bg">
-                    <CircleMinus className="h-[21px] w-[21px] text-hf-red" />
-                  </div>
-                  <span className="text-center text-[10.5px] font-bold leading-tight text-hf-stone-700">
-                    Nova despesa
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/safras/${safraId}/despesas-pessoais`)}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-hf-blue-bg">
-                    <PiggyBank className="h-[21px] w-[21px] text-hf-blue" />
-                  </div>
-                  <span className="text-center text-[10.5px] font-bold leading-tight text-hf-stone-700">
-                    Despesas pessoais
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/safras/${safraId}/acertos`)}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-hf-amber-bg">
-                    <FileText className="h-[21px] w-[21px] text-hf-amber" />
-                  </div>
-                  <span className="text-center text-[10.5px] font-bold leading-tight text-hf-stone-700">
-                    Registrar acerto
-                  </span>
-                </button>
-              </div>
-            </div>
           </>
         )}
       </div>
