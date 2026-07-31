@@ -50,12 +50,11 @@ export default function ConfiguracoesRegrasDespesaPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Volta de verdade no histórico do navegador em vez de empurrar uma nova entrada pra
-  // cima do hub — evita o loop onde "voltar" no hub (que também usa navigate(-1)) te
-  // trouxesse de volta pra esta subtela em vez de pra tela anterior ao hub.
+  // Volta de verdade no histórico do navegador (chegou aqui a partir do Menu) — só cai
+  // numa rota fixa quando não há histórico (link direto, refresh).
   function voltar() {
     if (location.key !== 'default') navigate(-1);
-    else navigate(`/sociedades/${sociedadeId}/configuracoes`);
+    else navigate(`/sociedades/${sociedadeId}/safras`);
   }
 
   const [socios, setSocios] = useState<Socio[]>([]);

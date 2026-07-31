@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, Plus, Sprout, Pencil } from 'lucide-react';
 import { atualizarObservacoesRequest, encerrarSafraRequest, listarSafrasRequest } from '@/services/safras';
 import { listarSociedadesRequest } from '@/services/sociedades';
@@ -14,6 +14,15 @@ import type { Safra } from '@/types/safra';
 export default function SafrasPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Volta de verdade no histórico do navegador (chegou aqui a partir do Menu) — só cai
+  // numa rota fixa quando não há histórico (link direto, refresh).
+  function voltar() {
+    if (location.key !== 'default') navigate(-1);
+    else navigate('/');
+  }
+
   const [nomeSociedade, setNomeSociedade] = useState<string | null>(null);
   const [safras, setSafras] = useState<Safra[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -82,7 +91,7 @@ export default function SafrasPage() {
           <button
             type="button"
             aria-label="Voltar"
-            onClick={() => navigate(`/sociedades/${sociedadeId}/configuracoes`)}
+            onClick={voltar}
             className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-stone-900"
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
