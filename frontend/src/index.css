@@ -31,10 +31,14 @@
   * {
     @apply border-border;
   }
-  html,
-  body {
+  html {
     /* Sem isso o Safari iOS aplica o bounce/rubber-band nativo dele nas bordas horizontais —
-       a tela "anda pros lados" ao arrastar mesmo sem nenhum conteúdo mais largo que a viewport. */
+       a tela "anda pros lados" ao arrastar mesmo sem nenhum conteúdo mais largo que a viewport.
+       Só no html, não no body: overflow-x em ambos faz overflow-y ser computado como "auto" nos
+       dois (regra do CSS de consistência entre os eixos), o que quebra position:sticky em
+       elementos filhos — o body vira um scroll container próprio, mas sem overflow real (sua
+       altura já é a do conteúdo), então o scroll "de verdade" passa a acontecer num nível que os
+       elementos sticky não veem como o ancestral de rolagem certo. */
     overflow-x: hidden;
     overscroll-behavior-x: none;
   }
