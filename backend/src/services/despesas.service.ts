@@ -1,5 +1,6 @@
 import { TipoDespesa, RateioDespesa, SocioSociedade, Usuario } from '@prisma/client';
 import prisma from '../lib/prisma';
+import * as acertosService from './acertos.service';
 
 export interface RateioInput {
   socio_id: string;
@@ -114,7 +115,12 @@ export async function atualizarDespesa(id: string, input: AtualizarDespesaInput)
 }
 
 export async function excluirDespesa(id: string): Promise<void> {
-  await prisma.despesa.delete({ where: { id } });
+  // RateioDespesa não tem onDelete: Cascade no schema — apagar a Despesa direto quebra
+  // por FK quando ela tem rateio customizado (mesmo padrão de excluirVenda em vendas.service).
+  await prisma.$transaction([
+    prisma.rateioDespesa.deleteMany({ where: { despesa_id: id } }),
+    prisma.despesa.delete({ where: { id } }),
+  ]);
 }
 
 export type RateioCompartilhado =
@@ -203,16 +209,19 @@ export async function criarDespesaCompartilhada(
 }
 
 export async function listarDespesas(safraId: string, filtroData?: { gte?: Date; lte?: Date }) {
-  const despesas = await prisma.despesa.findMany({
-    where: {
-      safra_id: safraId,
-      ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
-    },
-    include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
-    // `data` é só a data do lançamento (sem hora) — dois registros do mesmo dia empatam nesse
-    // critério. `criado_em` desempata mostrando o mais recentemente registrado primeiro.
-    orderBy: [{ data: 'desc' }, { criado_em: 'desc' }],
-  });
+  const [despesas, intervalosAcerto] = await Promise.all([
+    prisma.despesa.findMany({
+      where: {
+        safra_id: safraId,
+        ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
+      },
+      include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
+      // `data` é só a data do lançamento (sem hora) — dois registros do mesmo dia empatam nesse
+      // critério. `criado_em` desempata mostrando o mais recentemente registrado primeiro.
+      orderBy: [{ data: 'desc' }, { criado_em: 'desc' }],
+    }),
+    acertosService.listarIntervalosAcerto(safraId),
+  ]);
 
   return despesas.map((d) => ({
     id: d.id,
@@ -224,5 +233,8 @@ export async function listarDespesas(safraId: string, filtroData?: { gte?: Date;
     foto_comprovante: d.foto_comprovante,
     descricao: d.descricao,
     rateio: mapearRateio(d.rateios),
+    // Antecipa pro frontend a mesma trava que excluir/atualizar aplicam (ver acertos.service),
+    // pra desabilitar o botão antes do clique em vez de só reagir ao 409.
+    coberta_por_acerto: acertosService.estaCobertaPorAcerto(d.data, intervalosAcerto),
   }));
 }

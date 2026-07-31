@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Minus, Plus, Store, Info, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Minus, Plus, Store, Info, Trash2 } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarVendaRequest, atualizarVendaRequest, excluirVendaRequest, listarVendasRequest } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
@@ -55,6 +55,7 @@ export default function NovaVendaPage() {
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [carregandoVenda, setCarregandoVenda] = useState(emEdicao);
+  const [travadaPorAcerto, setTravadaPorAcerto] = useState(false);
 
   // Guarda a última unidade pra qual os toggles foram calculados — evita resetar os toggles
   // toda vez que o efeito roda de novo (ex: regras terminando de carregar) sem o usuário ter
@@ -120,6 +121,7 @@ export default function NovaVendaPage() {
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
         unidadeDosTogglesRef.current = encontrada.unidade_id;
         setRegrasMarcadas(encontrada.regras_aplicadas);
+        setTravadaPorAcerto(encontrada.coberta_por_acerto);
       })
       .catch(() => setErro('Não foi possível carregar a venda'))
       .finally(() => setCarregandoVenda(false));
@@ -215,8 +217,9 @@ export default function NovaVendaPage() {
           <button
             type="button"
             aria-label="Excluir venda"
+            title={travadaPorAcerto ? 'Essa venda já foi acertada e não pode ser excluída' : undefined}
             onClick={excluir}
-            disabled={excluindo}
+            disabled={excluindo || travadaPorAcerto}
             className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-red disabled:opacity-50"
           >
             <Trash2 className="h-[17px] w-[17px]" strokeWidth={2.2} />
@@ -226,6 +229,15 @@ export default function NovaVendaPage() {
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+
+        {travadaPorAcerto && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-hf-amber-bg px-3.5 py-3">
+            <AlertTriangle className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-amber" strokeWidth={2} />
+            <p className="m-0 text-[11.5px] text-hf-amber">
+              Essa venda já faz parte de um acerto registrado, então não pode mais ser editada ou excluída.
+            </p>
+          </div>
+        )}
 
         {carregandoVenda ? (
           <p className="text-center text-sm text-hf-stone-600">Carregando...</p>
@@ -440,7 +452,7 @@ export default function NovaVendaPage() {
         <button
           type="button"
           onClick={salvar}
-          disabled={!formValido || salvando || carregandoVenda}
+          disabled={!formValido || salvando || carregandoVenda || travadaPorAcerto}
           className="w-full rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white disabled:opacity-50"
         >
           {salvando ? 'Salvando...' : 'Salvar venda'}

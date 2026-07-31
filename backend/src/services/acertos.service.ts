@@ -170,6 +170,27 @@ export async function dataCobertaPorAcerto(safraId: string, data: Date): Promise
   return acerto !== null;
 }
 
+// Pensado pra telas de listagem (Despesas/Vendas), que precisam marcar "coberta por acerto"
+// em cada item sem disparar uma query por linha — busca os intervalos uma vez por safra e
+// `estaCobertaPorAcerto` faz a checagem em memória pra cada registro.
+export async function listarIntervalosAcerto(
+  safraId: string
+): Promise<{ data_inicio: Date; data_fim: Date }[]> {
+  return prisma.acerto.findMany({
+    where: { safra_id: safraId },
+    select: { data_inicio: true, data_fim: true },
+  });
+}
+
+export function estaCobertaPorAcerto(
+  data: Date,
+  intervalos: { data_inicio: Date; data_fim: Date }[]
+): boolean {
+  return intervalos.some(
+    (i) => i.data_inicio.getTime() <= data.getTime() && i.data_fim.getTime() >= data.getTime()
+  );
+}
+
 export async function listarAcertos(safraId: string): Promise<AcertoResumo[]> {
   return prisma.acerto.findMany({
     where: { safra_id: safraId },

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Camera, Check, Percent, SlidersHorizontal, Trash2, User, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Camera, Check, Percent, SlidersHorizontal, Trash2, User, X } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarDespesaRequest, atualizarDespesaRequest, excluirDespesaRequest, listarDespesasRequest } from '@/services/despesas';
 import { listarSociosRequest } from '@/services/sociedades';
@@ -96,6 +96,7 @@ export default function NovaDespesaPage() {
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [carregandoDespesa, setCarregandoDespesa] = useState(emEdicao);
+  const [travadaPorAcerto, setTravadaPorAcerto] = useState(false);
 
   useEffect(() => {
     meRequest().then((res) => setMeuId(res.usuario.id)).catch(() => {});
@@ -134,6 +135,7 @@ export default function NovaDespesaPage() {
         setData(encontrada.data.slice(0, 10));
         setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
         setFoto(encontrada.foto_comprovante ?? null);
+        setTravadaPorAcerto(encontrada.coberta_por_acerto);
         setModoRateio(modoRateioDe(encontrada.rateio));
         if (encontrada.rateio && encontrada.rateio.length === 1) {
           setRateioExclusivoId(encontrada.rateio[0].socio_id);
@@ -284,8 +286,9 @@ export default function NovaDespesaPage() {
           <button
             type="button"
             aria-label="Excluir despesa"
+            title={travadaPorAcerto ? 'Essa despesa já foi acertada e não pode ser excluída' : undefined}
             onClick={excluir}
-            disabled={excluindo}
+            disabled={excluindo || travadaPorAcerto}
             className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-red disabled:opacity-50"
           >
             <Trash2 className="h-[17px] w-[17px]" strokeWidth={2.2} />
@@ -295,6 +298,15 @@ export default function NovaDespesaPage() {
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+
+        {travadaPorAcerto && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-hf-amber-bg px-3.5 py-3">
+            <AlertTriangle className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-amber" strokeWidth={2} />
+            <p className="m-0 text-[11.5px] text-hf-amber">
+              Essa despesa já faz parte de um acerto registrado, então não pode mais ser editada ou excluída.
+            </p>
+          </div>
+        )}
 
         {carregandoDespesa ? (
           <p className="text-center text-sm text-hf-stone-600">Carregando...</p>
@@ -622,7 +634,7 @@ export default function NovaDespesaPage() {
         <button
           type="button"
           onClick={salvar}
-          disabled={!formValido || salvando || carregandoDespesa}
+          disabled={!formValido || salvando || carregandoDespesa || travadaPorAcerto}
           className="w-full rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white disabled:opacity-50"
         >
           {salvando ? 'Salvando...' : 'Salvar despesa'}

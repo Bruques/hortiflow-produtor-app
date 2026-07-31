@@ -1,5 +1,6 @@
 import { Prisma, TipoGatilhoRegra, Venda } from '@prisma/client';
 import prisma from '../lib/prisma';
+import * as acertosService from './acertos.service';
 
 type PrismaClientOuTx = typeof prisma | Prisma.TransactionClient;
 
@@ -108,17 +109,20 @@ async function gerarDespesasPorVenda(
 }
 
 export async function listarVendas(safraId: string, pago?: boolean, filtroData?: { gte?: Date; lte?: Date }) {
-  const vendas = await prisma.venda.findMany({
-    where: {
-      safra_id: safraId,
-      ...(pago !== undefined ? { pago } : {}),
-      ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
-    },
-    include: { unidade: true, despesasGeradas: true },
-    // `data` é só a data do lançamento (sem hora) — dois registros do mesmo dia empatam nesse
-    // critério. `criado_em` desempata mostrando o mais recentemente registrado primeiro.
-    orderBy: [{ data: 'desc' }, { criado_em: 'desc' }],
-  });
+  const [vendas, intervalosAcerto] = await Promise.all([
+    prisma.venda.findMany({
+      where: {
+        safra_id: safraId,
+        ...(pago !== undefined ? { pago } : {}),
+        ...(filtroData && Object.keys(filtroData).length > 0 && { data: filtroData }),
+      },
+      include: { unidade: true, despesasGeradas: true },
+      // `data` é só a data do lançamento (sem hora) — dois registros do mesmo dia empatam nesse
+      // critério. `criado_em` desempata mostrando o mais recentemente registrado primeiro.
+      orderBy: [{ data: 'desc' }, { criado_em: 'desc' }],
+    }),
+    acertosService.listarIntervalosAcerto(safraId),
+  ]);
 
   return vendas.map((v) => ({
     id: v.id,
@@ -135,6 +139,9 @@ export async function listarVendas(safraId: string, pago?: boolean, filtroData?:
     regras_aplicadas: v.despesasGeradas
       .map((d) => d.regra_origem_id)
       .filter((id): id is string => id !== null),
+    // Antecipa pro frontend a mesma trava que excluir/atualizar aplicam (ver acertos.service),
+    // pra desabilitar o botão antes do clique em vez de só reagir ao 409.
+    coberta_por_acerto: acertosService.estaCobertaPorAcerto(v.data, intervalosAcerto),
   }));
 }
 

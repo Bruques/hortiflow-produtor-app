@@ -85,6 +85,14 @@ Nenhuma migration nova — `Acerto` e `AcertoSocio` já existem no schema desde 
 
 **Por que bloquear sobreposição de período em vez de permitir livremente:** sem essa trava, dois Acertos parciais cobrindo o mesmo intervalo contariam o mesmo lucro duas vezes, quebrando a credibilidade do extrato — que é o ponto central do produto.
 
+### Adendo 2026-07-31 — `coberta_por_acerto` exposto proativamente em Despesa/Venda
+
+A trava que bloqueia editar/excluir uma Despesa ou Venda cuja data já caiu num Acerto (implementada junto das tasks 3/4, retornando `409`) até aqui só era descoberta pelo usuário depois de tentar e falhar — o botão de excluir aparecia sempre, sem indicar de antemão que a ação seria recusada. Decisão do dev: manter a trava (o financiador está usando o app hoje sobretudo como controle financeiro pessoal, não como auditoria formal entre sócios, mas a distinção prática é pequena — deleções acontecem quase sempre no mesmo dia do lançamento, antes do Acerto semanal seguinte; quando a despesa/venda já foi acertada, a imutabilidade do extrato continua valendo), mas antecipar a informação:
+
+- `despesas.service.ts` (`listarDespesas`) e `vendas.service.ts` (`listarVendas`) agora calculam `coberta_por_acerto: boolean` por item, reaproveitando os intervalos de `Acerto` da Safra (`acertosService.listarIntervalosAcerto` + `estaCobertaPorAcerto`, em memória — evita uma query por item)
+- O frontend (`NovaDespesaPage.tsx`/`NovaVendaPage.tsx`) usa esse campo pra desabilitar os botões de excluir e salvar antes do clique, com uma mensagem explicando o motivo, em vez de só reagir ao erro 409 do backend
+- Não muda a regra em si (o `409` continua sendo a garantia real do backend) — é só antecipar a mesma informação na UI
+
 ## Critérios de aceite
 
 1. Dado uma Safra `EM_ANDAMENTO` com despesas e vendas lançadas, `POST /safras/:id/acertos` com `tipo=PARCIAL` cria um `Acerto` e um `AcertoSocio` por sócio, com os valores batendo com o que `GET /safras/:id/simulacao` retornaria pro mesmo intervalo
