@@ -198,33 +198,37 @@ export default function NovaVendaPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <div className="flex items-center gap-3 px-[18px] pb-1 pt-2.5">
-        <button
-          type="button"
-          aria-label="Voltar"
-          // Rota explícita em vez de navigate(-1) — mesma razão da Nova despesa: sem bottom
-          // nav nesta tela, se não houver histórico prévio (link direto, refresh), voltar por
-          // histórico trava a navegação.
-          onClick={() => navigate(`/safras/${safraId}/vendas`)}
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-stone-900"
-        >
-          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
-        </button>
-        <h2 className="font-rounded text-[17px] font-extrabold text-hf-stone-900 flex-1">
-          {emEdicao ? 'Editar venda' : 'Nova venda'}
-        </h2>
-        {emEdicao && (
+      <div className="sticky top-0 z-10 bg-white px-[18px] pb-1 pt-2.5">
+        <div className="mx-auto grid w-full max-w-sm grid-cols-[auto_1fr_auto] items-center gap-3">
           <button
             type="button"
-            aria-label="Excluir venda"
-            title={travadaPorAcerto ? 'Essa venda já foi acertada e não pode ser excluída' : undefined}
-            onClick={excluir}
-            disabled={excluindo || travadaPorAcerto}
-            className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-red disabled:opacity-50"
+            aria-label="Voltar"
+            // Rota explícita em vez de navigate(-1) — mesma razão da Nova despesa: sem bottom
+            // nav nesta tela, se não houver histórico prévio (link direto, refresh), voltar por
+            // histórico trava a navegação.
+            onClick={() => navigate(`/safras/${safraId}/vendas`)}
+            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-hf-cream-100 px-3 text-hf-stone-900"
           >
-            <Trash2 className="h-[17px] w-[17px]" strokeWidth={2.2} />
+            <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
+            <span className="text-[15px] font-semibold">Voltar</span>
           </button>
-        )}
+          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">
+            {emEdicao ? 'Editar venda' : 'Nova venda'}
+          </h2>
+          {emEdicao && (
+            <button
+              type="button"
+              aria-label="Excluir venda"
+              title={travadaPorAcerto ? 'Essa venda já foi acertada e não pode ser excluída' : undefined}
+              onClick={excluir}
+              disabled={excluindo || travadaPorAcerto}
+              className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-red disabled:opacity-50"
+            >
+              <Trash2 className="h-[17px] w-[17px]" strokeWidth={2.2} />
+            </button>
+          )}
+          {!emEdicao && <div className="h-[38px] w-[38px]" />}
+        </div>
       </div>
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
