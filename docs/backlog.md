@@ -10,7 +10,6 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Melhorias de UX
 
-- Na tela de despesas automaticas, colocar o mesmo filtro dos campos de dinheiro (valor) no campo do Valor por unidade
 - Hoje temos uma seção bem legal de cards na tela de configurações, mas na tela anterior já temos varias coisas também, porem num formato diferente, entender se não ficaria legal tudo numa tela só, e com o layout igual o da tela de configurações
 - Ajustar tela de acerto partcial, colocar um calendario ou pickers mais facil do que digitar a data na mão
 - Quando usuário criar conta e for tentar registrar venda e não tiver unidade registrada ainda mostrar um botão atalho para registrar unidade

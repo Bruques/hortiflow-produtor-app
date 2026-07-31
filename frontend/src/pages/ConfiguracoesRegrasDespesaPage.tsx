@@ -19,6 +19,17 @@ import type { UnidadeVenda } from '@/types/unidadeVenda';
 
 const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
 
+// Máscara estilo apps de banco (Pix): usuário só digita números, e o valor se monta da direita
+// pra esquerda (centavos primeiro) — "1" -> 0,01, "12345" -> 123,45. O estado guarda só os
+// dígitos brutos (centavos); a formatação com pontos/vírgula é derivada na hora de exibir.
+// Mesmo padrão usado em NovaDespesaPage e NovaVendaPage.
+function formatarValorMascara(digitos: string): string {
+  if (!digitos) return '';
+  const [inteiro, decimal] = (Number(digitos) / 100).toFixed(2).split('.');
+  const inteiroComPontos = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${inteiroComPontos},${decimal}`;
+}
+
 type ModoRateio = 'padrao' | 'exclusivo' | 'personalizado';
 
 const CORES_RATEIO = [
@@ -56,7 +67,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
   const [novaRegraAberta, setNovaRegraAberta] = useState(false);
   const [tipoGatilho, setTipoGatilho] = useState<TipoGatilhoRegra>('POR_VENDA');
   const [tipoDespesaRegra, setTipoDespesaRegra] = useState<TipoDespesa>('OUTRO');
-  const [valorRegra, setValorRegra] = useState('');
+  const [valorRegraCentavos, setValorRegraCentavos] = useState(''); // só dígitos, sem formatação
   const [unidadeRegra, setUnidadeRegra] = useState('');
   const [salvandoRegra, setSalvandoRegra] = useState(false);
   const [modoRateio, setModoRateio] = useState<ModoRateio>('padrao');
@@ -116,6 +127,12 @@ export default function ConfiguracoesRegrasDespesaPage() {
     (modoRateio === 'exclusivo' && !!rateioExclusivoId) ||
     (modoRateio === 'personalizado' && Math.abs(somaRateioPersonalizado - 100) <= 0.01);
 
+  function alterarValorRegra(texto: string) {
+    setValorRegraCentavos(texto.replace(/\D/g, '').slice(0, 9));
+  }
+
+  const valorRegraNumero = valorRegraCentavos ? Number(valorRegraCentavos) / 100 : 0;
+
   function selecionarPersonalizado() {
     setModoRateio('personalizado');
     if (Object.keys(rateioPercentuais).length === 0 && socios.length > 0) {
@@ -144,7 +161,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
   }
 
   async function criarRegra() {
-    if (!sociedadeId || !valorRegra || !rateioValido) return;
+    if (!sociedadeId || !valorRegraCentavos || !rateioValido) return;
     if (tipoGatilho === 'POR_VENDA' && !unidadeRegra) return;
     setErroRegras(null);
     setSalvandoRegra(true);
@@ -152,11 +169,11 @@ export default function ConfiguracoesRegrasDespesaPage() {
       await criarRegraRequest(sociedadeId, {
         tipo_gatilho: tipoGatilho,
         tipo_despesa: tipoDespesaRegra,
-        valor: Number(valorRegra),
+        valor: valorRegraNumero,
         unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
         rateio: rateioParaEnviar(),
       });
-      setValorRegra('');
+      setValorRegraCentavos('');
       setModoRateio('padrao');
       setRateioPercentuais({});
       setNovaRegraAberta(false);
@@ -311,14 +328,17 @@ export default function ConfiguracoesRegrasDespesaPage() {
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">
                   {tipoGatilho === 'POR_VENDA' ? 'Valor por unidade (R$)' : 'Valor fixo (R$)'}
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={valorRegra}
-                  onChange={(e) => setValorRegra(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
-                />
+                <div className="flex h-11 w-full items-center gap-1.5 rounded-xl border border-hf-line bg-white px-3 focus-within:border-hf-green-500">
+                  <span className="text-base font-bold text-hf-stone-500">R$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0,00"
+                    value={formatarValorMascara(valorRegraCentavos)}
+                    onChange={(e) => alterarValorRegra(e.target.value)}
+                    className="w-full bg-transparent text-base text-hf-stone-900 outline-none placeholder:text-hf-stone-400"
+                  />
+                </div>
               </div>
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">
@@ -459,7 +479,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
                   onClick={criarRegra}
                   disabled={
                     salvandoRegra ||
-                    !valorRegra ||
+                    !valorRegraCentavos ||
                     !rateioValido ||
                     (tipoGatilho === 'POR_VENDA' && !unidadeRegra)
                   }
