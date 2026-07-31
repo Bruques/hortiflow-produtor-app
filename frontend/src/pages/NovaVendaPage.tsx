@@ -207,10 +207,9 @@ export default function NovaVendaPage() {
             // nav nesta tela, se não houver histórico prévio (link direto, refresh), voltar por
             // histórico trava a navegação.
             onClick={() => navigate(`/safras/${safraId}/vendas`)}
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-hf-cream-100 px-3 text-hf-stone-900"
+            className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-stone-900"
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
-            <span className="text-[15px] font-semibold">Voltar</span>
           </button>
           <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">
             {emEdicao ? 'Editar venda' : 'Nova venda'}
