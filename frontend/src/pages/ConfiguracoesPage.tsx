@@ -16,10 +16,9 @@ export default function ConfiguracoesPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Configurações é aberta a partir de vários lugares (Resumo "Ver sócios", Menu, lista de
-  // Safras) — usa o histórico real do navegador pra voltar pra origem certa, com fallback
-  // pra Safras só quando não há histórico (link direto/refresh), mesmo padrão do
-  // AcertoDetalhePage.
+  // Configurações é aberta a partir de vários lugares (Menu, lista de Safras) — usa o
+  // histórico real do navegador pra voltar pra origem certa, com fallback pra Safras só
+  // quando não há histórico (link direto/refresh), mesmo padrão do AcertoDetalhePage.
   function voltar() {
     if (location.key !== 'default') navigate(-1);
     else navigate(`/sociedades/${sociedadeId}/safras`);
