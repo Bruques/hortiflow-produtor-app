@@ -160,7 +160,7 @@ export default function ConfiguracoesUnidadesVendaPage() {
                     value={nomeNovaUnidade}
                     onChange={(e) => setNomeNovaUnidade(e.target.value)}
                     placeholder="Ex: Kg"
-                    className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+                    className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
                   />
                 </div>
                 <div className="flex gap-2">

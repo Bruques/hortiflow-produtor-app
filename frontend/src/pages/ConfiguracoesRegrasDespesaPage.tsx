@@ -268,7 +268,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Sócio (recebe a despesa)</label>
                 <select
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
                   value={socioRegra}
                   onChange={(e) => setSocioRegra(e.target.value)}
                 >
@@ -284,7 +284,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Gatilho</label>
                 <select
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
                   value={tipoGatilho}
                   onChange={(e) => setTipoGatilho(e.target.value as TipoGatilhoRegra)}
                 >
@@ -296,7 +296,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
                 <div>
                   <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Unidade</label>
                   <select
-                    className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                    className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
                     value={unidadeRegra}
                     onChange={(e) => setUnidadeRegra(e.target.value)}
                   >
@@ -314,7 +314,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Tipo de despesa gerada</label>
                 <select
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
                   value={tipoDespesaRegra}
                   onChange={(e) => setTipoDespesaRegra(e.target.value as TipoDespesa)}
                 >
@@ -335,7 +335,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
                   step="0.01"
                   value={valorRegra}
                   onChange={(e) => setValorRegra(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
                 />
               </div>
               <div>
@@ -384,7 +384,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
 
                 {modoRateio === 'exclusivo' && (
                   <select
-                    className="mt-2 h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                    className="mt-2 h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
                     value={rateioExclusivoId}
                     onChange={(e) => setRateioExclusivoId(e.target.value)}
                   >

@@ -81,7 +81,7 @@ export default function ConfiguracoesContaPage() {
                   type={mostrarSenha ? 'text' : 'password'}
                   value={senhaAtual}
                   onChange={(e) => setSenhaAtual(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 pr-11 text-sm outline-none focus:border-hf-green-500"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 pr-11 text-base outline-none focus:border-hf-green-500"
                 />
                 <button
                   type="button"
@@ -99,7 +99,7 @@ export default function ConfiguracoesContaPage() {
                 type={mostrarSenha ? 'text' : 'password'}
                 value={senhaNova}
                 onChange={(e) => setSenhaNova(e.target.value)}
-                className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+                className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
               />
             </div>
             <div>
@@ -108,7 +108,7 @@ export default function ConfiguracoesContaPage() {
                 type={mostrarSenha ? 'text' : 'password'}
                 value={senhaNovaConfirmacao}
                 onChange={(e) => setSenhaNovaConfirmacao(e.target.value)}
-                className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+                className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
               />
             </div>
 

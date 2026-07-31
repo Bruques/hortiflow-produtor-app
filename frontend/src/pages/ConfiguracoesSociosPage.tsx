@@ -247,13 +247,13 @@ export default function ConfiguracoesSociosPage() {
                   value={nomeNovoSocio}
                   onChange={(e) => setNomeNovoSocio(e.target.value)}
                   placeholder="Ex: João"
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm outline-none focus:border-hf-green-500"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
                 />
               </div>
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Papel</label>
                 <select
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-sm"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
                   value={papelNovoSocio}
                   onChange={(e) => setPapelNovoSocio(e.target.value as PapelSocio)}
                 >
