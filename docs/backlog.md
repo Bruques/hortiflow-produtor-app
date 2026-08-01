@@ -24,7 +24,7 @@ Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura
 
 **Regra permanente**: assim que uma spec abaixo for implementada e validada (rodando o app, não só type-check — mesmo critério do SDD no `CLAUDE.md`), marcar `[x]` aqui nesta lista.
 
-- [ ] `00-setup-e-infra.md` — scaffold Expo/TS, cliente de API, persistência local + fila de sincronização genérica, CI por pasta
+- [x] `00-setup-e-infra.md` — scaffold Expo/TS, cliente de API, persistência local + fila de sincronização genérica, CI por pasta
 - [ ] `01-auth.md` — cadastro, login, bootstrap de sessão offline, logout, troca de senha
 - [ ] `02-sociedade-e-socios.md` — criar/entrar por código, sócio sem conta, percentuais
 - [ ] `03-safra.md` — abrir/encerrar safra, observações, `SafraContext`

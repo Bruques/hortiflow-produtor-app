@@ -124,6 +124,20 @@ O schema completo está em `backend/prisma/schema.prisma` — é a fonte de verd
 
 ---
 
+## App mobile nativo (React Native/Expo) — offline-first é motivação central, não um extra
+
+Iniciativa em construção desde 2026-07-30, specs em `docs/specs/mobile/`. O backend já é uma API REST agnóstica de cliente (ver seção "Stack"), o que permite o app mobile consumi-la sem mudança no backend.
+
+Um dos maiores motivos de existir um app **nativo** (e não só continuar no app web) é que o público — produtores rurais em Bom Repouso-MG — frequentemente está na roça, **sem conexão de internet**. Por isso, diferente do frontend web (que assume conexão o tempo todo), o app mobile precisa ser **offline-first por padrão**, não como feature adicional bolted-on depois:
+
+- Dados já carregados (safra ativa, despesas, vendas, sócios) continuam disponíveis no dispositivo mesmo sem internet
+- Sem conexão, o app **avisa claramente** que não conseguiu buscar dados novos — não trava, não finge que o que está na tela é atual
+- **Lançar despesa ou venda funciona sem internet**: o registro é salvo localmente numa fila de sincronização e enviado ao backend automaticamente assim que a conexão voltar, sem o produtor precisar refazer nada
+- Toda spec de mobile que envolve **escrita** de dados (despesas, vendas, despesa pessoal) precisa descrever o comportamento offline explicitamente nos critérios de aceite — não é um "nice to have" à parte
+- Implicação de arquitetura: a camada de persistência local e o desenho da fila de sincronização são decididos na spec de infra (`docs/specs/mobile/00-setup-e-infra.md`), por serem a base de que todas as specs de escrita dependem — inclusive o caso (raro, dado que cada sócio só lança o que ele mesmo fez) de dois lançamentos offline sincronizando fora de ordem
+
+---
+
 ## Jornadas principais
 
 **Sócio financiador**: cria a sociedade → convida sócio(s) por código → define percentual de lucro → abre a safra → lança despesas e vendas → configura regras de despesa recorrente → acompanha painel de simulação em tempo real (dia/semana/mês/safra) → registra um Acerto quando os sócios se acertam de fato. Em paralelo, mantém suas próprias despesas pessoais numa aba separada.
