@@ -32,6 +32,7 @@ Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura
 - [ ] `05-painel-e-acerto.md` — painel de simulação e Acerto (sem cálculo local)
 - [ ] `06-vendas-e-despesa-recorrente.md` — unidades de venda, vendas, regra recorrente, sugestões do dia
 - [ ] `07-despesa-pessoal.md` — despesa pessoal isolada, offline sem dependência de cache de sócios
+- [ ] `08-navegacao-resumo-e-menu.md` — bottom nav + FAB, tela de Resumo e Menu (composição, sem dado novo — depende de `01` a `07`)
 
 ### Prioridade alta (segurança / risco ativo)
 
