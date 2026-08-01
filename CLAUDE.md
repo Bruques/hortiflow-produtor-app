@@ -136,6 +136,8 @@ Um dos maiores motivos de existir um app **nativo** (e não só continuar no app
 - Toda spec de mobile que envolve **escrita** de dados (despesas, vendas, despesa pessoal) precisa descrever o comportamento offline explicitamente nos critérios de aceite — não é um "nice to have" à parte
 - Implicação de arquitetura: a camada de persistência local e o desenho da fila de sincronização são decididos na spec de infra (`docs/specs/mobile/00-setup-e-infra.md`), por serem a base de que todas as specs de escrita dependem — inclusive o caso (raro, dado que cada sócio só lança o que ele mesmo fez) de dois lançamentos offline sincronizando fora de ordem
 
+**Design visual**: as specs mobile (`docs/specs/mobile/`) descrevem só regra de negócio e comportamento, igual às specs web — o visual segue `docs/design/notas-de-design.md` (seção "Mobile"), que é a mesma paleta/marca do web portada pra React Native. Antes de estilizar uma tela mobile nova, leia essa seção e reaproveite `mobile/src/theme.ts` e `mobile/src/components/BrandMark.tsx` — não redefina cor nem o ícone da marca do zero numa tela nova.
+
 ---
 
 ## Jornadas principais

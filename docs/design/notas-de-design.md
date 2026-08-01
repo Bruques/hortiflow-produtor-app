@@ -63,3 +63,25 @@ Não é preciso colar o HTML nem re-explicar o histórico — é só isso.
 ## Pendências antes de implementar (decidir ou perguntar ao dev)
 
 1. **Campo de comprovante de pagamento no Acerto**: não existe hoje no schema Prisma (`Acerto`/`AcertoSocio` em `docs/specs/06-acerto.md`). Precisa de migration (`comprovante_pagamento_url` ou similar) antes de implementar essa parte da tela.
+
+---
+
+## Mobile (React Native/Expo)
+
+Mesma paleta, mesma marca, mesmas decisões de UI listadas acima — o app mobile (`mobile/`, specs em `docs/specs/mobile/`) segue este documento como fonte de verdade visual, igual ao frontend web. **Antes de estilizar qualquer tela mobile, leia este arquivo e reaproveite `mobile/src/theme.ts`** (cores) e `mobile/src/components/BrandMark.tsx` (ícone + wordmark) — não redefina cor ou o ícone da marca numa tela nova.
+
+### O que foi portado 1:1
+
+- **Paleta** (`mobile/src/theme.ts`, export `cores`): mesmos valores hex de `frontend/tailwind.config.ts` (bloco `hf`). Qualquer mudança de cor precisa ser replicada nos dois arquivos — não há compartilhamento de código entre web e mobile (ver `CLAUDE.md`).
+- **Ícone da marca** (`mobile/src/components/BrandMark.tsx`): mesmo path SVG de `frontend/src/components/BrandMark.tsx`, renderizado com `react-native-svg` (`Svg`/`Path`) em vez de `<svg>`/`<path>` do DOM.
+- **Ícones de interface**: `lucide-react-native` no lugar de `lucide-react` — mesmo conjunto de ícones e mesma API (`<Phone />`, `<Lock />` etc.), só o pacote muda.
+
+### O que precisou de adaptação (React Native não tem CSS)
+
+- **Tipografia**: a pilha `ui-rounded`/`SF Pro Rounded` do web não tem equivalente nativo direto sem carregar uma fonte customizada via `expo-font`. Por ora, títulos usam a fonte de sistema em peso máximo (`fontWeight: '800'`), sem o efeito "rounded". **Pendência em aberto**: se a diferença incomodar visualmente, decidir entre (a) baixar/empacotar uma fonte rounded de licença livre parecida (ex: Quicksand, Nunito) via `expo-font`, ou (b) aceitar a fonte de sistema como suficiente pro mobile.
+- **Espaçamento**: escala em `mobile/src/theme.ts` (`espacamento`, múltiplos de 4) equivalente à escala padrão do Tailwind — usar essas constantes em vez de números soltos em `StyleSheet.create`.
+- **Sombra de card / gradiente do hero card**: Tailwind resolve isso com `shadow-*`/`bg-gradient-*` de graça; no React Native, sombra é `shadowColor`/`shadowOffset`/`shadowOpacity`/`shadowRadius` (iOS) + `elevation` (Android, comportamento visual diferente), e gradiente exige a lib `expo-linear-gradient` — ainda não portado, entra quando alguma tela redesenhada precisar (o Hero card da spec `05` mobile é o primeiro candidato).
+
+### Ainda não implementado (fica para quando a tela correspondente for construída)
+
+Bottom nav v2 (FAB + bottom sheet), period toggle, chips de seleção, upload de comprovante com câmera nativa, cards de resumo — nenhum desses tem componente React Native ainda; as decisões de UI já estão documentadas acima e valem igualmente pro mobile, só falta implementar quando a spec de cada tela for trabalhada.
