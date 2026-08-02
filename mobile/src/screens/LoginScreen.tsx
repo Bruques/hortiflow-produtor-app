@@ -1,39 +1,62 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Eye, EyeOff, Lock, Phone, ShieldCheck } from 'lucide-react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { loginRequest } from '../services/auth';
-import { setToken } from '../lib/tokenStorage';
+import { Eye, EyeOff, Lock, Phone, ShieldCheck, UserPlus } from 'lucide-react-native';
+import { AxiosError } from 'axios';
+import { loginRequest, registerRequest } from '../services/auth';
+import { formatarTelefone, somenteDigitos } from '../lib/telefone';
+import { useAuth } from '../context/AuthContext';
 import { BrandLockup } from '../components/BrandMark';
 import { cores, espacamento, raio } from '../theme';
-import type { RootStackParamList } from '../navigation/RootNavigator';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+type Modo = 'login' | 'cadastro';
 
 // Layout e paleta seguem docs/design/notas-de-design.md (seção Mobile) — mesma estrutura da
-// tela de login do web (frontend/src/pages/LoginPage.tsx), sem o modo "cadastro" ainda
-// (cadastro completo é escopo da spec mobile 01-auth.md).
-export function LoginScreen({ navigation }: Props) {
+// tela de login do web (frontend/src/pages/LoginPage.tsx), agora com o modo cadastro
+// (docs/specs/mobile/01-auth.md). Ao autenticar, quem decide a navegação é o AuthContext —
+// entrar() muda `logado`, e o RootNavigator troca de stack sozinho.
+export function LoginScreen() {
+  const { entrar } = useAuth();
+  const [modo, setModo] = useState<Modo>('login');
+  const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  async function handleLogin() {
+  function alternarModo() {
+    setErro(null);
+    setModo((m) => (m === 'login' ? 'cadastro' : 'login'));
+  }
+
+  async function handleEnviar() {
     setErro(null);
     setCarregando(true);
+    const telefoneDigitos = somenteDigitos(telefone);
     try {
-      const { token } = await loginRequest(telefone, senha);
-      await setToken(token);
-      navigation.replace('Home');
-    } catch {
-      setErro('Telefone ou senha incorretos');
+      const resposta =
+        modo === 'login'
+          ? await loginRequest(telefoneDigitos, senha)
+          : await registerRequest(nome, telefoneDigitos, senha);
+      await entrar(resposta.token, resposta.usuario);
+    } catch (err) {
+      if (modo === 'login') {
+        // Mesma escolha de segurança do app web: não revela se o motivo foi telefone
+        // inexistente ou senha errada.
+        setErro('Telefone ou senha incorretos');
+      } else {
+        const mensagem =
+          err instanceof AxiosError ? (err.response?.data as { error?: string } | undefined)?.error : undefined;
+        setErro(mensagem ?? 'Não foi possível cadastrar');
+      }
     } finally {
       setCarregando(false);
     }
   }
+
+  const camposObrigatoriosPreenchidos =
+    telefone.length > 0 && senha.length > 0 && (modo === 'login' || nome.trim().length > 0);
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
@@ -42,10 +65,31 @@ export function LoginScreen({ navigation }: Props) {
           <BrandLockup />
         </View>
 
-        <Text style={styles.titulo}>Bem-vindo de volta!</Text>
-        <Text style={styles.subtitulo}>Faça login para acessar suas sociedades e acompanhar sua safra.</Text>
+        <Text style={styles.titulo}>{modo === 'login' ? 'Bem-vindo de volta!' : 'Crie sua conta'}</Text>
+        <Text style={styles.subtitulo}>
+          {modo === 'login'
+            ? 'Faça login para acessar suas sociedades e acompanhar sua safra.'
+            : 'Cadastre-se para começar a acompanhar sua parceria.'}
+        </Text>
 
         <View style={styles.form}>
+          {modo === 'cadastro' && (
+            <View>
+              <Text style={styles.label}>Nome</Text>
+              <View style={styles.campo}>
+                <UserPlus size={18} color={cores.green[700]} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Seu nome"
+                  placeholderTextColor={cores.stone[400]}
+                  autoComplete="name"
+                  value={nome}
+                  onChangeText={setNome}
+                />
+              </View>
+            </View>
+          )}
+
           <View>
             <Text style={styles.label}>Telefone</Text>
             <View style={styles.campo}>
@@ -56,8 +100,9 @@ export function LoginScreen({ navigation }: Props) {
                 placeholderTextColor={cores.stone[400]}
                 keyboardType="phone-pad"
                 autoComplete="tel"
+                maxLength={16}
                 value={telefone}
-                onChangeText={setTelefone}
+                onChangeText={(valor) => setTelefone(formatarTelefone(valor))}
               />
             </View>
           </View>
@@ -71,7 +116,7 @@ export function LoginScreen({ navigation }: Props) {
                 placeholder="Digite sua senha"
                 placeholderTextColor={cores.stone[400]}
                 secureTextEntry={!mostrarSenha}
-                autoComplete="password"
+                autoComplete={modo === 'login' ? 'password' : 'new-password'}
                 value={senha}
                 onChangeText={setSenha}
               />
@@ -90,17 +135,22 @@ export function LoginScreen({ navigation }: Props) {
           <Pressable
             style={({ pressed }) => [
               styles.botaoPrimario,
-              (!telefone || !senha) && styles.botaoDesabilitado,
+              !camposObrigatoriosPreenchidos && styles.botaoDesabilitado,
               pressed && styles.botaoPressionado,
             ]}
-            onPress={handleLogin}
-            disabled={!telefone || !senha || carregando}
+            onPress={handleEnviar}
+            disabled={!camposObrigatoriosPreenchidos || carregando}
           >
             {carregando ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.textoBotaoPrimario}>Entrar</Text>
+              <Text style={styles.textoBotaoPrimario}>{modo === 'login' ? 'Entrar' : 'Cadastrar'}</Text>
             )}
+          </Pressable>
+
+          <Pressable style={styles.botaoSecundario} onPress={alternarModo}>
+            <UserPlus size={18} color={cores.green[700]} />
+            <Text style={styles.textoBotaoSecundario}>{modo === 'login' ? 'Criar conta' : 'Já tenho conta'}</Text>
           </Pressable>
         </View>
 
@@ -193,6 +243,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  botaoSecundario: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: espacamento.sm,
+    borderWidth: 1.5,
+    borderColor: cores.green[700],
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.md + 3,
+  },
+  textoBotaoSecundario: {
+    color: cores.green[700],
+    fontWeight: '700',
+    fontSize: 15,
   },
   rodape: {
     flexDirection: 'row',

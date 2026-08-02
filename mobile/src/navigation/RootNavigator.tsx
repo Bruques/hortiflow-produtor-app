@@ -1,30 +1,25 @@
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/HomeScreen';
-import { getToken } from '../lib/tokenStorage';
+import { TrocaSenhaScreen } from '../screens/TrocaSenhaScreen';
+import { useAuth } from '../context/AuthContext';
 
 export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
+  TrocaSenha: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// Bootstrap mínimo: só verifica se existe token salvo para decidir a tela inicial —
-// validar o token contra a API (distinguir 401 de erro de rede) é a spec mobile 01
-// (docs/specs/mobile/01-auth.md). Aqui a garantia é só "sessão sobrevive a fechar o app".
+// A decisão entre stack logado/deslogado vem inteiramente do AuthContext (bootstrap de
+// sessão completo: token + validação em background contra /auth/me — docs/specs/mobile/01-auth.md).
+// Trocar de stack ao logar/deslogar é automático: mudar `logado` aqui já troca as telas
+// disponíveis, sem precisar de navigation.replace nas telas.
 export function RootNavigator() {
-  const [carregando, setCarregando] = useState(true);
-  const [logado, setLogado] = useState(false);
-
-  useEffect(() => {
-    getToken()
-      .then((token) => setLogado(Boolean(token)))
-      .finally(() => setCarregando(false));
-  }, []);
+  const { logado, carregando } = useAuth();
 
   if (carregando) {
     return (
@@ -37,8 +32,14 @@ export function RootNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName={logado ? 'Home' : 'Login'} screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
+        {logado ? (
+          <>
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="TrocaSenha" component={TrocaSenhaScreen} />
+          </>
+        ) : (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

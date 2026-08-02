@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { clearToken } from '../lib/tokenStorage';
+import { useAuth } from '../context/AuthContext';
 import { BannerSemConexao } from '../components/BannerSemConexao';
 import { cores, espacamento, raio } from '../theme';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -11,17 +11,19 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 // Placeholder — só prova que a navegação pós-login funciona (docs/specs/mobile/00-setup-e-infra.md).
 // As telas reais (sociedade, safra, despesas...) chegam nas specs seguintes.
 export function HomeScreen({ navigation }: Props) {
-  async function handleLogout() {
-    await clearToken();
-    navigation.replace('Login');
-  }
+  const { usuario, sair } = useAuth();
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <BannerSemConexao />
       <View style={styles.conteudo}>
-        <Text style={styles.texto}>Você está logado.</Text>
-        <Pressable style={styles.botao} onPress={handleLogout}>
+        <Text style={styles.texto}>
+          {usuario ? `Você está logado como ${usuario.nome}.` : 'Você está logado.'}
+        </Text>
+        <Pressable style={styles.botao} onPress={() => navigation.navigate('TrocaSenha')}>
+          <Text style={styles.textoBotao}>Trocar senha</Text>
+        </Pressable>
+        <Pressable style={styles.botao} onPress={sair}>
           <Text style={styles.textoBotao}>Sair</Text>
         </Pressable>
       </View>
@@ -43,6 +45,8 @@ const styles = StyleSheet.create({
   texto: {
     fontSize: 16,
     color: cores.stone[900],
+    textAlign: 'center',
+    paddingHorizontal: espacamento.xl,
   },
   botao: {
     borderWidth: 1.5,
