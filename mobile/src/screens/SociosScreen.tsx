@@ -6,11 +6,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   atualizarPercentuaisRequest,
   criarSocioRequest,
+  listarSociedadesRequest,
   listarSociosRequest,
 } from '../services/sociedades';
 import { obterSociosCache, salvarSociosCache } from '../lib/sociedadesCache';
 import { mensagemErro } from '../lib/erroApi';
-import { useSociedadeAtiva } from '../context/SociedadeContext';
 import { BannerSemConexao } from '../components/BannerSemConexao';
 import { cores, espacamento, raio } from '../theme';
 import type { PapelSocio, Socio } from '../types/sociedade';
@@ -33,10 +33,14 @@ const ROTULO_PAPEL: Record<PapelSocio, string> = {
 };
 
 // Edição de percentuais e cadastro de sócio sem conta, equivalente à
-// frontend/src/pages/ConfiguracoesSociosPage.tsx do web. `sociedadeId` vem do
-// SociedadeContext (spec 02): a sociedade já foi selecionada na tela anterior.
-export function SociosScreen({ navigation }: Props) {
-  const { sociedade } = useSociedadeAtiva();
+// frontend/src/pages/ConfiguracoesSociosPage.tsx do web (alcançada lá via Menu → "Sócios e
+// Sociedade"). `sociedadeId` chega por parâmetro de rota (docs/specs/mobile/03-safra.md) —
+// nome e código de convite não vêm junto (a lista de sócios não devolve isso), então são
+// buscados à parte via `listarSociedadesRequest`, mesmo padrão do web.
+export function SociosScreen({ navigation, route }: Props) {
+  const { sociedadeId } = route.params;
+  const [nomeSociedade, setNomeSociedade] = useState<string | null>(null);
+  const [codigoConvite, setCodigoConvite] = useState<string | null>(null);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregar, setErroCarregar] = useState<string | null>(null);
@@ -51,18 +55,17 @@ export function SociosScreen({ navigation }: Props) {
   const [salvandoNovoSocio, setSalvandoNovoSocio] = useState(false);
 
   const carregar = useCallback(async () => {
-    if (!sociedade) return;
-    const cache = await obterSociosCache(sociedade.id);
+    const cache = await obterSociosCache(sociedadeId);
     if (cache.length > 0) {
       setSocios(cache);
       setCarregando(false);
     }
 
     try {
-      const { socios: atualizados } = await listarSociosRequest(sociedade.id);
+      const { socios: atualizados } = await listarSociosRequest(sociedadeId);
       setSocios(atualizados);
       setErroCarregar(null);
-      await salvarSociosCache(sociedade.id, atualizados);
+      await salvarSociosCache(sociedadeId, atualizados);
     } catch {
       if (cache.length === 0) {
         setErroCarregar('Não foi possível carregar os sócios');
@@ -70,11 +73,21 @@ export function SociosScreen({ navigation }: Props) {
     } finally {
       setCarregando(false);
     }
-  }, [sociedade]);
+  }, [sociedadeId]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    listarSociedadesRequest()
+      .then((res) => {
+        const minha = res.sociedades.find((s) => s.id === sociedadeId);
+        setNomeSociedade(minha?.nome ?? null);
+        setCodigoConvite(minha?.codigo_convite ?? null);
+      })
+      .catch(() => {});
+  }, [sociedadeId]);
 
   function ajustarPct(socioId: string, delta: number) {
     setSucessoPct(false);
@@ -91,17 +104,16 @@ export function SociosScreen({ navigation }: Props) {
   const pctOk = Math.abs(somaPct - 100) < 0.01;
 
   async function salvarPercentuais() {
-    if (!sociedade) return;
     setErroPct(null);
     setSucessoPct(false);
     setSalvandoPct(true);
     try {
       const { socios: atualizados } = await atualizarPercentuaisRequest(
-        sociedade.id,
+        sociedadeId,
         socios.map((s) => ({ id: s.id, percentual_lucro: Number(s.percentual_lucro), papel: s.papel }))
       );
       setSocios(atualizados);
-      await salvarSociosCache(sociedade.id, atualizados);
+      await salvarSociosCache(sociedadeId, atualizados);
       setSucessoPct(true);
     } catch (err) {
       setErroPct(mensagemErro(err, 'Não foi possível salvar os percentuais'));
@@ -111,11 +123,11 @@ export function SociosScreen({ navigation }: Props) {
   }
 
   async function adicionarSocio() {
-    if (!sociedade || !nomeNovoSocio.trim()) return;
+    if (!nomeNovoSocio.trim()) return;
     setErroPct(null);
     setSalvandoNovoSocio(true);
     try {
-      await criarSocioRequest(sociedade.id, nomeNovoSocio.trim(), papelNovoSocio);
+      await criarSocioRequest(sociedadeId, nomeNovoSocio.trim(), papelNovoSocio);
       setNomeNovoSocio('');
       setPapelNovoSocio('MEEIRO');
       setNovoSocioAberto(false);
@@ -127,28 +139,15 @@ export function SociosScreen({ navigation }: Props) {
     }
   }
 
-  if (!sociedade) {
-    return (
-      <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
-        <View style={styles.conteudo}>
-          <Text style={styles.subtitulo}>Nenhuma sociedade selecionada.</Text>
-          <Pressable style={styles.botaoPrimario} onPress={() => navigation.replace('Sociedades')}>
-            <Text style={styles.textoBotaoPrimario}>Voltar</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <BannerSemConexao />
       <View style={styles.cabecalho}>
-        <Pressable style={styles.botaoVoltar} onPress={() => navigation.navigate('Sociedades')} hitSlop={8}>
+        <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
         </Pressable>
         <Text style={styles.tituloCabecalho} numberOfLines={1}>
-          {sociedade.nome}
+          {nomeSociedade ?? 'Sócios'}
         </Text>
         <View style={styles.botaoVoltar} />
       </View>
@@ -293,12 +292,14 @@ export function SociosScreen({ navigation }: Props) {
         {erroPct && <Text style={styles.erro}>{erroPct}</Text>}
         {sucessoPct && <Text style={styles.sucesso}>Percentuais atualizados!</Text>}
 
-        <View style={styles.codigoConvite}>
-          <Text style={styles.codigoTexto}>
-            {sociedade.codigo_convite.slice(0, 3)} {sociedade.codigo_convite.slice(3)}
-          </Text>
-          <Text style={styles.codigoLegenda}>Código para um novo sócio entrar na sociedade</Text>
-        </View>
+        {codigoConvite && (
+          <View style={styles.codigoConvite}>
+            <Text style={styles.codigoTexto}>
+              {codigoConvite.slice(0, 3)} {codigoConvite.slice(3)}
+            </Text>
+            <Text style={styles.codigoLegenda}>Código para um novo sócio entrar na sociedade</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.rodapeAcao}>

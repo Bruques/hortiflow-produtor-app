@@ -4,13 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { AxiosError } from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  entrarSociedadeRequest,
-  listarSociedadesRequest,
-  previewConviteRequest,
-} from '../services/sociedades';
+import { entrarSociedadeRequest, previewConviteRequest } from '../services/sociedades';
 import { mensagemErro } from '../lib/erroApi';
-import { useSociedadeAtiva } from '../context/SociedadeContext';
 import { cores, espacamento, raio } from '../theme';
 import type { SocioSemConta } from '../types/sociedade';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -21,7 +16,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'EntrarSociedade'>;
 // preview do convite primeiro; se a sociedade já tem sócios sem conta cadastrados, pergunta
 // "é algum desses sócios?" antes de confirmar o vínculo (docs/specs/mobile/02-sociedade-e-socios.md).
 export function EntrarSociedadeScreen({ navigation }: Props) {
-  const { selecionarSociedade } = useSociedadeAtiva();
   const [codigoInput, setCodigoInput] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [entrando, setEntrando] = useState(false);
@@ -35,10 +29,9 @@ export function EntrarSociedadeScreen({ navigation }: Props) {
     setEntrando(true);
     try {
       await entrarSociedadeRequest(codigo, vincularSocioId);
-      const { sociedades } = await listarSociedadesRequest();
-      const sociedadeEntrou = sociedades.find((s) => s.codigo_convite === codigo);
-      if (sociedadeEntrou) selecionarSociedade(sociedadeEntrou);
-      navigation.replace('Socios');
+      // Mesmo padrão do web (navigate('/') e deixar a Home decidir): a tela de Início
+      // recarrega a lista de safras e decide sozinha pra onde ir (docs/specs/mobile/03-safra.md).
+      navigation.replace('Inicio');
     } catch (err) {
       if (err instanceof AxiosError && err.response?.status === 404) {
         setErro('Código de convite ou sócio não encontrado');

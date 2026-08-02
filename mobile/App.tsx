@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/context/AuthContext';
-import { SociedadeProvider } from './src/context/SociedadeContext';
+import { SafraProvider } from './src/context/SafraContext';
 import { iniciarSincronizacaoAutomatica } from './src/lib/syncTrigger';
 
 export default function App() {
@@ -15,9 +15,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <SociedadeProvider>
+        <SafraProvider>
           <RootNavigator />
-        </SociedadeProvider>
+        </SafraProvider>
       </AuthProvider>
       <StatusBar style="auto" />
     </SafeAreaProvider>

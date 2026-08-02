@@ -2,28 +2,31 @@ import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from '../screens/LoginScreen';
-import { SociedadesScreen } from '../screens/SociedadesScreen';
-import { CriarSociedadeScreen } from '../screens/CriarSociedadeScreen';
+import { InicioScreen } from '../screens/InicioScreen';
 import { EntrarSociedadeScreen } from '../screens/EntrarSociedadeScreen';
+import { SafraScreen } from '../screens/SafraScreen';
+import { SafrasScreen } from '../screens/SafrasScreen';
+import { NovaSafraScreen } from '../screens/NovaSafraScreen';
 import { SociosScreen } from '../screens/SociosScreen';
 import { TrocaSenhaScreen } from '../screens/TrocaSenhaScreen';
 import { useAuth } from '../context/AuthContext';
 
 export type RootStackParamList = {
   Login: undefined;
-  Sociedades: undefined;
-  CriarSociedade: undefined;
+  Inicio: undefined;
   EntrarSociedade: undefined;
-  Socios: undefined;
+  Safra: undefined;
+  Safras: undefined;
+  NovaSafra: undefined;
+  Socios: { sociedadeId: string };
   TrocaSenha: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // A decisão entre stack logado/deslogado vem inteiramente do AuthContext (bootstrap de
-// sessão completo: token + validação em background contra /auth/me — docs/specs/mobile/01-auth.md).
-// Logado, a tela inicial é "Minhas sociedades" (docs/specs/mobile/02-sociedade-e-socios.md) —
-// não existe mais a Home placeholder das specs 00/01.
+// sessão completo — docs/specs/mobile/01-auth.md). Logado, a tela inicial é "Início"
+// (docs/specs/mobile/03-safra.md), centrada em Safra — mesmo modelo da HomePage do web.
 export function RootNavigator() {
   const { logado, carregando } = useAuth();
 
@@ -37,12 +40,14 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={logado ? 'Sociedades' : 'Login'} screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName={logado ? 'Inicio' : 'Login'} screenOptions={{ headerShown: false }}>
         {logado ? (
           <>
-            <Stack.Screen name="Sociedades" component={SociedadesScreen} />
-            <Stack.Screen name="CriarSociedade" component={CriarSociedadeScreen} />
+            <Stack.Screen name="Inicio" component={InicioScreen} />
             <Stack.Screen name="EntrarSociedade" component={EntrarSociedadeScreen} />
+            <Stack.Screen name="Safra" component={SafraScreen} />
+            <Stack.Screen name="Safras" component={SafrasScreen} />
+            <Stack.Screen name="NovaSafra" component={NovaSafraScreen} />
             <Stack.Screen name="Socios" component={SociosScreen} />
             <Stack.Screen name="TrocaSenha" component={TrocaSenhaScreen} />
           </>

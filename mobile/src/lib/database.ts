@@ -37,6 +37,27 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           percentual_lucro TEXT NOT NULL,
           papel TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS minhas_safras_cache (
+          id TEXT PRIMARY KEY,
+          sociedade_id TEXT NOT NULL,
+          sociedade_nome TEXT NOT NULL,
+          nome TEXT NOT NULL,
+          observacoes TEXT,
+          status TEXT NOT NULL,
+          data_inicio TEXT,
+          data_fim TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS safras_cache (
+          id TEXT PRIMARY KEY,
+          sociedade_id TEXT NOT NULL,
+          nome TEXT NOT NULL,
+          observacoes TEXT,
+          status TEXT NOT NULL,
+          data_inicio TEXT,
+          data_fim TEXT
+        );
       `);
       return db;
     });

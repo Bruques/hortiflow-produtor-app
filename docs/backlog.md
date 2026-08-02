@@ -27,7 +27,7 @@ Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura
 - [x] `00-setup-e-infra.md` — scaffold Expo/TS, cliente de API, persistência local + fila de sincronização genérica, CI por pasta
 - [x] `01-auth.md` — cadastro, login, bootstrap de sessão offline, logout, troca de senha
 - [x] `02-sociedade-e-socios.md` — criar/entrar por código, sócio sem conta, percentuais
-- [ ] `03-safra.md` — abrir/encerrar safra, observações, `SafraContext`
+- [x] `03-safra.md` — abrir/encerrar safra, observações, `SafraContext`
 - [ ] `04-despesas-da-sociedade.md` — despesa com rateio, foto via câmera, fila offline
 - [ ] `05-painel-e-acerto.md` — painel de simulação e Acerto (sem cálculo local)
 - [ ] `06-vendas-e-despesa-recorrente.md` — unidades de venda, vendas, regra recorrente, sugestões do dia
