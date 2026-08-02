@@ -6,7 +6,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Bugs / coisas quebradas
 
--
+- As vezes eu abro o site do ambiente de desenvolvimento e tomo um erro 401, na tela fica um botao de tentar novamente, mas eu nunca consigo. Fui ver o response e estou recebendo isso: {"error":"Token inválido"}. Como resolvemos isso? caso não de pra fazer muita coisa podemos deslogar o usuario nesse momento, pois como está hoje nao consigo deslogar
 
 ## Melhorias de UX
 
@@ -26,7 +26,7 @@ Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura
 
 - [x] `00-setup-e-infra.md` — scaffold Expo/TS, cliente de API, persistência local + fila de sincronização genérica, CI por pasta
 - [x] `01-auth.md` — cadastro, login, bootstrap de sessão offline, logout, troca de senha
-- [ ] `02-sociedade-e-socios.md` — criar/entrar por código, sócio sem conta, percentuais
+- [x] `02-sociedade-e-socios.md` — criar/entrar por código, sócio sem conta, percentuais
 - [ ] `03-safra.md` — abrir/encerrar safra, observações, `SafraContext`
 - [ ] `04-despesas-da-sociedade.md` — despesa com rateio, foto via câmera, fila offline
 - [ ] `05-painel-e-acerto.md` — painel de simulação e Acerto (sem cálculo local)

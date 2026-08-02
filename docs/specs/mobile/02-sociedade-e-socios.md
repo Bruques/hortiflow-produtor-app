@@ -6,17 +6,19 @@ Levar pro app mobile o onboarding de Sociedade já validado no app web (spec `02
 
 Também define a primeira regra concreta de "o que entra na fila offline e o que não entra" (ver `CLAUDE.md`, seção de offline-first) — nem toda escrita do app deveria ser enfileirada.
 
+> **Nota de 2026-08-02, registrada durante a implementação**: esta spec foi escrita espelhando a spec `02` **original** do web (sociedade como hub pós-login). O web evoluiu desde então — hoje a `HomePage` é centrada em **Safra**, não em Sociedade (0 safras → formulário que já cria sociedade+safra juntas; 1 safra → entra direto nela; 2+ → lista de safras), e a tela de sócios/percentuais só é alcançada de dentro de uma safra, via `MenuPage` (card "Sócios e Sociedade"). O mobile ainda não tem Safra (é a spec `03`), então esta spec constrói deliberadamente um hub "Minhas sociedades" **provisório**, só para o app ter algum caminho de onboarding e uma tela pra abrigar a gestão de sócios até a `03` chegar. Quando a `03` for implementada, essa tela vira o novo pós-login "de verdade" (lista de safras) e a atual `SociedadesScreen` deixa de ser a tela inicial — a spec `03` deve tratar essa substituição explicitamente, não como decisão nova e não documentada.
+
 ## Escopo
 
 **Entra:**
-- Tela "Minhas sociedades" (hub pós-login, equivalente à `HomePage` do web): lista as sociedades do usuário; estado vazio com CTA "Criar sociedade" / "Entrar com código" quando não participa de nenhuma
-- Criar sociedade (nome) — `POST /sociedades`
+- Tela "Minhas sociedades" (hub pós-login **provisório** — ver nota acima; não é o design alvo, é o que existe até a spec `03` trazer a Home centrada em safra): lista as sociedades do usuário; estado vazio com CTA "Criar sociedade" / "Entrar com código" quando não participa de nenhuma
+- Criar sociedade (nome) — `POST /sociedades`. **Diferença deliberada do web atual**: hoje o web só cria sociedade em conjunto com a primeira safra (`HomePage`); aqui criar sociedade sozinha (sem safra) é uma simplificação aceita para esta spec, já que Safra ainda não existe no mobile — não é o fluxo final
 - Entrar por código de 6 dígitos — `GET /sociedades/convite/:codigo` (preview) + `POST /sociedades/entrar`, incluindo a pergunta "é algum desses sócios?" quando o convite tem sócios sem conta
-- Tela de sócios de uma sociedade: listar (`GET /sociedades/:id/socios`), editar percentuais de todos de uma vez (`PUT .../percentuais`), adicionar sócio sem conta (`POST /sociedades/:id/socios`)
+- Tela de sócios de uma sociedade: listar (`GET /sociedades/:id/socios`), editar percentuais de todos de uma vez (`PUT .../percentuais`), adicionar sócio sem conta (`POST /sociedades/:id/socios`) — mesmo conteúdo do card "Sócios e Sociedade" do `MenuPage` web atual, só que alcançado direto da lista de sociedades (mobile ainda não tem Menu — é a spec `08`)
 - Cache local (leitura) de sociedades e sócios já carregados, seguindo o padrão offline-first geral (spec `00`): tela mostra dados salvos mesmo sem internet, com aviso de "sem conexão" ao tentar atualizar
 
 **Fica de fora:**
-- Safra — spec `03` (a partir daqui a numeração das specs de negócio muda: Safra `03`, Despesas/Vendas `04`, Painel/Acerto `05`, Despesa Pessoal `06`)
+- Safra — spec `03` (a partir daqui a numeração das specs de negócio muda: Safra `03`, Despesas/Vendas `04`, Painel/Acerto `05`, Despesa Pessoal `06`). Isso inclui a Home "de verdade" (centrada em safra) e o fluxo de criar sociedade+safra juntas — ficam para a `03`
 - Remover sócio, editar nome da sociedade depois de criada — mesmas lacunas já registradas na spec web, não é escopo aqui também
 - Qualquer permissão granular por papel (financiador/meeiro têm a mesma visão, conforme `CLAUDE.md`)
 
@@ -65,4 +67,10 @@ PUT  /sociedades/:id/socios/percentuais       { socios: [{ id, percentual_lucro,
 
 ## Decisões registradas durante a implementação
 
-*(preencher durante a implementação, seguindo o mesmo padrão das specs `01` a `13` — decisões não previstas aqui entram nesta seção, não são resolvidas silenciosamente)*
+- **"Minhas sociedades" substitui a Home placeholder das specs 00/01**: não existe mais uma tela "Home" genérica — `SociedadesScreen` passa a ser a tela inicial pós-login. Os atalhos "Trocar senha"/"Sair" (antes na Home de teste) viraram links no rodapé dessa tela, já que ainda não existe nenhum outro lugar (Menu/Configurações) pra eles morarem — isso deve mudar quando a spec `08` (navegação/Resumo/Menu) chegar.
+- **Cache local de sociedades/sócios com estratégia "substitui tudo"** (`src/lib/sociedadesCache.ts`, tabelas `sociedades_cache`/`socios_cache` novas em `database.ts`): a cada fetch bem-sucedido, apaga e reinsere a lista inteira, em vez de diff linha a linha. Simples o suficiente pro volume dessas listas (poucas sociedades/sócios por conta) e resolve o critério de aceite 8 (mostrar dados salvos ao abrir offline) sem esperar uma spec futura de sincronização mais sofisticada.
+- **`SociedadeContext` guarda só `{ id, nome, codigo_convite }`** (não o objeto `Sociedade` completo, que também tem `percentual_lucro`/`papel` do usuário logado) — é só o suficiente pra tela de Sócios operar; o percentual/papel do usuário atual já vem dentro da lista de sócios carregada por `listarSociosRequest`, não precisa duplicar.
+- **Ao entrar por código, a sociedade selecionada no contexto vem de um `listarSociedadesRequest()` logo após `entrarSociedadeRequest`** (que só devolve `{ id, nome }`, sem `codigo_convite`) — mesmo padrão que o `HomePage` do web usa (recarrega a lista após a ação), necessário aqui porque a tela de Sócios mostra o código de convite pra qualquer sócio, não só pra quem criou.
+- **Mensagens de erro das ações de sociedade centralizadas em `src/lib/erroApi.ts`** (`mensagemErro`): distingue erro de rede (sem `response`, ação exige conexão — critério de aceite 9) de erro de validação do backend (usa a mensagem vinda de `response.data.error`, ex: 422 de percentuais). Reaproveitada pelas 4 telas de escrita desta spec.
+- **Teste do critério de aceite 10** (nenhuma escrita desta spec cai na fila offline) implementado mockando `apiClient` pra rejeitar com erro de rede e verificando que `enfileirar` (da fila genérica da spec `00`) nunca é chamado — mais direto que testar através da UI, e prova estruturalmente que `services/sociedades.ts` nunca importa a fila.
+- **Divergência do fluxo web atual identificada e registrada (2026-08-02)**: o dev notou que a spec (e a implementação) seguiam o modelo antigo de hub por Sociedade, enquanto o web hoje é centrado em Safra (`HomePage` lista safras, "Sócios e Sociedade" só é alcançado de dentro de uma safra via `MenuPage`). Decisão: manter `SociedadesScreen` como hub **provisório** só até a spec `03` (Safra) chegar — código já implementado desta spec (types, services, cache, `SociedadeContext`, `CriarSociedadeScreen`, `EntrarSociedadeScreen`, `SociosScreen`) não muda, só a moldura ao redor (qual tela é a inicial) muda quando a `03` for implementada. Ver nota no topo do arquivo. **A spec `03-safra.md` tem a mesma divergência** (também assume Sociedade como ponto de entrada) e vai precisar da mesma revisão quando for a vez dela.

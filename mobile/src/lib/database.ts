@@ -19,6 +19,24 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           erro TEXT,
           criado_em TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS sociedades_cache (
+          id TEXT PRIMARY KEY,
+          nome TEXT NOT NULL,
+          codigo_convite TEXT NOT NULL,
+          percentual_lucro TEXT NOT NULL,
+          papel TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS socios_cache (
+          id TEXT PRIMARY KEY,
+          sociedade_id TEXT NOT NULL,
+          usuario_id TEXT,
+          nome TEXT NOT NULL,
+          telefone TEXT,
+          percentual_lucro TEXT NOT NULL,
+          papel TEXT NOT NULL
+        );
       `);
       return db;
     });
