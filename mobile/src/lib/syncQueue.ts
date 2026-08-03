@@ -144,6 +144,19 @@ export function registrarProcessador(operacao: string, processador: Processador)
 // paralelo com ela.
 let sincronizacaoEmAndamento: Promise<void> | null = null;
 
+// Ouvintes de "uma sincronização terminou" — o que permite uma tela já aberta (ex:
+// DespesasScreen) se atualizar sozinha quando a fila processa em segundo plano (ex: ao
+// reconectar), em vez de só reagir num próximo foco de navegação. Genérico de propósito, sem
+// saber nada de despesa/venda, mesmo espírito de `registrarProcessador`: cada tela que lista
+// dados de uma fila se inscreve e relê o cache local (leitura, sem rede) quando notificada.
+type OuvinteSincronizacao = () => void;
+const ouvintesSincronizacao = new Set<OuvinteSincronizacao>();
+
+export function assinarSincronizacaoConcluida(ouvinte: OuvinteSincronizacao): () => void {
+  ouvintesSincronizacao.add(ouvinte);
+  return () => ouvintesSincronizacao.delete(ouvinte);
+}
+
 export async function sincronizarTudo(): Promise<void> {
   if (sincronizacaoEmAndamento) {
     return sincronizacaoEmAndamento;
@@ -157,5 +170,8 @@ export async function sincronizarTudo(): Promise<void> {
     await sincronizacaoEmAndamento;
   } finally {
     sincronizacaoEmAndamento = null;
+  }
+  for (const ouvinte of ouvintesSincronizacao) {
+    ouvinte();
   }
 }

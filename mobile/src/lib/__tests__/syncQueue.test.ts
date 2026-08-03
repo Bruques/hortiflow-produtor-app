@@ -1,4 +1,11 @@
-import { enfileirar, processarPendentes, listarPendentes, registrarProcessador, sincronizarTudo } from '../syncQueue';
+import {
+  assinarSincronizacaoConcluida,
+  enfileirar,
+  processarPendentes,
+  listarPendentes,
+  registrarProcessador,
+  sincronizarTudo,
+} from '../syncQueue';
 
 // Fake mínimo do banco em memória, só com o suficiente para as queries que syncQueue.ts
 // emite — evita depender do módulo nativo expo-sqlite dentro do Jest (docs/specs/mobile/
@@ -164,5 +171,27 @@ describe('syncQueue', () => {
     expect(maxExecucoesSimultaneas).toBe(1);
     const pendentes = await listarPendentes('despesa.criar');
     expect(pendentes).toHaveLength(0);
+  });
+
+  it('avisa os ouvintes quando uma sincronização termina, mesmo sem nenhum item pra processar', async () => {
+    // Uma tela já aberta (ex: lista de despesas) precisa saber quando uma sincronização em
+    // segundo plano terminou (ex: a conexão voltou sozinha) pra reler o cache local e sumir
+    // com o badge de "pendente" — sem depender de a tela perder e recuperar o foco de navegação.
+    let chamadas = 0;
+    const desinscrever = assinarSincronizacaoConcluida(() => {
+      chamadas += 1;
+    });
+
+    await sincronizarTudo();
+    expect(chamadas).toBe(1);
+
+    await enfileirar('despesa.criar', { valor: 5 });
+    registrarProcessador('despesa.criar', async () => {});
+    await sincronizarTudo();
+    expect(chamadas).toBe(2);
+
+    desinscrever();
+    await sincronizarTudo();
+    expect(chamadas).toBe(2);
   });
 });

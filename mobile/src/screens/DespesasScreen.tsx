@@ -5,6 +5,7 @@ import { ArrowLeft, Plus } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { listarDespesasRequest } from '../services/despesas';
 import { obterDespesasCache, salvarDespesasCache } from '../lib/despesasCache';
+import { assinarSincronizacaoConcluida } from '../lib/syncQueue';
 import { BannerSemConexao } from '../components/BannerSemConexao';
 import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
@@ -52,6 +53,17 @@ export function DespesasScreen({ navigation, route }: Props) {
     const desinscrever = navigation.addListener('focus', carregar);
     return desinscrever;
   }, [navigation, carregar]);
+
+  // Uma sincronização pode acontecer em segundo plano (ex: a conexão volta enquanto essa tela
+  // já está aberta) sem nenhuma navegação disparar `carregar()` de novo — sem isso, o badge de
+  // "pendente" só sumia se o produtor saísse e voltasse pra tela. Aqui é só uma releitura do
+  // cache local (sem rede): a sincronização em si já gravou o resultado, só falta a tela notar.
+  useEffect(() => {
+    const desinscrever = assinarSincronizacaoConcluida(() => {
+      obterDespesasCache(safraId).then(setDespesas);
+    });
+    return desinscrever;
+  }, [safraId]);
 
   const totalDespesas = despesas.reduce((acc, d) => acc + Number(d.valor), 0);
 
