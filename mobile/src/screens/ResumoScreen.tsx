@@ -242,7 +242,10 @@ export function ResumoScreen({ navigation }: Props) {
             <View style={styles.secaoCabecalho}>
               <Text style={styles.tituloSecao}>Vendas recentes</Text>
               <Pressable onPress={() => navigation.navigate('Vendas')}>
-                <Text style={styles.linkVerTodas}>Ver todas</Text>
+                <View style={styles.linkComIcone}>
+                  <Text style={styles.linkVerTodas}>Ver todas</Text>
+                  <ChevronRight size={12} color={cores.green[700]} />
+                </View>
               </Pressable>
             </View>
             {vendasRecentes.length === 0 && <Text style={styles.vazio}>Nenhuma venda neste período.</Text>}
