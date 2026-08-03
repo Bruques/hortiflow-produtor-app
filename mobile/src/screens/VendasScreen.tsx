@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Check, ShoppingCart } from 'lucide-react-native';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -10,9 +10,12 @@ import { assinarSincronizacaoConcluida } from '../lib/syncQueue';
 import { obterRegrasCache, salvarRegrasCache } from '../lib/regrasCache';
 import { listarRegrasRequest } from '../services/regrasDespesaRecorrente';
 import { useSafraAtiva } from '../context/SafraContext';
+import { calcularIntervaloPeriodo } from '../lib/periodoResumo';
 import { formatarData } from '../lib/data';
 import { formatarMoeda } from '../lib/formatacao';
+import { FiltroPeriodo } from '../components/FiltroPeriodo';
 import { cores, espacamento, raio } from '../theme';
+import type { PeriodoFiltro } from '../types/simulacao';
 import type { VendaLocal } from '../types/venda';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { SafraTabParamList } from '../navigation/SafraTabs';
@@ -23,11 +26,16 @@ type Props = CompositeScreenProps<
 >;
 
 // Lista de vendas da safra (aba "Vendas" da casca), equivalente à frontend/src/pages/VendasPage.tsx
-// do web — sem o filtro de período/status de pagamento (fora do escopo desta spec, ver
-// docs/specs/mobile/06-vendas-e-despesa-recorrente.md). Mostra o cache primeiro, sempre (mesmo
-// offline), e atualiza quando a resposta da rede chega — mesmo padrão de DespesasScreen.tsx.
-// Sem cabeçalho com seta de voltar (docs/specs/mobile/08-navegacao-resumo-e-menu.md): como aba
-// raiz da casca, a navegação é só pela bottom nav, igual ao web dentro do SafraLayout.
+// do web — sem o filtro de status de pagamento (fora do escopo desta spec, ver
+// docs/specs/mobile/06-vendas-e-despesa-recorrente.md). O filtro de período (2026-08-03, ver
+// docs/backlog.md) foi adicionado client-side sobre a lista completa já em cache — igual ao que
+// "Vendas recentes" já fazia em ResumoScreen.tsx — em vez de re-buscar do backend por período: o
+// service `listarVendasRequest` sempre traz a safra inteira (`periodo: 'safra'`) pra alimentar a
+// fila de sincronização offline-first, então filtrar em memória evita uma segunda estratégia de
+// cache só pra esta tela. Mostra o cache primeiro, sempre (mesmo offline), e atualiza quando a
+// resposta da rede chega — mesmo padrão de DespesasScreen.tsx. Sem cabeçalho com seta de voltar
+// (docs/specs/mobile/08-navegacao-resumo-e-menu.md): como aba raiz da casca, a navegação é só
+// pela bottom nav, igual ao web dentro do SafraLayout.
 export function VendasScreen({ navigation }: Props) {
   const { safraAtiva } = useSafraAtiva();
   const safraId = safraAtiva?.safraId ?? '';
@@ -36,6 +44,8 @@ export function VendasScreen({ navigation }: Props) {
   const [vendas, setVendas] = useState<VendaLocal[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
+  const [personalizado, setPersonalizado] = useState<{ dataInicio: string; dataFim: string } | null>(null);
   // Valor de cada RegraDespesaRecorrente por id — cruzado com `venda.regras_aplicadas` (as
   // regras que o sócio realmente deixou marcadas ao lançar/editar essa venda específica) pra
   // calcular o selo "gerou despesa automática", igual à frontend/src/pages/VendasPage.tsx web.
@@ -95,7 +105,26 @@ export function VendasScreen({ navigation }: Props) {
     return desinscrever;
   }, [safraId]);
 
-  const totalVendas = vendas.reduce((acc, v) => acc + Number(v.total), 0);
+  function selecionarPeriodo(valor: PeriodoFiltro) {
+    setPersonalizado(null);
+    setPeriodo(valor);
+  }
+
+  function aplicarPersonalizado(intervalo: { dataInicio: string; dataFim: string }) {
+    setPersonalizado(intervalo);
+    setPeriodo(null);
+  }
+
+  const intervalo = useMemo(() => calcularIntervaloPeriodo(periodo, personalizado), [periodo, personalizado]);
+  const vendasDoPeriodo = useMemo(
+    () =>
+      intervalo
+        ? vendas.filter((v) => v.data.slice(0, 10) >= intervalo.dataInicio && v.data.slice(0, 10) <= intervalo.dataFim)
+        : vendas,
+    [vendas, intervalo]
+  );
+
+  const totalVendas = vendasDoPeriodo.reduce((acc, v) => acc + Number(v.total), 0);
 
   if (!safraAtiva) return null;
 
@@ -105,11 +134,20 @@ export function VendasScreen({ navigation }: Props) {
         <Text style={styles.tituloCabecalho}>Vendas</Text>
       </View>
 
+      <View style={styles.filtroArea}>
+        <FiltroPeriodo
+          periodo={periodo}
+          personalizado={personalizado}
+          onSelecionarPeriodo={selecionarPeriodo}
+          onAplicarPersonalizado={aplicarPersonalizado}
+        />
+      </View>
+
       <View style={styles.resumo}>
         <View>
-          <Text style={styles.resumoLabel}>Total vendido</Text>
+          <Text style={styles.resumoLabel}>Total vendido no período</Text>
           <Text style={styles.resumoLegenda}>
-            {vendas.length} lançamento{vendas.length === 1 ? '' : 's'}
+            {vendasDoPeriodo.length} lançamento{vendasDoPeriodo.length === 1 ? '' : 's'}
           </Text>
         </View>
         <Text style={styles.resumoValor}>{formatarMoeda(totalVendas)}</Text>
@@ -117,10 +155,12 @@ export function VendasScreen({ navigation }: Props) {
 
       {erro && <Text style={styles.erro}>{erro}</Text>}
       {carregando && vendas.length === 0 && <ActivityIndicator style={{ marginTop: espacamento.lg }} />}
-      {!carregando && vendas.length === 0 && !erro && <Text style={styles.vazio}>Nenhuma venda lançada ainda.</Text>}
+      {!carregando && vendasDoPeriodo.length === 0 && !erro && (
+        <Text style={styles.vazio}>Nenhuma venda neste período.</Text>
+      )}
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.lista}>
-        {vendas.map((v) => {
+        {vendasDoPeriodo.map((v) => {
           const valorAuto =
             v.regras_aplicadas.reduce((acc, regraId) => acc + (valorPorRegraId[regraId] ?? 0), 0) *
             Number(v.quantidade);
@@ -181,12 +221,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: cores.stone[900],
   },
+  filtroArea: {
+    marginHorizontal: espacamento.xl,
+    marginTop: espacamento.sm,
+  },
   resumo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: espacamento.xl,
-    marginTop: espacamento.sm,
+    marginTop: espacamento.md,
     backgroundColor: cores.cream[100],
     borderRadius: raio.lg,
     paddingHorizontal: espacamento.lg,

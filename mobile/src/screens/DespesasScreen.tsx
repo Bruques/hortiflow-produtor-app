@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -9,9 +9,12 @@ import { assinarSincronizacaoConcluida } from '../lib/syncQueue';
 import { useSafraAtiva } from '../context/SafraContext';
 import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
+import { calcularIntervaloPeriodo } from '../lib/periodoResumo';
 import { formatarData } from '../lib/data';
 import { formatarMoeda, iniciais } from '../lib/formatacao';
+import { FiltroPeriodo } from '../components/FiltroPeriodo';
 import { cores, espacamento, raio } from '../theme';
+import type { PeriodoFiltro } from '../types/simulacao';
 import type { DespesaLocal } from '../types/despesa';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { SafraTabParamList } from '../navigation/SafraTabs';
@@ -22,11 +25,15 @@ type Props = CompositeScreenProps<
 >;
 
 // Lista de despesas da sociedade (aba "Despesas" da casca), equivalente à
-// frontend/src/pages/DespesasPage.tsx do web — sem o filtro de período/sugestões de regra
-// recorrente (fora do escopo desta spec, ver docs/specs/mobile/04-despesas-da-sociedade.md e
-// 06 mobile). Mostra o cache primeiro, sempre (mesmo offline), e atualiza quando a resposta da
-// rede chega. Sem cabeçalho com seta de voltar (docs/specs/mobile/08-navegacao-resumo-e-menu.md):
-// como aba raiz da casca, a navegação é só pela bottom nav, igual ao web dentro do SafraLayout.
+// frontend/src/pages/DespesasPage.tsx do web — sem sugestões de regra recorrente (fora do
+// escopo desta spec, ver docs/specs/mobile/04-despesas-da-sociedade.md e 06 mobile). O filtro de
+// período (2026-08-03, ver docs/backlog.md) foi adicionado client-side sobre a lista completa já
+// em cache, mesmo raciocínio de VendasScreen.tsx: `listarDespesasRequest` sempre traz a safra
+// inteira (`periodo: 'safra'`) pra alimentar a fila de sincronização offline-first, então
+// filtrar em memória evita uma segunda estratégia de cache só pra esta tela. Mostra o cache
+// primeiro, sempre (mesmo offline), e atualiza quando a resposta da rede chega. Sem cabeçalho
+// com seta de voltar (docs/specs/mobile/08-navegacao-resumo-e-menu.md): como aba raiz da casca,
+// a navegação é só pela bottom nav, igual ao web dentro do SafraLayout.
 export function DespesasScreen({ navigation }: Props) {
   const { safraAtiva } = useSafraAtiva();
   const safraId = safraAtiva?.safraId ?? '';
@@ -35,6 +42,8 @@ export function DespesasScreen({ navigation }: Props) {
   const [despesas, setDespesas] = useState<DespesaLocal[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
+  const [personalizado, setPersonalizado] = useState<{ dataInicio: string; dataFim: string } | null>(null);
 
   const carregar = useCallback(async () => {
     if (!safraId) return;
@@ -75,7 +84,26 @@ export function DespesasScreen({ navigation }: Props) {
     return desinscrever;
   }, [safraId]);
 
-  const totalDespesas = despesas.reduce((acc, d) => acc + Number(d.valor), 0);
+  function selecionarPeriodo(valor: PeriodoFiltro) {
+    setPersonalizado(null);
+    setPeriodo(valor);
+  }
+
+  function aplicarPersonalizado(intervalo: { dataInicio: string; dataFim: string }) {
+    setPersonalizado(intervalo);
+    setPeriodo(null);
+  }
+
+  const intervalo = useMemo(() => calcularIntervaloPeriodo(periodo, personalizado), [periodo, personalizado]);
+  const despesasDoPeriodo = useMemo(
+    () =>
+      intervalo
+        ? despesas.filter((d) => d.data.slice(0, 10) >= intervalo.dataInicio && d.data.slice(0, 10) <= intervalo.dataFim)
+        : despesas,
+    [despesas, intervalo]
+  );
+
+  const totalDespesas = despesasDoPeriodo.reduce((acc, d) => acc + Number(d.valor), 0);
 
   if (!safraAtiva) return null;
 
@@ -85,11 +113,20 @@ export function DespesasScreen({ navigation }: Props) {
         <Text style={styles.tituloCabecalho}>Despesas</Text>
       </View>
 
+      <View style={styles.filtroArea}>
+        <FiltroPeriodo
+          periodo={periodo}
+          personalizado={personalizado}
+          onSelecionarPeriodo={selecionarPeriodo}
+          onAplicarPersonalizado={aplicarPersonalizado}
+        />
+      </View>
+
       <View style={styles.resumo}>
         <View>
-          <Text style={styles.resumoLabel}>Total de despesas</Text>
+          <Text style={styles.resumoLabel}>Total de despesas no período</Text>
           <Text style={styles.resumoLegenda}>
-            {despesas.length} lançamento{despesas.length === 1 ? '' : 's'} · todos os sócios
+            {despesasDoPeriodo.length} lançamento{despesasDoPeriodo.length === 1 ? '' : 's'} · todos os sócios
           </Text>
         </View>
         <Text style={styles.resumoValor}>{formatarMoeda(totalDespesas)}</Text>
@@ -97,12 +134,12 @@ export function DespesasScreen({ navigation }: Props) {
 
       {erro && <Text style={styles.erro}>{erro}</Text>}
       {carregando && despesas.length === 0 && <ActivityIndicator style={{ marginTop: espacamento.lg }} />}
-      {!carregando && despesas.length === 0 && !erro && (
-        <Text style={styles.vazio}>Nenhuma despesa lançada ainda.</Text>
+      {!carregando && despesasDoPeriodo.length === 0 && !erro && (
+        <Text style={styles.vazio}>Nenhuma despesa neste período.</Text>
       )}
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.lista}>
-        {despesas.map((d) => {
+        {despesasDoPeriodo.map((d) => {
           const Icone = ICONE_TIPO_DESPESA[d.tipo];
           return (
             <Pressable
@@ -159,12 +196,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: cores.stone[900],
   },
+  filtroArea: {
+    marginHorizontal: espacamento.xl,
+    marginTop: espacamento.sm,
+  },
   resumo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: espacamento.xl,
-    marginTop: espacamento.sm,
+    marginTop: espacamento.md,
     backgroundColor: cores.cream[100],
     borderRadius: raio.lg,
     paddingHorizontal: espacamento.lg,

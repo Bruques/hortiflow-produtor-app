@@ -1,20 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Calendar, CalendarRange, ShoppingCart, TrendingUp, Wallet } from 'lucide-react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Calendar, ChevronRight, ShoppingCart, TrendingUp, Wallet } from 'lucide-react-native';
+import Svg, { Circle } from 'react-native-svg';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
 import { useSafraAtiva } from '../context/SafraContext';
 import { buscarSimulacaoPersonalizadaRequest, buscarSimulacaoRequest } from '../services/simulacao';
 import { obterSimulacaoCache, salvarSimulacaoCache, type FiltroSimulacao } from '../lib/simulacaoCache';
 import { listarVendasRequest } from '../services/vendas';
 import { obterVendasCache, salvarVendasCache } from '../lib/vendasCache';
+import { listarSociosRequest } from '../services/sociedades';
+import { obterSociosCache, salvarSociosCache } from '../lib/sociedadesCache';
 import { calcularIntervaloPeriodo } from '../lib/periodoResumo';
-import { dataIsoParaExibicao, exibicaoParaDataIso, formatarData } from '../lib/data';
+import { formatarData } from '../lib/data';
 import { formatarMoeda, iniciais } from '../lib/formatacao';
 import { ROTULO_STATUS_SAFRA } from '../lib/rotulos';
+import { FiltroPeriodo } from '../components/FiltroPeriodo';
 import { cores, espacamento, raio } from '../theme';
 import type { PeriodoFiltro, Simulacao } from '../types/simulacao';
+import type { Socio } from '../types/sociedade';
 import type { VendaLocal } from '../types/venda';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { SafraTabParamList } from '../navigation/SafraTabs';
@@ -24,12 +30,8 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const OPCOES_PERIODO: { valor: PeriodoFiltro; label: string }[] = [
-  { valor: 'dia', label: 'Hoje' },
-  { valor: 'semana', label: 'Semana' },
-  { valor: 'mes', label: 'Mês' },
-  { valor: 'safra', label: 'Safra' },
-];
+const RAIO_ANEL = 31;
+const CIRCUNFERENCIA_ANEL = 2 * Math.PI * RAIO_ANEL;
 
 // Tela inicial da safra (aba "Resumo" da casca) — composição pura de dados já expostos por
 // specs anteriores, sem chamada nova (docs/specs/mobile/08-navegacao-resumo-e-menu.md): painel
@@ -38,21 +40,21 @@ const OPCOES_PERIODO: { valor: PeriodoFiltro; label: string }[] = [
 // safra (spec `03`). Absorve o que antes era PainelScreen.tsx. Segmented control de período,
 // grid de cards e ordem das seções (vendas recentes antes de divisão do lucro) espelham
 // frontend/src/pages/ResumoPage.tsx pixel a pixel — ajuste feito depois do dev comparar lado a
-// lado com o web (2026-08-03).
+// lado com o web (2026-08-03). Card "Você recebe" e link "Ver sócios" (2026-08-03, ver
+// docs/backlog.md) fecham a paridade visual com o web que ainda faltava.
 export function ResumoScreen({ navigation }: Props) {
+  const { usuario } = useAuth();
   const { safraAtiva } = useSafraAtiva();
 
   const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
   const [personalizado, setPersonalizado] = useState<{ dataInicio: string; dataFim: string } | null>(null);
-  const [outraDataAberta, setOutraDataAberta] = useState(false);
-  const [textoInicio, setTextoInicio] = useState('');
-  const [textoFim, setTextoFim] = useState('');
 
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
   const [carregandoSimulacao, setCarregandoSimulacao] = useState(true);
   const [erroSimulacao, setErroSimulacao] = useState<string | null>(null);
 
   const [vendas, setVendas] = useState<VendaLocal[]>([]);
+  const [socios, setSocios] = useState<Socio[]>([]);
 
   const filtro: FiltroSimulacao = personalizado
     ? { dataInicio: personalizado.dataInicio, dataFim: personalizado.dataFim }
@@ -94,34 +96,43 @@ export function ResumoScreen({ navigation }: Props) {
     }
   }, [safraAtiva?.safraId]);
 
+  const carregarSocios = useCallback(async () => {
+    const sociedadeId = safraAtiva?.sociedadeId;
+    if (!sociedadeId) return;
+    const cache = await obterSociosCache(sociedadeId);
+    if (cache.length > 0) setSocios(cache);
+    try {
+      const { socios: atualizados } = await listarSociosRequest(sociedadeId);
+      await salvarSociosCache(sociedadeId, atualizados);
+      setSocios(atualizados);
+    } catch {
+      // offline: segue com o que já tinha em cache (ou vazio, até a próxima sincronização)
+    }
+  }, [safraAtiva?.sociedadeId]);
+
   useEffect(() => {
     const desinscrever = navigation.addListener('focus', () => {
       carregarSimulacao();
       carregarVendas();
+      carregarSocios();
     });
     return desinscrever;
-  }, [navigation, carregarSimulacao, carregarVendas]);
+  }, [navigation, carregarSimulacao, carregarVendas, carregarSocios]);
 
   function selecionarPeriodo(valor: PeriodoFiltro) {
     setPersonalizado(null);
-    setOutraDataAberta(false);
     setPeriodo(valor);
   }
 
-  function abrirPersonalizado() {
-    setTextoInicio(personalizado ? dataIsoParaExibicao(personalizado.dataInicio) : '');
-    setTextoFim(personalizado ? dataIsoParaExibicao(personalizado.dataFim) : '');
-    setOutraDataAberta(true);
+  function aplicarPersonalizado(intervalo: { dataInicio: string; dataFim: string }) {
+    setPersonalizado(intervalo);
+    setPeriodo(null);
   }
 
-  function aplicarPersonalizado() {
-    const dataInicio = exibicaoParaDataIso(textoInicio);
-    const dataFim = exibicaoParaDataIso(textoFim);
-    if (!dataInicio || !dataFim || dataInicio > dataFim) return;
-    setPersonalizado({ dataInicio, dataFim });
-    setPeriodo(null);
-    setOutraDataAberta(false);
-  }
+  const meuSocio = socios.find((s) => s.usuario_id === usuario?.id);
+  const meuDivisao = simulacao?.divisao.find((d) => d.socio_id === meuSocio?.id) ?? null;
+  const percentualAnel = Math.min(100, Math.max(0, meuDivisao?.percentual ?? 0));
+  const offsetAnel = CIRCUNFERENCIA_ANEL * (1 - percentualAnel / 100);
 
   const intervaloVendas = useMemo(() => calcularIntervaloPeriodo(periodo, personalizado), [periodo, personalizado]);
   const vendasRecentes = useMemo(() => {
@@ -157,60 +168,45 @@ export function ResumoScreen({ navigation }: Props) {
         {safra.observacoes && <Text style={styles.observacoes}>{safra.observacoes}</Text>}
       </Pressable>
 
-      <View style={styles.segmentado}>
-        {OPCOES_PERIODO.map((opcao) => (
-          <Pressable
-            key={opcao.valor}
-            style={[styles.segmento, periodo === opcao.valor && styles.segmentoAtivo]}
-            onPress={() => selecionarPeriodo(opcao.valor)}
-          >
-            <Text style={[styles.segmentoTexto, periodo === opcao.valor && styles.segmentoTextoAtivo]}>
-              {opcao.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Pressable style={[styles.botaoPersonalizado, !!personalizado && styles.botaoPersonalizadoAtivo]} onPress={abrirPersonalizado}>
-        <CalendarRange size={16} color={personalizado ? '#FFFFFF' : cores.stone[600]} />
-        <Text style={[styles.botaoPersonalizadoTexto, !!personalizado && styles.botaoPersonalizadoTextoAtivo]}>
-          {personalizado
-            ? `${dataIsoParaExibicao(personalizado.dataInicio)} - ${dataIsoParaExibicao(personalizado.dataFim)}`
-            : 'Escolher período personalizado'}
-        </Text>
-      </Pressable>
-
-      {outraDataAberta && (
-        <View style={styles.personalizadoCaixa}>
-          <View style={styles.personalizadoLinha}>
-            <TextInput
-              style={styles.personalizadoInput}
-              value={textoInicio}
-              onChangeText={setTextoInicio}
-              placeholder="Início DD/MM/AAAA"
-              placeholderTextColor={cores.stone[400]}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.personalizadoInput}
-              value={textoFim}
-              onChangeText={setTextoFim}
-              placeholder="Fim DD/MM/AAAA"
-              placeholderTextColor={cores.stone[400]}
-              keyboardType="numeric"
-            />
-          </View>
-          <Pressable style={styles.botaoAplicar} onPress={aplicarPersonalizado}>
-            <Text style={styles.textoBotaoAplicar}>Aplicar</Text>
-          </Pressable>
-        </View>
-      )}
+      <FiltroPeriodo
+        periodo={periodo}
+        personalizado={personalizado}
+        onSelecionarPeriodo={selecionarPeriodo}
+        onAplicarPersonalizado={aplicarPersonalizado}
+      />
 
       {erroSimulacao && <Text style={styles.erro}>{erroSimulacao}</Text>}
       {carregandoSimulacao && !simulacao && <ActivityIndicator style={{ marginTop: espacamento.lg }} />}
 
       {simulacao && (
         <>
+          <View style={styles.cardRecebe}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardRecebeLabel}>Você recebe (estimado)</Text>
+              <Text style={styles.cardRecebeValor}>{formatarMoeda(meuDivisao?.valor ?? 0)}</Text>
+              <Text style={styles.cardRecebePercentual}>Seu percentual: {meuDivisao?.percentual ?? 0}%</Text>
+            </View>
+            <View style={styles.anelArea}>
+              <Svg width={74} height={74} viewBox="0 0 74 74" style={{ transform: [{ rotate: '-90deg' }] }}>
+                <Circle cx={37} cy={37} r={RAIO_ANEL} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth={7} />
+                <Circle
+                  cx={37}
+                  cy={37}
+                  r={RAIO_ANEL}
+                  fill="none"
+                  stroke="#8fe6a0"
+                  strokeWidth={7}
+                  strokeLinecap="round"
+                  strokeDasharray={CIRCUNFERENCIA_ANEL}
+                  strokeDashoffset={offsetAnel}
+                />
+              </Svg>
+              <View style={styles.anelTextoArea}>
+                <Text style={styles.anelTexto}>{percentualAnel}%</Text>
+              </View>
+            </View>
+          </View>
+
           <View>
             <Text style={styles.tituloSecao}>Resumo do período</Text>
             <View style={styles.cardsGrid}>
@@ -267,7 +263,15 @@ export function ResumoScreen({ navigation }: Props) {
           </View>
 
           <View>
-            <Text style={styles.tituloSecao}>Divisão do lucro</Text>
+            <View style={styles.secaoCabecalho}>
+              <Text style={styles.tituloSecao}>Divisão do lucro</Text>
+              <Pressable onPress={() => navigation.navigate('Socios', { sociedadeId: safraAtiva.sociedadeId })}>
+                <View style={styles.linkComIcone}>
+                  <Text style={styles.linkVerTodas}>Ver sócios</Text>
+                  <ChevronRight size={12} color={cores.green[700]} />
+                </View>
+              </Pressable>
+            </View>
             {simulacao.divisao.map((d) => (
               <View key={d.socio_id} style={styles.linhaDivisao}>
                 <View style={styles.avatar}>
@@ -337,82 +341,49 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: cores.stone[400],
   },
-  segmentado: {
+  cardRecebe: {
     flexDirection: 'row',
-    gap: 2,
-    backgroundColor: cores.cream[100],
-    borderRadius: raio.md + 2,
-    padding: 4,
-  },
-  segmento: {
-    flex: 1,
-    borderRadius: raio.sm + 2,
-    paddingVertical: espacamento.sm,
     alignItems: 'center',
+    gap: espacamento.md,
+    borderRadius: 18,
+    backgroundColor: cores.green[900],
+    padding: espacamento.lg,
   },
-  segmentoAtivo: {
-    backgroundColor: '#FFFFFF',
-  },
-  segmentoTexto: {
+  cardRecebeLabel: {
     fontSize: 12.5,
-    fontWeight: '700',
-    color: cores.stone[600],
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 2,
   },
-  segmentoTextoAtivo: {
-    color: cores.green[800],
+  cardRecebeValor: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  botaoPersonalizado: {
-    flexDirection: 'row',
+  cardRecebePercentual: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: espacamento.xs,
+  },
+  anelArea: {
+    width: 74,
+    height: 74,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: espacamento.xs + 2,
-    height: 38,
-    borderRadius: raio.md + 2,
-    backgroundColor: cores.cream[100],
   },
-  botaoPersonalizadoAtivo: {
-    backgroundColor: cores.green[800],
+  anelTextoArea: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  botaoPersonalizadoTexto: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: cores.stone[600],
-  },
-  botaoPersonalizadoTextoAtivo: {
+  anelTexto: {
+    fontSize: 15,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
-  personalizadoCaixa: {
-    gap: espacamento.sm,
-    backgroundColor: cores.cream[100],
-    borderRadius: raio.md,
-    padding: espacamento.md,
-  },
-  personalizadoLinha: {
+  linkComIcone: {
     flexDirection: 'row',
-    gap: espacamento.sm,
-  },
-  personalizadoInput: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: cores.linha,
-    borderRadius: raio.md,
-    paddingHorizontal: espacamento.sm + 2,
-    paddingVertical: espacamento.sm,
-    fontSize: 13,
-    color: cores.stone[900],
-    backgroundColor: '#FFFFFF',
-  },
-  botaoAplicar: {
-    alignSelf: 'flex-start',
-    borderRadius: raio.pill,
-    backgroundColor: cores.green[800],
-    paddingHorizontal: espacamento.lg,
-    paddingVertical: espacamento.sm - 1,
-  },
-  textoBotaoAplicar: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    alignItems: 'center',
+    gap: 2,
   },
   erro: {
     color: cores.red.padrao,

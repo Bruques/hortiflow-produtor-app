@@ -18,11 +18,9 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 ## Melhorias de UX — Mobile
 
-- Cor do background e do header com o logo HortiFlow Produtor estão diferentes, e possivelmente as cores estão diferentes do app web também
-- Talvez as fontes possam ser maiores
 - Bottom navigation bar está com um padding muito grande entre os botões e a parte de baixo do app (testar no iPhone primeiro)
 - Botão de + da bottom navigation bar poderia estar um pouco maior
-- Lista de Despesas e Vendas não tem os filtros de período (dia/semana/mês/safra) que a Home tem
+- Aumentar o tamanho das fontes — ver `docs/specs/14-design-system-tipografia.md` (spec escrita 2026-08-03, aguardando aprovação antes de implementar)
 
 ## Ideias de funcionalidade
 

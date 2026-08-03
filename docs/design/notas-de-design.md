@@ -78,9 +78,10 @@ Mesma paleta, mesma marca, mesmas decisões de UI listadas acima — o app mobil
 
 ### O que precisou de adaptação (React Native não tem CSS)
 
-- **Tipografia**: a pilha `ui-rounded`/`SF Pro Rounded` do web não tem equivalente nativo direto sem carregar uma fonte customizada via `expo-font`. Por ora, títulos usam a fonte de sistema em peso máximo (`fontWeight: '800'`), sem o efeito "rounded". **Pendência em aberto**: se a diferença incomodar visualmente, decidir entre (a) baixar/empacotar uma fonte rounded de licença livre parecida (ex: Quicksand, Nunito) via `expo-font`, ou (b) aceitar a fonte de sistema como suficiente pro mobile.
+- **Tipografia**: a pilha `ui-rounded`/`SF Pro Rounded` do web não tem equivalente nativo direto sem carregar uma fonte customizada via `expo-font`. Títulos usam a fonte de sistema em peso máximo (`fontWeight: '800'`), sem o efeito "rounded". **Decisão (2026-08-03)**: manter a fonte de sistema — o dev avaliou a diferença como aceitável, sem justificar a dependência extra de empacotar Quicksand/Nunito via `expo-font`. Revisitar só se a diferença voltar a incomodar visualmente.
 - **Espaçamento**: escala em `mobile/src/theme.ts` (`espacamento`, múltiplos de 4) equivalente à escala padrão do Tailwind — usar essas constantes em vez de números soltos em `StyleSheet.create`.
-- **Sombra de card / gradiente do hero card**: Tailwind resolve isso com `shadow-*`/`bg-gradient-*` de graça; no React Native, sombra é `shadowColor`/`shadowOffset`/`shadowOpacity`/`shadowRadius` (iOS) + `elevation` (Android, comportamento visual diferente), e gradiente exige a lib `expo-linear-gradient` — ainda não portado, entra quando alguma tela redesenhada precisar (o Hero card da spec `05` mobile é o primeiro candidato).
+- **Sombra de card**: Tailwind resolve isso com `shadow-*` de graça; no React Native, sombra é `shadowColor`/`shadowOffset`/`shadowOpacity`/`shadowRadius` (iOS) + `elevation` (Android, comportamento visual diferente).
+- **Gradiente do hero card "Você recebe"** (`ResumoScreen.tsx`): o web usa `bg-gradient-to-br from-hf-green-800 to-hf-green-900`; implementado no mobile (2026-08-03) como cor sólida `cores.green[900]`, sem a lib `expo-linear-gradient`, pra não adicionar uma dependência só por esse detalhe. Se algum dia o gradiente for considerado necessário, é a única mudança pendente nesse componente.
 
 ### Ainda não implementado (fica para quando a tela correspondente for construída)
 
