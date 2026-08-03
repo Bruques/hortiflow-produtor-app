@@ -75,6 +75,55 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           fila_id TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS vendas_cache (
+          id TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          data TEXT NOT NULL,
+          quantidade TEXT NOT NULL,
+          preco TEXT NOT NULL,
+          total TEXT NOT NULL,
+          comprador TEXT,
+          pago INTEGER NOT NULL DEFAULT 0,
+          unidade_id TEXT NOT NULL,
+          unidade_nome TEXT NOT NULL,
+          regras_aplicadas TEXT NOT NULL,
+          coberta_por_acerto INTEGER NOT NULL DEFAULT 0,
+          pendente_operacao TEXT,
+          fila_id TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS unidades_venda_cache (
+          id TEXT PRIMARY KEY,
+          sociedade_id TEXT NOT NULL,
+          nome TEXT NOT NULL,
+          ativo INTEGER NOT NULL DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS regras_recorrentes_cache (
+          id TEXT PRIMARY KEY,
+          sociedade_id TEXT NOT NULL,
+          socio_id TEXT NOT NULL,
+          socio_nome TEXT NOT NULL,
+          tipo_gatilho TEXT NOT NULL,
+          tipo_despesa TEXT NOT NULL,
+          valor TEXT NOT NULL,
+          unidade_id TEXT,
+          unidade_nome TEXT,
+          ativo INTEGER NOT NULL DEFAULT 1,
+          criado_por TEXT NOT NULL,
+          rateio TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS sugestoes_cache (
+          id TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          socio_id TEXT NOT NULL,
+          socio_nome TEXT NOT NULL,
+          tipo_despesa TEXT NOT NULL,
+          valor TEXT NOT NULL,
+          confirmada_localmente INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS simulacao_cache (
           chave TEXT PRIMARY KEY,
           safra_id TEXT NOT NULL,

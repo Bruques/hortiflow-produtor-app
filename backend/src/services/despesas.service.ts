@@ -80,7 +80,9 @@ export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
     include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
   });
   const { rateios, socio, ...resto } = despesa;
-  return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios) };
+  // `coberta_por_acerto` também faltava aqui, mesmo motivo do `socio_nome` acima: uma despesa
+  // recém-criada nunca está coberta por um Acerto já existente sobre esse período.
+  return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios), coberta_por_acerto: false };
 }
 
 export async function buscarDespesa(id: string) {
@@ -116,7 +118,10 @@ export async function atualizarDespesa(id: string, input: AtualizarDespesaInput)
       include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
     });
     const { rateios, socio, ...resto } = despesa;
-    return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios) };
+    // O controller já bloqueia com 409 antes de chegar aqui quando a despesa está coberta por
+    // um Acerto, então `coberta_por_acerto` é sempre falso nesse ponto (mesmo raciocínio de
+    // atualizarVenda em vendas.service.ts).
+    return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios), coberta_por_acerto: false };
   });
 }
 

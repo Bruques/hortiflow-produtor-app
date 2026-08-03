@@ -11,12 +11,17 @@ import { SociosScreen } from '../screens/SociosScreen';
 import { TrocaSenhaScreen } from '../screens/TrocaSenhaScreen';
 import { DespesasScreen } from '../screens/DespesasScreen';
 import { NovaDespesaScreen } from '../screens/NovaDespesaScreen';
+import { VendasScreen } from '../screens/VendasScreen';
+import { NovaVendaScreen } from '../screens/NovaVendaScreen';
+import { ConfiguracoesUnidadesVendaScreen } from '../screens/ConfiguracoesUnidadesVendaScreen';
+import { ConfiguracoesRegrasDespesaScreen } from '../screens/ConfiguracoesRegrasDespesaScreen';
 import { PainelScreen } from '../screens/PainelScreen';
 import { AcertosScreen } from '../screens/AcertosScreen';
 import { NovoAcertoScreen } from '../screens/NovoAcertoScreen';
 import { AcertoDetalheScreen } from '../screens/AcertoDetalheScreen';
 import { useAuth } from '../context/AuthContext';
 import type { DespesaLocal } from '../types/despesa';
+import type { VendaLocal } from '../types/venda';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -29,6 +34,10 @@ export type RootStackParamList = {
   TrocaSenha: undefined;
   Despesas: { safraId: string; sociedadeId: string };
   NovaDespesa: { safraId: string; sociedadeId: string; despesa?: DespesaLocal };
+  Vendas: { safraId: string; sociedadeId: string };
+  NovaVenda: { safraId: string; sociedadeId: string; venda?: VendaLocal };
+  UnidadesVenda: { sociedadeId: string };
+  RegrasDespesa: { sociedadeId: string; safraId: string };
   Painel: { safraId: string; sociedadeId: string };
   Acertos: { safraId: string };
   NovoAcerto: { safraId: string };
@@ -65,6 +74,10 @@ export function RootNavigator() {
             <Stack.Screen name="TrocaSenha" component={TrocaSenhaScreen} />
             <Stack.Screen name="Despesas" component={DespesasScreen} />
             <Stack.Screen name="NovaDespesa" component={NovaDespesaScreen} />
+            <Stack.Screen name="Vendas" component={VendasScreen} />
+            <Stack.Screen name="NovaVenda" component={NovaVendaScreen} />
+            <Stack.Screen name="UnidadesVenda" component={ConfiguracoesUnidadesVendaScreen} />
+            <Stack.Screen name="RegrasDespesa" component={ConfiguracoesRegrasDespesaScreen} />
             <Stack.Screen name="Painel" component={PainelScreen} />
             <Stack.Screen name="Acertos" component={AcertosScreen} />
             <Stack.Screen name="NovoAcerto" component={NovoAcertoScreen} />

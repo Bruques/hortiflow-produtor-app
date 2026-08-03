@@ -6,10 +6,14 @@ import { AuthProvider } from './src/context/AuthContext';
 import { SafraProvider } from './src/context/SafraContext';
 import { iniciarSincronizacaoAutomatica } from './src/lib/syncTrigger';
 import { registrarProcessadoresDespesas } from './src/lib/despesasQueue';
+import { registrarProcessadoresVendas } from './src/lib/vendasQueue';
+import { registrarProcessadoresSugestoes } from './src/lib/sugestaoQueue';
 
 export default function App() {
   useEffect(() => {
     registrarProcessadoresDespesas();
+    registrarProcessadoresVendas();
+    registrarProcessadoresSugestoes();
     const cancelar = iniciarSincronizacaoAutomatica();
     return cancelar;
   }, []);

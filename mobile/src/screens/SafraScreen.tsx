@@ -47,10 +47,6 @@ export function SafraScreen({ navigation }: Props) {
           {safra.observacoes && <Text style={styles.observacoes}>{safra.observacoes}</Text>}
         </View>
 
-        <Text style={styles.avisoPlaceholder}>
-          Vendas ainda não existe no app — chega numa próxima spec.
-        </Text>
-
         <View style={styles.links}>
           <Pressable
             style={styles.link}
@@ -69,6 +65,24 @@ export function SafraScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Despesas', { safraId: safra.id, sociedadeId })}
           >
             <Text style={styles.linkTexto}>Despesas</Text>
+          </Pressable>
+          <Pressable
+            style={styles.link}
+            onPress={() => navigation.navigate('Vendas', { safraId: safra.id, sociedadeId })}
+          >
+            <Text style={styles.linkTexto}>Vendas</Text>
+          </Pressable>
+          <Pressable
+            style={styles.link}
+            onPress={() => navigation.navigate('UnidadesVenda', { sociedadeId })}
+          >
+            <Text style={styles.linkTexto}>Unidades de venda</Text>
+          </Pressable>
+          <Pressable
+            style={styles.link}
+            onPress={() => navigation.navigate('RegrasDespesa', { sociedadeId, safraId: safra.id })}
+          >
+            <Text style={styles.linkTexto}>Regras de despesa recorrente</Text>
           </Pressable>
           <Pressable
             style={styles.link}

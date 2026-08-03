@@ -49,9 +49,22 @@ export async function criarVenda(safraId: string, sociedadeId: string, input: Cr
     include: { unidade: true },
   });
 
-  await gerarDespesasPorVenda(prisma, safraId, sociedadeId, venda, input.regras_por_venda_aplicadas ?? []);
+  const regrasAplicadas = await gerarDespesasPorVenda(
+    prisma,
+    safraId,
+    sociedadeId,
+    venda,
+    input.regras_por_venda_aplicadas ?? []
+  );
 
-  return comNomeDaUnidade(venda);
+  // `regras_aplicadas`/`coberta_por_acerto` faltavam aqui — sem eles a resposta do POST não
+  // batia com o shape de `listarVendas` (mesmo bug documentado em `criarDespesa`, ver
+  // despesas.service.ts). O app web nunca sentiu porque só usa a resposta como sinal de
+  // sucesso e busca a lista de novo em seguida; o app mobile persiste a resposta direto no
+  // cache offline pra já confirmar o registro otimista, e por isso um `undefined` aqui
+  // quebrava a escrita local (docs/specs/mobile/06-vendas-e-despesa-recorrente.md). Uma venda
+  // recém-criada nunca está coberta por um Acerto ainda existente sobre esse período.
+  return { ...comNomeDaUnidade(venda), regras_aplicadas: regrasAplicadas, coberta_por_acerto: false };
 }
 
 // Gera Despesa só para as regras POR_VENDA que o sócio deixou marcadas na tela (opt-in
@@ -59,15 +72,16 @@ export async function criarVenda(safraId: string, sociedadeId: string, input: Cr
 // continua mesmo recebendo ids explícitos, pra não confiar cegamente em id vindo do client:
 // um id de outra sociedade, de outra unidade ou já desativado é ignorado silenciosamente.
 // Recebe o client (global ou de uma transação) porque `atualizarVenda` precisa rodar isso
-// atomicamente junto com o apagar-e-recriar das despesas antigas.
+// atomicamente junto com o apagar-e-recriar das despesas antigas. Devolve os ids das regras
+// de fato aplicadas, pra o create/update poder ecoar `regras_aplicadas` na resposta.
 async function gerarDespesasPorVenda(
   client: PrismaClientOuTx,
   safraId: string,
   sociedadeId: string,
   venda: Venda,
   regrasAplicadas: string[]
-): Promise<void> {
-  if (regrasAplicadas.length === 0) return;
+): Promise<string[]> {
+  if (regrasAplicadas.length === 0) return [];
 
   const regras = await client.regraDespesaRecorrente.findMany({
     where: {
@@ -80,7 +94,7 @@ async function gerarDespesasPorVenda(
     include: { rateios: true },
   });
 
-  if (regras.length === 0) return;
+  if (regras.length === 0) return [];
 
   // createMany não aceita relação aninhada (rateios), então cada despesa é criada
   // individualmente quando a regra tem rateio customizado pra copiar (congelar) as linhas
@@ -106,6 +120,8 @@ async function gerarDespesasPorVenda(
       },
     });
   }
+
+  return regras.map((r) => r.id);
 }
 
 export async function listarVendas(safraId: string, pago?: boolean, filtroData?: { gte?: Date; lte?: Date }) {
@@ -174,12 +190,27 @@ export async function atualizarVenda(id: string, sociedadeId: string, input: Atu
       include: { unidade: true },
     });
 
+    let regrasAplicadas: string[];
     if (input.regras_por_venda_aplicadas !== undefined) {
       await tx.despesa.deleteMany({ where: { venda_origem_id: id } });
-      await gerarDespesasPorVenda(tx, venda.safra_id, sociedadeId, venda, input.regras_por_venda_aplicadas);
+      regrasAplicadas = await gerarDespesasPorVenda(tx, venda.safra_id, sociedadeId, venda, input.regras_por_venda_aplicadas);
+    } else {
+      // Campo omitido (ex: só marcando `pago`) preserva as despesas já geradas — reflete o
+      // que já existe em vez de zerar, senão a resposta mentiria "nenhuma regra aplicada".
+      const despesasExistentes = await tx.despesa.findMany({
+        where: { venda_origem_id: id },
+        select: { regra_origem_id: true },
+      });
+      regrasAplicadas = despesasExistentes
+        .map((d) => d.regra_origem_id)
+        .filter((regraId): regraId is string => regraId !== null);
     }
 
-    return comNomeDaUnidade(venda);
+    // Mesmo ajuste de criarVenda: sem `regras_aplicadas`/`coberta_por_acerto` aqui, a resposta
+    // do PUT não batia com `listarVendas`, e o app mobile (que confirma o cache offline direto
+    // com essa resposta) quebrava. O controller já bloqueia com 409 antes de chegar aqui quando
+    // a venda está coberta por um Acerto, então `coberta_por_acerto` é sempre falso nesse ponto.
+    return { ...comNomeDaUnidade(venda), regras_aplicadas: regrasAplicadas, coberta_por_acerto: false };
   });
 }
 
