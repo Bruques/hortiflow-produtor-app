@@ -8,7 +8,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 
 - As vezes eu abro o site do ambiente de desenvolvimento e tomo um erro 401, na tela fica um botao de tentar novamente, mas eu nunca consigo. Fui ver o response e estou recebendo isso: {"error":"Token inválido"}. Como resolvemos isso? caso não de pra fazer muita coisa podemos deslogar o usuario nesse momento, pois como está hoje nao consigo deslogar
 
-## Melhorias de UX
+## Melhorias de UX — Web
 
 - Hoje temos uma seção bem legal de cards na tela de configurações, mas na tela anterior já temos varias coisas também, porem num formato diferente, entender se não ficaria legal tudo numa tela só, e com o layout igual o da tela de configurações
 - Ajustar tela de acerto partcial, colocar um calendario ou pickers mais facil do que digitar a data na mão
@@ -16,24 +16,23 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 - por que o get retorna um 304 ao inves de um 200? - curiosidade
 - Pensar como fazer a regra de despesa recorrente ser deletada - hoje ela é apenas desativada, mas se o usuario criar e errar, ele vai ficar acumulando um monte de despesas desativadas na listagem
 
+## Melhorias de UX — Mobile
+
+- Cor do background e do header com o logo HortiFlow Produtor estão diferentes, e possivelmente as cores estão diferentes do app web também
+- Talvez as fontes possam ser maiores
+- Bottom navigation bar está com um padding muito grande entre os botões e a parte de baixo do app (testar no iPhone primeiro)
+- Botão de + da bottom navigation bar poderia estar um pouco maior
+- Lista de Despesas e Vendas não tem os filtros de período (dia/semana/mês/safra) que a Home tem
+
 ## Ideias de funcionalidade
-- 
 
-## App mobile nativo (React Native/Expo) — roadmap de specs
+-
 
-Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura registradas no `CLAUDE.md`). Specs em `docs/specs/mobile/`, todas já escritas e aprovadas — implementação segue uma sessão por spec, nesta ordem.
+## App mobile nativo (React Native/Expo)
 
-**Regra permanente**: assim que uma spec abaixo for implementada e validada (rodando o app, não só type-check — mesmo critério do SDD no `CLAUDE.md`), marcar `[x]` aqui nesta lista.
+Roadmap de specs (`docs/specs/mobile/00` a `08`) **concluído** — todas implementadas e validadas, exceto a `07` (despesa pessoal), adiada para depois do MVP.
 
-- [x] `00-setup-e-infra.md` — scaffold Expo/TS, cliente de API, persistência local + fila de sincronização genérica, CI por pasta
-- [x] `01-auth.md` — cadastro, login, bootstrap de sessão offline, logout, troca de senha
-- [x] `02-sociedade-e-socios.md` — criar/entrar por código, sócio sem conta, percentuais
-- [x] `03-safra.md` — abrir/encerrar safra, observações, `SafraContext`
-- [x] `04-despesas-da-sociedade.md` — despesa com rateio, foto via câmera, fila offline
-- [x] `05-painel-e-acerto.md` — painel de simulação e Acerto (sem cálculo local)
-- [x] `06-vendas-e-despesa-recorrente.md` — unidades de venda, vendas, regra recorrente, sugestões do dia
-- [ ] `07-despesa-pessoal.md` — despesa pessoal isolada, offline sem dependência de cache de sócios
-- [ ] `08-navegacao-resumo-e-menu.md` — bottom nav + FAB, tela de Resumo e Menu (composição, sem dado novo — depende de `01` a `07`)
+- **[ ] `07-despesa-pessoal.md`** — despesa pessoal isolada, offline sem dependência de cache de sócios. Spec já escrita e aprovada; adiada para pós-MVP (decisão do dev, 2026-08-03) — retomar quando o desenvolvedor pedir.
 
 ### Prioridade alta (segurança / risco ativo)
 
@@ -59,12 +58,13 @@ Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura
 
 (perguntas que exigem validar com a contadora/produtores — ver também "Perguntas em aberto" no `CLAUDE.md`)
 
-- 
+-
 
 ## Já resolvido / descartado
 
 (mover pra cá o que foi feito ou decidido não fazer, pra não perder o histórico da decisão)
 
+- Roadmap de specs do app mobile nativo (`docs/specs/mobile/00` a `06` e `08`) implementado e validado, rodando o app a cada spec — `07` (despesa pessoal) segue adiada para pós-MVP, ver seção "App mobile nativo" acima
 - Erro 404 ao atualizar (F5) rotas internas do frontend: faltava `vercel.json` com rewrite de fallback para SPA (`/(.*)` → `/index.html`), corrigido em `frontend/vercel.json`
 - Otimização da query de despesas/vendas por período: `GET /:id/despesas` e `GET /:id/vendas` agora aceitam `periodo`/`data_inicio`/`data_fim` e filtram direto no Prisma (`where: { data: { gte, lte } }`), com "hoje" como default quando nenhum é informado; `DespesasPage`, `VendasPage` e `ResumoPage` pararam de buscar a safra inteira e filtrar em memória. Lógica de período compartilhada em `backend/src/lib/periodo.ts` (antes duplicada só em `simulacao.controller.ts`)
 - Filtro de venda paga/a receber na tela de listagem de Vendas: adicionado segmented control "Todas / Pagas / A receber" em `VendasPage.tsx`, além do backend passar a aceitar `?pago=true/false` em `GET /:id/vendas`
