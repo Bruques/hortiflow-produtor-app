@@ -28,8 +28,8 @@ Iniciativa em construção desde 2026-07-30 (motivação e regras de arquitetura
 - [x] `01-auth.md` — cadastro, login, bootstrap de sessão offline, logout, troca de senha
 - [x] `02-sociedade-e-socios.md` — criar/entrar por código, sócio sem conta, percentuais
 - [x] `03-safra.md` — abrir/encerrar safra, observações, `SafraContext`
-- [ ] `04-despesas-da-sociedade.md` — despesa com rateio, foto via câmera, fila offline
-- [ ] `05-painel-e-acerto.md` — painel de simulação e Acerto (sem cálculo local)
+- [x] `04-despesas-da-sociedade.md` — despesa com rateio, foto via câmera, fila offline
+- [x] `05-painel-e-acerto.md` — painel de simulação e Acerto (sem cálculo local)
 - [ ] `06-vendas-e-despesa-recorrente.md` — unidades de venda, vendas, regra recorrente, sugestões do dia
 - [ ] `07-despesa-pessoal.md` — despesa pessoal isolada, offline sem dependência de cache de sócios
 - [ ] `08-navegacao-resumo-e-menu.md` — bottom nav + FAB, tela de Resumo e Menu (composição, sem dado novo — depende de `01` a `07`)

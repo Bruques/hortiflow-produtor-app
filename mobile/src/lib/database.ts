@@ -74,6 +74,46 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           pendente_operacao TEXT,
           fila_id TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS simulacao_cache (
+          chave TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          data_inicio TEXT,
+          data_fim TEXT,
+          receita TEXT NOT NULL,
+          despesas TEXT NOT NULL,
+          lucro_liquido TEXT NOT NULL,
+          divisao TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS acertos_cache (
+          id TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          data_inicio TEXT NOT NULL,
+          data_fim TEXT NOT NULL,
+          tipo TEXT NOT NULL,
+          criado_em TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS acertos_cache_meta (
+          safra_id TEXT PRIMARY KEY,
+          atualizado_em TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS acerto_detalhe_cache (
+          id TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          data_inicio TEXT NOT NULL,
+          data_fim TEXT NOT NULL,
+          tipo TEXT NOT NULL,
+          criado_em TEXT NOT NULL,
+          receita TEXT NOT NULL,
+          despesas TEXT NOT NULL,
+          lucro_liquido TEXT NOT NULL,
+          socios TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL
+        );
       `);
       return db;
     });
