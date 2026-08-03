@@ -17,6 +17,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Acertos'>;
 // Histórico de Acertos da safra, equivalente à frontend/src/pages/AcertosPage.tsx do web —
 // sem o cálculo de "lucro ainda não dividido" (não é um critério de aceite da spec `05`
 // mobile, e dependeria de mais uma chamada de simulação personalizada só pra esse número).
+// Alcançada via card do Menu (spec `08`) como uma página de detalhe empilhada — diferente do
+// web (que embute Acertos dentro do mesmo layout com bottom nav de Resumo/Vendas/Despesas), o
+// mobile mantém esta tela fora da casca de navegação, com seta de voltar própria: só as 4 abas
+// de verdade (Resumo/Vendas/Despesas/Menu) vivem dentro do tab navigator — ver decisão
+// registrada em docs/specs/mobile/08-navegacao-resumo-e-menu.md (2026-08-03).
 export function AcertosScreen({ navigation, route }: Props) {
   const { safraId } = route.params;
   const conectado = useConectividade();

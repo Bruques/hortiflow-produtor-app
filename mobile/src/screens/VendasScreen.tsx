@@ -1,28 +1,37 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Check, Plus, ShoppingCart } from 'lucide-react-native';
+import { Check, ShoppingCart } from 'lucide-react-native';
+import type { CompositeScreenProps } from '@react-navigation/native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { listarVendasRequest } from '../services/vendas';
 import { obterVendasCache, salvarVendasCache } from '../lib/vendasCache';
 import { assinarSincronizacaoConcluida } from '../lib/syncQueue';
 import { obterRegrasCache, salvarRegrasCache } from '../lib/regrasCache';
 import { listarRegrasRequest } from '../services/regrasDespesaRecorrente';
-import { BannerSemConexao } from '../components/BannerSemConexao';
+import { useSafraAtiva } from '../context/SafraContext';
 import { formatarData } from '../lib/data';
 import { formatarMoeda } from '../lib/formatacao';
 import { cores, espacamento, raio } from '../theme';
 import type { VendaLocal } from '../types/venda';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { SafraTabParamList } from '../navigation/SafraTabs';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Vendas'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<SafraTabParamList, 'Vendas'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
-// Lista de vendas da safra, equivalente à frontend/src/pages/VendasPage.tsx do web — sem o
-// filtro de período/status de pagamento (fora do escopo desta spec, ver docs/specs/mobile/
-// 06-vendas-e-despesa-recorrente.md). Mostra o cache primeiro, sempre (mesmo offline), e
-// atualiza quando a resposta da rede chega — mesmo padrão de DespesasScreen.tsx.
-export function VendasScreen({ navigation, route }: Props) {
-  const { safraId, sociedadeId } = route.params;
+// Lista de vendas da safra (aba "Vendas" da casca), equivalente à frontend/src/pages/VendasPage.tsx
+// do web — sem o filtro de período/status de pagamento (fora do escopo desta spec, ver
+// docs/specs/mobile/06-vendas-e-despesa-recorrente.md). Mostra o cache primeiro, sempre (mesmo
+// offline), e atualiza quando a resposta da rede chega — mesmo padrão de DespesasScreen.tsx.
+// Sem cabeçalho com seta de voltar (docs/specs/mobile/08-navegacao-resumo-e-menu.md): como aba
+// raiz da casca, a navegação é só pela bottom nav, igual ao web dentro do SafraLayout.
+export function VendasScreen({ navigation }: Props) {
+  const { safraAtiva } = useSafraAtiva();
+  const safraId = safraAtiva?.safraId ?? '';
+  const sociedadeId = safraAtiva?.sociedadeId ?? '';
 
   const [vendas, setVendas] = useState<VendaLocal[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -35,6 +44,7 @@ export function VendasScreen({ navigation, route }: Props) {
   const [valorPorRegraId, setValorPorRegraId] = useState<Record<string, number>>({});
 
   const carregar = useCallback(async () => {
+    if (!safraId) return;
     const cache = await obterVendasCache(safraId);
     if (cache.length > 0) {
       setVendas(cache);
@@ -61,6 +71,7 @@ export function VendasScreen({ navigation, route }: Props) {
   }, [navigation, carregar]);
 
   useEffect(() => {
+    if (!sociedadeId) return;
     (async () => {
       const cache = await obterRegrasCache(sociedadeId);
       if (cache.length > 0) setValorPorRegraId(Object.fromEntries(cache.map((r) => [r.id, Number(r.valor)])));
@@ -77,6 +88,7 @@ export function VendasScreen({ navigation, route }: Props) {
   // Mesmo motivo de DespesasScreen.tsx: uma sincronização em segundo plano precisa atualizar
   // a tela já aberta, sem esperar um próximo foco de navegação.
   useEffect(() => {
+    if (!safraId) return;
     const desinscrever = assinarSincronizacaoConcluida(() => {
       obterVendasCache(safraId).then(setVendas);
     });
@@ -85,22 +97,12 @@ export function VendasScreen({ navigation, route }: Props) {
 
   const totalVendas = vendas.reduce((acc, v) => acc + Number(v.total), 0);
 
+  if (!safraAtiva) return null;
+
   return (
-    <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
-      <BannerSemConexao />
+    <>
       <View style={styles.cabecalho}>
-        <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
-          <ArrowLeft size={18} color={cores.stone[900]} />
-        </Pressable>
         <Text style={styles.tituloCabecalho}>Vendas</Text>
-        <Pressable
-          style={styles.botaoVoltar}
-          onPress={() => navigation.navigate('NovaVenda', { safraId, sociedadeId })}
-          hitSlop={8}
-          accessibilityLabel="Nova venda"
-        >
-          <Plus size={19} color={cores.green[800]} />
-        </Pressable>
       </View>
 
       <View style={styles.resumo}>
@@ -164,31 +166,15 @@ export function VendasScreen({ navigation, route }: Props) {
           );
         })}
       </ScrollView>
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: {
-    flex: 1,
-    backgroundColor: cores.cream[50],
-  },
   cabecalho: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: espacamento.lg,
     paddingTop: espacamento.sm,
     paddingBottom: espacamento.xs,
-  },
-  botaoVoltar: {
-    width: 38,
-    height: 38,
-    borderRadius: raio.pill,
-    borderWidth: 1.5,
-    borderColor: cores.cream[100],
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tituloCabecalho: {
     fontSize: 17,

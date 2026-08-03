@@ -1,5 +1,7 @@
 # Mobile 07 — Despesa pessoal
 
+> **Status: adiada para pós-MVP mobile** (decisão do dev, 2026-08-03). Fica de fora da ordem `00`-`08` do roadmap inicial — ver `docs/backlog.md`. Spec continua aprovada e pronta pra implementar quando for retomada; nada no conteúdo abaixo muda por causa do adiamento.
+
 ## Objetivo
 
 Levar pro app mobile o controle de despesas pessoais: cada sócio registra, dentro da safra ativa, gastos que não têm nenhuma relação com a conta da sociedade — sempre privados, nunca visíveis a outros sócios, nunca somados em `calcularDivisao` nem em nenhum Acerto (mesma garantia que o `CLAUDE.md` já dá pra `DespesaPessoal`). Fecha o roadmap inicial do MVP mobile (specs `00` a `07`). Reaproveita 100% do contrato já em produção.

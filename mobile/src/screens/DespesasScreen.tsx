@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Plus } from 'lucide-react-native';
+import type { CompositeScreenProps } from '@react-navigation/native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { listarDespesasRequest } from '../services/despesas';
 import { obterDespesasCache, salvarDespesasCache } from '../lib/despesasCache';
 import { assinarSincronizacaoConcluida } from '../lib/syncQueue';
-import { BannerSemConexao } from '../components/BannerSemConexao';
+import { useSafraAtiva } from '../context/SafraContext';
 import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
 import { formatarData } from '../lib/data';
@@ -14,21 +14,30 @@ import { formatarMoeda, iniciais } from '../lib/formatacao';
 import { cores, espacamento, raio } from '../theme';
 import type { DespesaLocal } from '../types/despesa';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { SafraTabParamList } from '../navigation/SafraTabs';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Despesas'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<SafraTabParamList, 'Despesas'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
-// Lista de despesas da sociedade, equivalente à frontend/src/pages/DespesasPage.tsx do web —
-// sem o filtro de período/sugestões de regra recorrente (fora do escopo desta spec, ver
-// docs/specs/mobile/04-despesas-da-sociedade.md e 06 mobile). Mostra o cache primeiro,
-// sempre (mesmo offline), e atualiza quando a resposta da rede chega.
-export function DespesasScreen({ navigation, route }: Props) {
-  const { safraId, sociedadeId } = route.params;
+// Lista de despesas da sociedade (aba "Despesas" da casca), equivalente à
+// frontend/src/pages/DespesasPage.tsx do web — sem o filtro de período/sugestões de regra
+// recorrente (fora do escopo desta spec, ver docs/specs/mobile/04-despesas-da-sociedade.md e
+// 06 mobile). Mostra o cache primeiro, sempre (mesmo offline), e atualiza quando a resposta da
+// rede chega. Sem cabeçalho com seta de voltar (docs/specs/mobile/08-navegacao-resumo-e-menu.md):
+// como aba raiz da casca, a navegação é só pela bottom nav, igual ao web dentro do SafraLayout.
+export function DespesasScreen({ navigation }: Props) {
+  const { safraAtiva } = useSafraAtiva();
+  const safraId = safraAtiva?.safraId ?? '';
+  const sociedadeId = safraAtiva?.sociedadeId ?? '';
 
   const [despesas, setDespesas] = useState<DespesaLocal[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
+    if (!safraId) return;
     const cache = await obterDespesasCache(safraId);
     if (cache.length > 0) {
       setDespesas(cache);
@@ -59,6 +68,7 @@ export function DespesasScreen({ navigation, route }: Props) {
   // "pendente" só sumia se o produtor saísse e voltasse pra tela. Aqui é só uma releitura do
   // cache local (sem rede): a sincronização em si já gravou o resultado, só falta a tela notar.
   useEffect(() => {
+    if (!safraId) return;
     const desinscrever = assinarSincronizacaoConcluida(() => {
       obterDespesasCache(safraId).then(setDespesas);
     });
@@ -67,22 +77,12 @@ export function DespesasScreen({ navigation, route }: Props) {
 
   const totalDespesas = despesas.reduce((acc, d) => acc + Number(d.valor), 0);
 
+  if (!safraAtiva) return null;
+
   return (
-    <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
-      <BannerSemConexao />
+    <>
       <View style={styles.cabecalho}>
-        <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
-          <ArrowLeft size={18} color={cores.stone[900]} />
-        </Pressable>
         <Text style={styles.tituloCabecalho}>Despesas</Text>
-        <Pressable
-          style={styles.botaoVoltar}
-          onPress={() => navigation.navigate('NovaDespesa', { safraId, sociedadeId })}
-          hitSlop={8}
-          accessibilityLabel="Nova despesa"
-        >
-          <Plus size={19} color={cores.green[800]} />
-        </Pressable>
       </View>
 
       <View style={styles.resumo}>
@@ -144,31 +144,15 @@ export function DespesasScreen({ navigation, route }: Props) {
           );
         })}
       </ScrollView>
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: {
-    flex: 1,
-    backgroundColor: cores.cream[50],
-  },
   cabecalho: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: espacamento.lg,
     paddingTop: espacamento.sm,
     paddingBottom: espacamento.xs,
-  },
-  botaoVoltar: {
-    width: 38,
-    height: 38,
-    borderRadius: raio.pill,
-    borderWidth: 1.5,
-    borderColor: cores.cream[100],
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tituloCabecalho: {
     fontSize: 17,
