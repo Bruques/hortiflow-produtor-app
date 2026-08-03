@@ -24,7 +24,13 @@
     "plugins": [
       "expo-secure-store",
       "expo-sqlite",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O HortiFlow usa a câmera para anexar a foto do comprovante a uma despesa."
+        }
+      ]
     ]
   }
 }

@@ -72,10 +72,15 @@ export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
         },
       }),
     },
-    include: { rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
+    // `socio: true` faltava aqui — sem isso a resposta do POST não carregava `socio_nome`,
+    // diferente de `listarDespesas`. O app web nunca sentiu porque só usa a resposta do POST
+    // como sinal de sucesso e busca a lista de novo em seguida; o app mobile usa a resposta
+    // na hora pra já confirmar o registro otimista local, e por isso expôs a falta do campo
+    // (ver docs/specs/mobile/04-despesas-da-sociedade.md, decisões registradas).
+    include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
   });
-  const { rateios, ...resto } = despesa;
-  return { ...resto, rateio: mapearRateio(rateios) };
+  const { rateios, socio, ...resto } = despesa;
+  return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios) };
 }
 
 export async function buscarDespesa(id: string) {
@@ -107,10 +112,11 @@ export async function atualizarDespesa(id: string, input: AtualizarDespesaInput)
         foto_comprovante: input.foto_comprovante,
         descricao: input.descricao,
       },
-      include: { rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
+      // Mesmo ajuste de criarDespesa: `socio: true` é o que dá o `socio_nome` na resposta.
+      include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
     });
-    const { rateios, ...resto } = despesa;
-    return { ...resto, rateio: mapearRateio(rateios) };
+    const { rateios, socio, ...resto } = despesa;
+    return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios) };
   });
 }
 

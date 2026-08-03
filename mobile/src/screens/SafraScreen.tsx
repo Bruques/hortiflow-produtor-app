@@ -48,10 +48,16 @@ export function SafraScreen({ navigation }: Props) {
         </View>
 
         <Text style={styles.avisoPlaceholder}>
-          Resumo, Despesas e Vendas ainda não existem no app — chegam nas próximas specs.
+          Resumo e Vendas ainda não existem no app — chegam nas próximas specs.
         </Text>
 
         <View style={styles.links}>
+          <Pressable
+            style={styles.link}
+            onPress={() => navigation.navigate('Despesas', { safraId: safra.id, sociedadeId })}
+          >
+            <Text style={styles.linkTexto}>Despesas</Text>
+          </Pressable>
           <Pressable
             style={styles.link}
             onPress={() => navigation.navigate('Socios', { sociedadeId })}

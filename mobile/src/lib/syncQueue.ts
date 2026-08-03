@@ -91,6 +91,16 @@ export async function removerItem(id: string): Promise<void> {
   await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [id]);
 }
 
+// Reescreve o payload de um item que ainda não foi enviado — usado quando o produtor edita
+// um lançamento (despesa, e futuramente venda) que ainda está `pendente`/`erro`: nesse caso
+// não existe nada no servidor pra chamar ainda, então a edição só atualiza o que vai ser
+// enviado na próxima tentativa, em vez de enfileirar uma segunda operação (docs/specs/mobile/
+// 04-despesas-da-sociedade.md, critério de aceite 9).
+export async function atualizarPayload(id: string, payload: unknown): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('UPDATE sync_queue SET payload = ? WHERE id = ?', [JSON.stringify(payload), id]);
+}
+
 // Processa os itens elegíveis de uma operação, um a um: se `enviar` for bem-sucedido, marca
 // como sincronizado; se falhar, marca erro naquele item específico e segue para o próximo —
 // uma falha isolada nunca trava o restante da fila (critério de aceite da spec 00).
@@ -105,6 +115,11 @@ export async function processarPendentes(
       await marcarSincronizado(item.id);
     } catch (erro) {
       const mensagem = erro instanceof Error ? erro.message : 'Erro desconhecido ao sincronizar';
+      // Log temporário de diagnóstico (bug de despesa duplicada/fantasma em investigação,
+      // 2026-08-03) — sem isso, uma falha depois de um envio já bem-sucedido no servidor
+      // (ex: erro ao gravar a confirmação local) fica indistinguível de uma falha de rede,
+      // e o item errado parece "sumir" sem explicação nos logs.
+      console.error(`[syncQueue] falha ao processar item ${item.id} da operação "${operacao}":`, erro);
       await marcarErro(item.id, mensagem);
     }
   }
@@ -120,8 +135,27 @@ export function registrarProcessador(operacao: string, processador: Processador)
   processadores.set(operacao, processador);
 }
 
+// `withTransactionAsync` do expo-sqlite não é exclusiva por padrão (duas transações podem se
+// intercalar) — sem essa trava, duas chamadas de `sincronizarTudo()` disparadas quase ao mesmo
+// tempo (ex: duplo toque em "Salvar") podiam ler os mesmos itens `pendente` antes de qualquer
+// uma marcar o outro como `sincronizado`, processando o mesmo item duas vezes em paralelo e
+// colidindo na escrita local — causando o bug relatado de despesa duplicada com uma cópia em
+// erro. Uma chamada concorrente agora só espera a que já está em andamento, nunca roda em
+// paralelo com ela.
+let sincronizacaoEmAndamento: Promise<void> | null = null;
+
 export async function sincronizarTudo(): Promise<void> {
-  for (const [operacao, processador] of processadores) {
-    await processarPendentes(operacao, processador);
+  if (sincronizacaoEmAndamento) {
+    return sincronizacaoEmAndamento;
+  }
+  sincronizacaoEmAndamento = (async () => {
+    for (const [operacao, processador] of processadores) {
+      await processarPendentes(operacao, processador);
+    }
+  })();
+  try {
+    await sincronizacaoEmAndamento;
+  } finally {
+    sincronizacaoEmAndamento = null;
   }
 }

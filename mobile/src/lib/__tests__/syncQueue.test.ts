@@ -142,4 +142,27 @@ describe('syncQueue', () => {
     expect(chamadas.sort()).toEqual(['despesa.criar', 'venda.criar']);
     expect(mockTabela.every((l) => l.status === 'sincronizado')).toBe(true);
   });
+
+  it('duas chamadas de sincronizarTudo() disparadas ao mesmo tempo não processam o mesmo item em paralelo', async () => {
+    // Reproduz o bug relatado (duplo toque em "Salvar despesa"): duas chamadas de
+    // sincronizarTudo() quase simultâneas não podem deixar o mesmo item pendente ser enviado
+    // duas vezes antes de qualquer uma marcar `sincronizado` — a segunda chamada precisa só
+    // esperar a primeira, nunca rodar em paralelo com ela.
+    await enfileirar('despesa.criar', { valor: 10 });
+
+    let execucoesSimultaneas = 0;
+    let maxExecucoesSimultaneas = 0;
+    registrarProcessador('despesa.criar', async () => {
+      execucoesSimultaneas += 1;
+      maxExecucoesSimultaneas = Math.max(maxExecucoesSimultaneas, execucoesSimultaneas);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      execucoesSimultaneas -= 1;
+    });
+
+    await Promise.all([sincronizarTudo(), sincronizarTudo()]);
+
+    expect(maxExecucoesSimultaneas).toBe(1);
+    const pendentes = await listarPendentes('despesa.criar');
+    expect(pendentes).toHaveLength(0);
+  });
 });

@@ -5,9 +5,11 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import { SafraProvider } from './src/context/SafraContext';
 import { iniciarSincronizacaoAutomatica } from './src/lib/syncTrigger';
+import { registrarProcessadoresDespesas } from './src/lib/despesasQueue';
 
 export default function App() {
   useEffect(() => {
+    registrarProcessadoresDespesas();
     const cancelar = iniciarSincronizacaoAutomatica();
     return cancelar;
   }, []);

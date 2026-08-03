@@ -9,7 +9,10 @@ import { SafrasScreen } from '../screens/SafrasScreen';
 import { NovaSafraScreen } from '../screens/NovaSafraScreen';
 import { SociosScreen } from '../screens/SociosScreen';
 import { TrocaSenhaScreen } from '../screens/TrocaSenhaScreen';
+import { DespesasScreen } from '../screens/DespesasScreen';
+import { NovaDespesaScreen } from '../screens/NovaDespesaScreen';
 import { useAuth } from '../context/AuthContext';
+import type { DespesaLocal } from '../types/despesa';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -20,6 +23,8 @@ export type RootStackParamList = {
   NovaSafra: undefined;
   Socios: { sociedadeId: string };
   TrocaSenha: undefined;
+  Despesas: { safraId: string; sociedadeId: string };
+  NovaDespesa: { safraId: string; sociedadeId: string; despesa?: DespesaLocal };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -50,6 +55,8 @@ export function RootNavigator() {
             <Stack.Screen name="NovaSafra" component={NovaSafraScreen} />
             <Stack.Screen name="Socios" component={SociosScreen} />
             <Stack.Screen name="TrocaSenha" component={TrocaSenhaScreen} />
+            <Stack.Screen name="Despesas" component={DespesasScreen} />
+            <Stack.Screen name="NovaDespesa" component={NovaDespesaScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

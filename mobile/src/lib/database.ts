@@ -58,6 +58,22 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           data_inicio TEXT,
           data_fim TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS despesas_cache (
+          id TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          socio_id TEXT NOT NULL,
+          socio_nome TEXT NOT NULL,
+          tipo TEXT NOT NULL,
+          valor TEXT NOT NULL,
+          data TEXT NOT NULL,
+          foto_comprovante TEXT,
+          descricao TEXT,
+          rateio TEXT,
+          coberta_por_acerto INTEGER NOT NULL DEFAULT 0,
+          pendente_operacao TEXT,
+          fila_id TEXT
+        );
       `);
       return db;
     });
