@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangle, ArrowLeft, ShieldCheck, WifiOff } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -8,8 +8,9 @@ import { buscarSimulacaoPersonalizadaRequest } from '../services/simulacao';
 import { useConectividade } from '../lib/useConectividade';
 import { useSafraAtiva } from '../context/SafraContext';
 import { mensagemErro } from '../lib/erroApi';
-import { adicionarDias, dataIsoParaExibicao, exibicaoParaDataIso, formatarData } from '../lib/data';
+import { adicionarDias, formatarData } from '../lib/data';
 import { formatarMoeda, iniciais } from '../lib/formatacao';
+import { DatePickerField } from '../components/DatePickerField';
 import { cores, espacamento, raio } from '../theme';
 import type { TipoAcerto } from '../types/acerto';
 import type { Simulacao } from '../types/simulacao';
@@ -31,15 +32,13 @@ export function NovoAcertoScreen({ navigation, route }: Props) {
   const { safraAtiva, selecionarSafra } = useSafraAtiva();
 
   const [tipo, setTipo] = useState<TipoAcerto>('PARCIAL');
-  const [textoInicio, setTextoInicio] = useState('');
-  const [textoFim, setTextoFim] = useState(dataIsoParaExibicao(hojeISO()));
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState(hojeISO());
   const [sugestaoLabel, setSugestaoLabel] = useState<string | null>(null);
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  const dataInicio = exibicaoParaDataIso(textoInicio);
-  const dataFim = exibicaoParaDataIso(textoFim);
   const formValido = !!dataInicio && !!dataFim && dataInicio <= dataFim;
 
   useEffect(() => {
@@ -48,10 +47,10 @@ export function NovoAcertoScreen({ navigation, route }: Props) {
       .then((acertos) => {
         if (acertos.length > 0) {
           const inicioSugerido = adicionarDias(acertos[0].data_fim, 1);
-          setTextoInicio(dataIsoParaExibicao(inicioSugerido));
+          setDataInicio(inicioSugerido);
           setSugestaoLabel(`Sugerido a partir do último acerto (${formatarData(acertos[0].data_fim)})`);
         } else if (safraAtiva?.safra.data_inicio) {
-          setTextoInicio(dataIsoParaExibicao(safraAtiva.safra.data_inicio.slice(0, 10)));
+          setDataInicio(safraAtiva.safra.data_inicio.slice(0, 10));
         }
       })
       .catch(() => {});
@@ -148,22 +147,8 @@ export function NovoAcertoScreen({ navigation, route }: Props) {
         <View>
           <Text style={styles.label}>Período</Text>
           <View style={styles.linhaDatas}>
-            <TextInput
-              style={styles.input}
-              value={textoInicio}
-              onChangeText={setTextoInicio}
-              placeholder="Início DD/MM/AAAA"
-              placeholderTextColor={cores.stone[400]}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              value={textoFim}
-              onChangeText={setTextoFim}
-              placeholder="Fim DD/MM/AAAA"
-              placeholderTextColor={cores.stone[400]}
-              keyboardType="numeric"
-            />
+            <DatePickerField value={dataInicio} onChange={setDataInicio} placeholder="Início" />
+            <DatePickerField value={dataFim} onChange={setDataFim} placeholder="Fim" />
           </View>
           {sugestaoLabel && <Text style={styles.legenda}>{sugestaoLabel}</Text>}
           {dataInicio && dataFim && dataInicio > dataFim && (
@@ -335,16 +320,6 @@ const styles = StyleSheet.create({
   linhaDatas: {
     flexDirection: 'row',
     gap: espacamento.sm,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: cores.linha,
-    borderRadius: raio.lg,
-    paddingHorizontal: espacamento.md,
-    paddingVertical: espacamento.md,
-    fontSize: 14,
-    color: cores.stone[900],
   },
   legenda: {
     marginTop: espacamento.xs + 2,

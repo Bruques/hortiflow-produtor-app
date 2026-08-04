@@ -8,7 +8,7 @@ import { buscarSimulacaoPersonalizadaRequest } from '@/services/simulacao';
 import { listarDespesasRequest } from '@/services/despesas';
 import { listarSociosRequest } from '@/services/sociedades';
 import { adicionarDias } from '@/lib/periodo';
-import { DateField } from '@/components/ui/date-field';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { cn, formatarData, formatarMoeda, iniciais } from '@/lib/utils';
 import type { TipoAcerto } from '@/types/acerto';
 import type { Simulacao } from '@/types/simulacao';
@@ -158,8 +158,8 @@ export default function NovoAcertoPage() {
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Período</label>
           <div className="flex gap-2.5">
-            <DateField value={dataInicio} onChange={setDataInicio} />
-            <DateField value={dataFim} onChange={setDataFim} />
+            <DatePickerField value={dataInicio} onChange={setDataInicio} />
+            <DatePickerField value={dataFim} onChange={setDataFim} />
           </div>
           {sugestaoLabel && <p className="mt-1.5 text-[11.5px] text-hf-stone-400">{sugestaoLabel}</p>}
           {dataInicio && dataFim && dataInicio > dataFim && (
