@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Calendar, Sprout } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Sprout } from 'lucide-react-native';
 import { BottomSheet } from './BottomSheet';
-import { CalendarSheet } from './CalendarSheet';
+import { CalendarGrid } from './CalendarGrid';
 import { dataIsoParaExibicao } from '../lib/data';
 import { cores, espacamento, raio } from '../theme';
 import type { PeriodoFiltro } from '../types/simulacao';
@@ -11,6 +11,8 @@ export interface PeriodoPersonalizado {
   dataInicio: string; // yyyy-mm-dd
   dataFim: string; // yyyy-mm-dd
 }
+
+type Etapa = 'menu' | 'inicio' | 'fim';
 
 interface PeriodoAvancadoButtonProps {
   periodo: PeriodoFiltro | null;
@@ -23,6 +25,12 @@ interface PeriodoAvancadoButtonProps {
 // "Safra inteira" (que saiu do toggle) e o período personalizado (De/Até), os dois casos que
 // não cabem como botão extra do segmented control. Espelha
 // frontend/src/components/PeriodoAvancadoButton.tsx (decisão do dev, 2026-08-04).
+//
+// A folha e o calendário dividem um único Modal (troca de "etapa" por dentro, sem
+// fechar/reabrir) — abrir um segundo Modal do CalendarSheet por cima desta folha já aberta
+// travava o toque da tela depois de fechar (bug do RN com Modal aninhado) e, mesmo depois de
+// corrigido fechando/reabrindo em sequência, ficava com dupla animação de slide, visualmente
+// ruim (feedback do dev, 2026-08-04).
 export function PeriodoAvancadoButton({
   periodo,
   personalizado,
@@ -30,9 +38,9 @@ export function PeriodoAvancadoButton({
   onAplicarPersonalizado,
 }: PeriodoAvancadoButtonProps) {
   const [aberto, setAberto] = useState(false);
+  const [etapa, setEtapa] = useState<Etapa>('menu');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
-  const [campoCalendarioAberto, setCampoCalendarioAberto] = useState<'inicio' | 'fim' | null>(null);
 
   const safraSelecionada = periodo === 'safra' && !personalizado;
   const ativo = safraSelecionada || !!personalizado;
@@ -41,23 +49,29 @@ export function PeriodoAvancadoButton({
   function abrir() {
     setDataInicio(personalizado?.dataInicio ?? '');
     setDataFim(personalizado?.dataFim ?? '');
+    setEtapa('menu');
     setAberto(true);
+  }
+
+  function fechar() {
+    setAberto(false);
+    setEtapa('menu');
   }
 
   function selecionarSafra() {
     onSelecionarPeriodo('safra');
-    setAberto(false);
+    fechar();
   }
 
   function aplicarPersonalizado() {
     if (!personalizadoValido) return;
     onAplicarPersonalizado({ dataInicio, dataFim });
-    setAberto(false);
+    fechar();
   }
 
   function removerPersonalizado() {
     onAplicarPersonalizado(null);
-    setAberto(false);
+    fechar();
   }
 
   return (
@@ -70,88 +84,91 @@ export function PeriodoAvancadoButton({
         <Calendar size={16} color={ativo ? '#FFFFFF' : cores.stone[600]} strokeWidth={2} />
       </Pressable>
 
-      <BottomSheet aberto={aberto} onFechar={() => setAberto(false)}>
-        <View style={styles.cabecalho}>
-          <View style={styles.cabecalhoIcone}>
-            <Calendar size={16} color={cores.green[800]} strokeWidth={2.2} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cabecalhoTitulo}>Mais períodos</Text>
-            <Text style={styles.cabecalhoSubtitulo}>Safra inteira ou um intervalo específico</Text>
-          </View>
-        </View>
+      <BottomSheet aberto={aberto} onFechar={fechar}>
+        {etapa === 'menu' ? (
+          <>
+            <View style={styles.cabecalho}>
+              <View style={styles.cabecalhoIcone}>
+                <Calendar size={16} color={cores.green[800]} strokeWidth={2.2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cabecalhoTitulo}>Mais períodos</Text>
+                <Text style={styles.cabecalhoSubtitulo}>Safra inteira ou um intervalo específico</Text>
+              </View>
+            </View>
 
-        <Pressable
-          style={[styles.cartaoSafra, safraSelecionada && styles.cartaoSafraAtivo]}
-          onPress={selecionarSafra}
-        >
-          <View style={styles.cartaoSafraIcone}>
-            <Sprout size={14} color={cores.green[800]} strokeWidth={2.4} />
-          </View>
-          <Text style={styles.cartaoSafraTexto}>Safra inteira</Text>
-          <View style={[styles.radio, safraSelecionada && styles.radioAtivo]} />
-        </Pressable>
-
-        <View style={styles.divisorLinha}>
-          <View style={styles.divisor} />
-          <Text style={styles.divisorTexto}>ou personalizado</Text>
-          <View style={styles.divisor} />
-        </View>
-
-        <View style={styles.camposData}>
-          <View style={styles.campoDataArea}>
-            <Text style={styles.campoDataLabel}>Início</Text>
-            <Pressable style={styles.campoData} onPress={() => setCampoCalendarioAberto('inicio')}>
-              <Calendar size={14} color={cores.stone[400]} strokeWidth={2} />
-              <Text style={[styles.campoDataTexto, !dataInicio && styles.campoDataPlaceholder]}>
-                {dataInicio ? dataIsoParaExibicao(dataInicio) : 'Selecionar'}
-              </Text>
+            <Pressable
+              style={[styles.cartaoSafra, safraSelecionada && styles.cartaoSafraAtivo]}
+              onPress={selecionarSafra}
+            >
+              <View style={styles.cartaoSafraIcone}>
+                <Sprout size={14} color={cores.green[800]} strokeWidth={2.4} />
+              </View>
+              <Text style={styles.cartaoSafraTexto}>Safra inteira</Text>
+              <View style={[styles.radio, safraSelecionada && styles.radioAtivo]} />
             </Pressable>
-          </View>
-          <View style={styles.campoDataArea}>
-            <Text style={styles.campoDataLabel}>Fim</Text>
-            <Pressable style={styles.campoData} onPress={() => setCampoCalendarioAberto('fim')}>
-              <Calendar size={14} color={cores.stone[400]} strokeWidth={2} />
-              <Text style={[styles.campoDataTexto, !dataFim && styles.campoDataPlaceholder]}>
-                {dataFim ? dataIsoParaExibicao(dataFim) : 'Selecionar'}
-              </Text>
+
+            <View style={styles.divisorLinha}>
+              <View style={styles.divisor} />
+              <Text style={styles.divisorTexto}>ou personalizado</Text>
+              <View style={styles.divisor} />
+            </View>
+
+            <View style={styles.camposData}>
+              <View style={styles.campoDataArea}>
+                <Text style={styles.campoDataLabel}>Início</Text>
+                <Pressable style={styles.campoData} onPress={() => setEtapa('inicio')}>
+                  <Calendar size={14} color={cores.stone[400]} strokeWidth={2} />
+                  <Text style={[styles.campoDataTexto, !dataInicio && styles.campoDataPlaceholder]}>
+                    {dataInicio ? dataIsoParaExibicao(dataInicio) : 'Selecionar'}
+                  </Text>
+                </Pressable>
+              </View>
+              <View style={styles.campoDataArea}>
+                <Text style={styles.campoDataLabel}>Fim</Text>
+                <Pressable style={styles.campoData} onPress={() => setEtapa('fim')}>
+                  <Calendar size={14} color={cores.stone[400]} strokeWidth={2} />
+                  <Text style={[styles.campoDataTexto, !dataFim && styles.campoDataPlaceholder]}>
+                    {dataFim ? dataIsoParaExibicao(dataFim) : 'Selecionar'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <Pressable
+              style={[styles.botaoAplicar, !personalizadoValido && styles.botaoAplicarDesabilitado]}
+              onPress={aplicarPersonalizado}
+              disabled={!personalizadoValido}
+            >
+              <Text style={styles.textoBotaoAplicar}>Aplicar</Text>
             </Pressable>
-          </View>
-        </View>
 
-        <Pressable
-          style={[styles.botaoAplicar, !personalizadoValido && styles.botaoAplicarDesabilitado]}
-          onPress={aplicarPersonalizado}
-          disabled={!personalizadoValido}
-        >
-          <Text style={styles.textoBotaoAplicar}>Aplicar</Text>
-        </Pressable>
+            {personalizado && (
+              <Pressable style={styles.botaoRemover} onPress={removerPersonalizado}>
+                <Text style={styles.textoBotaoRemover}>Remover filtro personalizado</Text>
+              </Pressable>
+            )}
+          </>
+        ) : (
+          <>
+            <View style={styles.cabecalho}>
+              <Pressable style={styles.botaoVoltar} onPress={() => setEtapa('menu')} hitSlop={8}>
+                <ArrowLeft size={16} color={cores.stone[700]} strokeWidth={2.2} />
+              </Pressable>
+              <Text style={styles.cabecalhoTitulo}>{etapa === 'inicio' ? 'Início do período' : 'Fim do período'}</Text>
+            </View>
 
-        {personalizado && (
-          <Pressable style={styles.botaoRemover} onPress={removerPersonalizado}>
-            <Text style={styles.textoBotaoRemover}>Remover filtro personalizado</Text>
-          </Pressable>
+            <CalendarGrid
+              valor={etapa === 'inicio' ? dataInicio : dataFim}
+              onSelecionar={(iso) => {
+                if (etapa === 'inicio') setDataInicio(iso);
+                else setDataFim(iso);
+                setEtapa('menu');
+              }}
+            />
+          </>
         )}
       </BottomSheet>
-
-      <CalendarSheet
-        aberto={campoCalendarioAberto === 'inicio'}
-        valor={dataInicio}
-        onSelecionar={(iso) => {
-          setDataInicio(iso);
-          setCampoCalendarioAberto(null);
-        }}
-        onFechar={() => setCampoCalendarioAberto(null)}
-      />
-      <CalendarSheet
-        aberto={campoCalendarioAberto === 'fim'}
-        valor={dataFim}
-        onSelecionar={(iso) => {
-          setDataFim(iso);
-          setCampoCalendarioAberto(null);
-        }}
-        onFechar={() => setCampoCalendarioAberto(null)}
-      />
     </>
   );
 }
@@ -179,6 +196,14 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: raio.md - 2,
     backgroundColor: cores.green[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  botaoVoltar: {
+    width: 34,
+    height: 34,
+    borderRadius: raio.pill,
+    backgroundColor: cores.cream[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
