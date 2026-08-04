@@ -12,7 +12,8 @@ import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
 import { calcularIntervaloPeriodo } from '../lib/periodoResumo';
 import { formatarData } from '../lib/data';
 import { formatarMoeda, iniciais } from '../lib/formatacao';
-import { FiltroPeriodo } from '../components/FiltroPeriodo';
+import { PeriodToggle } from '../components/PeriodToggle';
+import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '../components/PeriodoAvancadoButton';
 import { cores, espacamento, raio } from '../theme';
 import type { PeriodoFiltro } from '../types/simulacao';
 import type { DespesaLocal } from '../types/despesa';
@@ -43,7 +44,7 @@ export function DespesasScreen({ navigation }: Props) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
-  const [personalizado, setPersonalizado] = useState<{ dataInicio: string; dataFim: string } | null>(null);
+  const [personalizado, setPersonalizado] = useState<PeriodoPersonalizado | null>(null);
 
   const carregar = useCallback(async () => {
     if (!safraId) return;
@@ -89,9 +90,9 @@ export function DespesasScreen({ navigation }: Props) {
     setPeriodo(valor);
   }
 
-  function aplicarPersonalizado(intervalo: { dataInicio: string; dataFim: string }) {
-    setPersonalizado(intervalo);
-    setPeriodo(null);
+  function selecionarPersonalizado(valor: PeriodoPersonalizado | null) {
+    setPersonalizado(valor);
+    setPeriodo(valor ? null : 'dia');
   }
 
   const intervalo = useMemo(() => calcularIntervaloPeriodo(periodo, personalizado), [periodo, personalizado]);
@@ -114,11 +115,12 @@ export function DespesasScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.filtroArea}>
-        <FiltroPeriodo
+        <PeriodToggle valor={periodo} onSelecionar={selecionarPeriodo} incluirSafra={false} />
+        <PeriodoAvancadoButton
           periodo={periodo}
           personalizado={personalizado}
           onSelecionarPeriodo={selecionarPeriodo}
-          onAplicarPersonalizado={aplicarPersonalizado}
+          onAplicarPersonalizado={selecionarPersonalizado}
         />
       </View>
 
@@ -197,6 +199,8 @@ const styles = StyleSheet.create({
     color: cores.stone[900],
   },
   filtroArea: {
+    flexDirection: 'row',
+    gap: espacamento.sm,
     marginHorizontal: espacamento.xl,
     marginTop: espacamento.sm,
   },

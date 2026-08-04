@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { BottomSheet } from './BottomSheet';
 import { cores, espacamento, raio } from '../theme';
 
 export interface CalendarSheetProps {
@@ -31,7 +31,6 @@ function mesInicial(valor: string): { ano: number; mes: number } {
 // mesma experiência visual/de marca do web (toca no dia, sem digitar), não só "um calendário
 // qualquer", e evita puxar uma dependência nativa nova só pra isso.
 export function CalendarSheet({ aberto, valor, onSelecionar, onFechar }: CalendarSheetProps) {
-  const insets = useSafeAreaInsets();
   const [{ ano, mes }, setMesExibido] = useState(() => mesInicial(valor));
 
   useEffect(() => {
@@ -54,12 +53,8 @@ export function CalendarSheet({ aberto, valor, onSelecionar, onFechar }: Calenda
   }
 
   return (
-    <Modal visible={aberto} transparent animationType="slide" onRequestClose={onFechar}>
-      <Pressable style={styles.fundo} onPress={onFechar} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + espacamento.lg }]}>
-        <View style={styles.alca} />
-
-        <View style={styles.cabecalho}>
+    <BottomSheet aberto={aberto} onFechar={onFechar}>
+      <View style={styles.cabecalho}>
           <Pressable onPress={() => irParaMes(-1)} style={styles.botaoMes} hitSlop={8}>
             <ChevronLeft size={18} color={cores.stone[700]} strokeWidth={2.3} />
           </Pressable>
@@ -113,35 +108,11 @@ export function CalendarSheet({ aberto, valor, onSelecionar, onFechar }: Calenda
         <Pressable onPress={onFechar} style={styles.botaoCancelar}>
           <Text style={styles.textoCancelar}>Cancelar</Text>
         </Pressable>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  fundo: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: espacamento.lg + 4,
-    paddingTop: espacamento.sm + 2,
-  },
-  alca: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: raio.pill,
-    backgroundColor: cores.linha,
-    marginBottom: espacamento.md,
-  },
   cabecalho: {
     flexDirection: 'row',
     alignItems: 'center',

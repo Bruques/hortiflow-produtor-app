@@ -17,7 +17,8 @@ import { calcularIntervaloPeriodo } from '../lib/periodoResumo';
 import { formatarData } from '../lib/data';
 import { formatarMoeda, iniciais } from '../lib/formatacao';
 import { ROTULO_STATUS_SAFRA } from '../lib/rotulos';
-import { FiltroPeriodo } from '../components/FiltroPeriodo';
+import { PeriodToggle } from '../components/PeriodToggle';
+import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '../components/PeriodoAvancadoButton';
 import { cores, espacamento, fonte, raio } from '../theme';
 import type { PeriodoFiltro, Simulacao } from '../types/simulacao';
 import type { Socio } from '../types/sociedade';
@@ -47,7 +48,7 @@ export function ResumoScreen({ navigation }: Props) {
   const { safraAtiva } = useSafraAtiva();
 
   const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
-  const [personalizado, setPersonalizado] = useState<{ dataInicio: string; dataFim: string } | null>(null);
+  const [personalizado, setPersonalizado] = useState<PeriodoPersonalizado | null>(null);
 
   const [simulacao, setSimulacao] = useState<Simulacao | null>(null);
   const [carregandoSimulacao, setCarregandoSimulacao] = useState(true);
@@ -144,9 +145,9 @@ export function ResumoScreen({ navigation }: Props) {
     setPeriodo(valor);
   }
 
-  function aplicarPersonalizado(intervalo: { dataInicio: string; dataFim: string }) {
-    setPersonalizado(intervalo);
-    setPeriodo(null);
+  function selecionarPersonalizado(valor: PeriodoPersonalizado | null) {
+    setPersonalizado(valor);
+    setPeriodo(valor ? null : 'dia');
   }
 
   const meuSocio = socios.find((s) => s.usuario_id === usuario?.id);
@@ -188,12 +189,15 @@ export function ResumoScreen({ navigation }: Props) {
         {safra.observacoes && <Text style={styles.observacoes}>{safra.observacoes}</Text>}
       </Pressable>
 
-      <FiltroPeriodo
-        periodo={periodo}
-        personalizado={personalizado}
-        onSelecionarPeriodo={selecionarPeriodo}
-        onAplicarPersonalizado={aplicarPersonalizado}
-      />
+      <View style={styles.filtroArea}>
+        <PeriodToggle valor={periodo} onSelecionar={selecionarPeriodo} incluirSafra={false} />
+        <PeriodoAvancadoButton
+          periodo={periodo}
+          personalizado={personalizado}
+          onSelecionarPeriodo={selecionarPeriodo}
+          onAplicarPersonalizado={selecionarPersonalizado}
+        />
+      </View>
 
       {erroSimulacao && <Text style={styles.erro}>{erroSimulacao}</Text>}
       {carregandoSimulacao && !simulacao && <ActivityIndicator style={{ marginTop: espacamento.lg }} />}
@@ -322,6 +326,10 @@ const styles = StyleSheet.create({
     paddingTop: espacamento.md,
     paddingBottom: espacamento.xxl + espacamento.lg,
     gap: espacamento.lg,
+  },
+  filtroArea: {
+    flexDirection: 'row',
+    gap: espacamento.sm,
   },
   cabecalhoSafra: {
     gap: 2,

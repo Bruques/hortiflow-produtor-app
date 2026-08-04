@@ -13,7 +13,9 @@ import { useSafraAtiva } from '../context/SafraContext';
 import { calcularIntervaloPeriodo } from '../lib/periodoResumo';
 import { formatarData } from '../lib/data';
 import { formatarMoeda } from '../lib/formatacao';
-import { FiltroPeriodo } from '../components/FiltroPeriodo';
+import { PeriodToggle } from '../components/PeriodToggle';
+import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '../components/PeriodoAvancadoButton';
+import { FiltroStatusPagamento, type StatusPagamento } from '../components/FiltroStatusPagamento';
 import { cores, espacamento, raio } from '../theme';
 import type { PeriodoFiltro } from '../types/simulacao';
 import type { VendaLocal } from '../types/venda';
@@ -45,7 +47,8 @@ export function VendasScreen({ navigation }: Props) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
-  const [personalizado, setPersonalizado] = useState<{ dataInicio: string; dataFim: string } | null>(null);
+  const [personalizado, setPersonalizado] = useState<PeriodoPersonalizado | null>(null);
+  const [statusPagamento, setStatusPagamento] = useState<StatusPagamento>('todas');
   // Valor de cada RegraDespesaRecorrente por id — cruzado com `venda.regras_aplicadas` (as
   // regras que o sócio realmente deixou marcadas ao lançar/editar essa venda específica) pra
   // calcular o selo "gerou despesa automática", igual à frontend/src/pages/VendasPage.tsx web.
@@ -110,18 +113,20 @@ export function VendasScreen({ navigation }: Props) {
     setPeriodo(valor);
   }
 
-  function aplicarPersonalizado(intervalo: { dataInicio: string; dataFim: string }) {
-    setPersonalizado(intervalo);
-    setPeriodo(null);
+  function selecionarPersonalizado(valor: PeriodoPersonalizado | null) {
+    setPersonalizado(valor);
+    setPeriodo(valor ? null : 'dia');
   }
 
   const intervalo = useMemo(() => calcularIntervaloPeriodo(periodo, personalizado), [periodo, personalizado]);
   const vendasDoPeriodo = useMemo(
     () =>
-      intervalo
-        ? vendas.filter((v) => v.data.slice(0, 10) >= intervalo.dataInicio && v.data.slice(0, 10) <= intervalo.dataFim)
-        : vendas,
-    [vendas, intervalo]
+      vendas
+        .filter((v) =>
+          intervalo ? v.data.slice(0, 10) >= intervalo.dataInicio && v.data.slice(0, 10) <= intervalo.dataFim : true
+        )
+        .filter((v) => (statusPagamento === 'todas' ? true : v.pago === (statusPagamento === 'pagas'))),
+    [vendas, intervalo, statusPagamento]
   );
 
   const totalVendas = vendasDoPeriodo.reduce((acc, v) => acc + Number(v.total), 0);
@@ -135,12 +140,16 @@ export function VendasScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.filtroArea}>
-        <FiltroPeriodo
-          periodo={periodo}
-          personalizado={personalizado}
-          onSelecionarPeriodo={selecionarPeriodo}
-          onAplicarPersonalizado={aplicarPersonalizado}
-        />
+        <View style={styles.filtroPeriodoLinha}>
+          <PeriodToggle valor={periodo} onSelecionar={selecionarPeriodo} incluirSafra={false} />
+          <PeriodoAvancadoButton
+            periodo={periodo}
+            personalizado={personalizado}
+            onSelecionarPeriodo={selecionarPeriodo}
+            onAplicarPersonalizado={selecionarPersonalizado}
+          />
+        </View>
+        <FiltroStatusPagamento valor={statusPagamento} onSelecionar={setStatusPagamento} />
       </View>
 
       <View style={styles.resumo}>
@@ -224,6 +233,11 @@ const styles = StyleSheet.create({
   filtroArea: {
     marginHorizontal: espacamento.xl,
     marginTop: espacamento.sm,
+    gap: espacamento.sm,
+  },
+  filtroPeriodoLinha: {
+    flexDirection: 'row',
+    gap: espacamento.sm,
   },
   resumo: {
     flexDirection: 'row',
