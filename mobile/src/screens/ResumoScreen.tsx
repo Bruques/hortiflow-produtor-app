@@ -119,6 +119,26 @@ export function ResumoScreen({ navigation }: Props) {
     return desinscrever;
   }, [navigation, carregarSimulacao, carregarVendas, carregarSocios]);
 
+  // `carregarSimulacao` muda de identidade a cada troca de período/personalizado (é o que a
+  // deps list de `useCallback` captura) — sem este efeito, trocar o segmented control só
+  // atualizava o estado local `periodo`, mas nunca disparava uma nova busca: o listener de
+  // 'focus' acima só recarrega ao reentrar na aba, não a cada troca de filtro dentro dela.
+  useEffect(() => {
+    carregarSimulacao();
+  }, [carregarSimulacao]);
+
+  // Garante a primeira carga de vendas/sócios assim que a tela monta, sem depender só do
+  // evento de foco — o foco não dispara de novo em toda remontagem do componente (ex: Fast
+  // Refresh durante o desenvolvimento), deixando `vendas`/`socios` presos no estado inicial
+  // vazio mesmo com a tela já visível.
+  useEffect(() => {
+    carregarVendas();
+  }, [carregarVendas]);
+
+  useEffect(() => {
+    carregarSocios();
+  }, [carregarSocios]);
+
   function selecionarPeriodo(valor: PeriodoFiltro) {
     setPersonalizado(null);
     setPeriodo(valor);

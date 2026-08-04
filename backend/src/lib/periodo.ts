@@ -4,6 +4,18 @@ import { Request } from 'express';
 // Despesa/Venda chegam como "YYYY-MM-DD" e o Zod as interpreta como meia-noite UTC
 // (z.coerce.date()) — usar hora local aqui criaria um desalinhamento de fuso (ex:
 // servidor em UTC-3 trataria meia-noite UTC de um dia como pertencente ao dia anterior).
+const OFFSET_BRASIL_MS = 3 * 60 * 60 * 1000;
+
+// Instante "agora" ajustado pro fuso de Brasília (UTC-3 fixo — o Brasil não observa mais
+// horário de verão desde 2019, e todo o público do produto é da mesma região/fuso). Sem
+// esse ajuste, `new Date()` cru usa o dia civil em UTC: à noite (a partir de ~21h em
+// Brasília), o UTC já virou o dia seguinte, e "hoje"/"esta semana"/"este mês" passavam a
+// excluir lançamentos feitos nesse mesmo dia local (bug real, encontrado 2026-08-03
+// testando o filtro de período no app mobile à noite).
+function agoraBrasil(): Date {
+  return new Date(Date.now() - OFFSET_BRASIL_MS);
+}
+
 function inicioDoDia(data: Date): Date {
   return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate(), 0, 0, 0, 0));
 }
@@ -51,7 +63,7 @@ export function resolverPeriodo(query: Request['query']): Periodo {
     return { data_inicio: inicioDoDia(inicio), data_fim: fimDoDia(fim) };
   }
 
-  const hoje = new Date();
+  const hoje = agoraBrasil();
 
   switch (periodo) {
     case 'dia':
