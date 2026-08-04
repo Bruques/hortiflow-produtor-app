@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Check } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
-import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
+import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '@/components/PeriodoAvancadoButton';
+import { FiltroStatusPagamentoDropdown, type StatusPagamento } from '@/components/FiltroStatusPagamentoDropdown';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { listarVendasRequest, type FiltroVendas } from '@/services/vendas';
 import { listarRegrasRequest } from '@/services/regrasDespesaRecorrente';
@@ -21,7 +22,7 @@ export default function VendasPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
   const [periodoPersonalizado, setPeriodoPersonalizado] = useState<PeriodoPersonalizado | null>(null);
-  const [statusPagamento, setStatusPagamento] = useState<'todas' | 'pagas' | 'a_receber'>('todas');
+  const [statusPagamento, setStatusPagamento] = useState<StatusPagamento>('todas');
 
   function selecionarPeriodo(valor: PeriodoFiltro) {
     setPeriodoPersonalizado(null);
@@ -105,36 +106,17 @@ export default function VendasPage() {
           <p className="mt-0.5 text-[12.5px] text-hf-stone-600">{safra.nome}</p>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <PeriodToggle value={periodo} onChange={selecionarPeriodo} />
-          <PeriodoPersonalizadoButton value={periodoPersonalizado} onChange={selecionarPeriodoPersonalizado} />
+        <div className="flex gap-2">
+          <PeriodToggle value={periodo} onChange={selecionarPeriodo} incluirSafra={false} />
+          <PeriodoAvancadoButton
+            periodo={periodo}
+            periodoPersonalizado={periodoPersonalizado}
+            onSelecionarPeriodo={selecionarPeriodo}
+            onSelecionarPeriodoPersonalizado={selecionarPeriodoPersonalizado}
+          />
         </div>
 
-        <div role="tablist" aria-label="Status de pagamento" className="flex gap-0.5 rounded-xl bg-hf-cream-100 p-1">
-          {(
-            [
-              { valor: 'todas', label: 'Todas' },
-              { valor: 'pagas', label: 'Pagas' },
-              { valor: 'a_receber', label: 'A receber' },
-            ] as const
-          ).map((opcao) => (
-            <button
-              key={opcao.valor}
-              type="button"
-              role="tab"
-              aria-selected={statusPagamento === opcao.valor}
-              onClick={() => setStatusPagamento(opcao.valor)}
-              className={cn(
-                'flex-1 rounded-lg py-2 text-[12.5px] font-bold transition-colors',
-                statusPagamento === opcao.valor
-                  ? 'bg-white text-hf-green-800 shadow-sm'
-                  : 'text-hf-stone-600 hover:text-hf-stone-900'
-              )}
-            >
-              {opcao.label}
-            </button>
-          ))}
-        </div>
+        <FiltroStatusPagamentoDropdown value={statusPagamento} onChange={setStatusPagamento} />
 
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { X, Receipt } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
-import { PeriodoPersonalizadoButton, type PeriodoPersonalizado } from '@/components/PeriodoPersonalizadoButton';
+import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '@/components/PeriodoAvancadoButton';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { listarDespesasRequest, type FiltroDespesas } from '@/services/despesas';
 import { confirmarSugestaoRequest, listarSugestoesRequest } from '@/services/regrasDespesaRecorrente';
@@ -110,9 +110,14 @@ export default function DespesasPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <PeriodToggle value={periodo} onChange={selecionarPeriodo} />
-          <PeriodoPersonalizadoButton value={periodoPersonalizado} onChange={selecionarPeriodoPersonalizado} />
+        <div className="flex gap-2">
+          <PeriodToggle value={periodo} onChange={selecionarPeriodo} incluirSafra={false} />
+          <PeriodoAvancadoButton
+            periodo={periodo}
+            periodoPersonalizado={periodoPersonalizado}
+            onSelecionarPeriodo={selecionarPeriodo}
+            onSelecionarPeriodoPersonalizado={selecionarPeriodoPersonalizado}
+          />
         </div>
 
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { PeriodoFiltro } from '@/types/simulacao';
 
-const OPCOES: { valor: PeriodoFiltro; label: string }[] = [
+const TODAS_OPCOES: { valor: PeriodoFiltro; label: string }[] = [
   { valor: 'dia', label: 'Hoje' },
   { valor: 'semana', label: 'Semana' },
   { valor: 'mes', label: 'Mês' },
@@ -9,19 +9,24 @@ const OPCOES: { valor: PeriodoFiltro; label: string }[] = [
 ];
 
 interface PeriodToggleProps {
-  // null quando um período personalizado (ver PeriodoPersonalizadoButton) está ativo —
-  // nenhum dos 4 botões fica marcado nesse caso.
+  // null quando um período personalizado ou "Safra" (ver PeriodoAvancadoButton) está ativo —
+  // nenhum dos botões fica marcado nesse caso.
   value: PeriodoFiltro | null;
   onChange: (valor: PeriodoFiltro) => void;
+  // false nas telas de listagem (Resumo/Vendas/Despesas/Despesas pessoais): lá "Safra" mora
+  // dentro do PeriodoAvancadoButton ao lado, junto do período personalizado, em vez de ser um
+  // 5º/4º botão no toggle — decisão do dev, 2026-08-04. A Home mantém as 4 opções no toggle.
+  incluirSafra?: boolean;
 }
 
-// Segmented control reaproveitado em qualquer tela que filtre por período — hoje só a
-// Início, mas mapeia direto pro parâmetro `periodo` de GET /safras/:id/simulacao
-// (docs/specs/05-calculo-e-painel-simulacao.md), então outras telas podem usar sem mudança.
-export function PeriodToggle({ value, onChange }: PeriodToggleProps) {
+// Segmented control reaproveitado em qualquer tela que filtre por período — mapeia direto pro
+// parâmetro `periodo` de GET /safras/:id/simulacao (docs/specs/05-calculo-e-painel-simulacao.md).
+export function PeriodToggle({ value, onChange, incluirSafra = true }: PeriodToggleProps) {
+  const opcoes = incluirSafra ? TODAS_OPCOES : TODAS_OPCOES.filter((o) => o.valor !== 'safra');
+
   return (
-    <div role="tablist" aria-label="Período" className="flex gap-0.5 rounded-xl bg-hf-cream-100 p-1">
-      {OPCOES.map((opcao) => (
+    <div role="tablist" aria-label="Período" className="flex flex-1 gap-0.5 rounded-xl bg-hf-cream-100 p-1">
+      {opcoes.map((opcao) => (
         <button
           key={opcao.valor}
           type="button"
