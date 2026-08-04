@@ -192,6 +192,9 @@ export async function atualizarVenda(id: string, sociedadeId: string, input: Atu
 
     let regrasAplicadas: string[];
     if (input.regras_por_venda_aplicadas !== undefined) {
+      // RateioDespesa não tem onDelete: Cascade no schema — apagar a Despesa direto quebra por
+      // FK quando ela tem rateio customizado (mesmo padrão de excluirDespesa em despesas.service).
+      await tx.rateioDespesa.deleteMany({ where: { despesa: { venda_origem_id: id } } });
       await tx.despesa.deleteMany({ where: { venda_origem_id: id } });
       regrasAplicadas = await gerarDespesasPorVenda(tx, venda.safra_id, sociedadeId, venda, input.regras_por_venda_aplicadas);
     } else {
@@ -215,7 +218,10 @@ export async function atualizarVenda(id: string, sociedadeId: string, input: Atu
 }
 
 export async function excluirVenda(id: string): Promise<void> {
+  // Mesmo motivo do rateioDespesa.deleteMany em atualizarVenda: sem apagar o rateio antes, o
+  // delete da Despesa quebra por FK quando ela tem rateio customizado.
   await prisma.$transaction([
+    prisma.rateioDespesa.deleteMany({ where: { despesa: { venda_origem_id: id } } }),
     prisma.despesa.deleteMany({ where: { venda_origem_id: id } }),
     prisma.venda.delete({ where: { id } }),
   ]);
