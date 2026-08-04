@@ -22,6 +22,7 @@ import MenuPage from '@/pages/MenuPage';
 import AcertosPage from '@/pages/AcertosPage';
 import AcertoDetalhePage from '@/pages/AcertoDetalhePage';
 import NovoAcertoPage from '@/pages/NovoAcertoPage';
+import RelatorioPage from '@/pages/RelatorioPage';
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="vendas/:vendaId/editar" element={<NovaVendaPage />} />
             <Route path="acertos" element={<AcertosPage />} />
             <Route path="acertos/novo" element={<NovoAcertoPage />} />
+            <Route path="relatorio" element={<RelatorioPage />} />
             <Route path="menu" element={<MenuPage />} />
           </Route>
         </Route>

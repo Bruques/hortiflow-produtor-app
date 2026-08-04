@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PiggyBank, FileText, Users, Repeat, Package, Lock, Sprout, LogOut, type LucideIcon } from 'lucide-react';
+import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, type LucideIcon } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest } from '@/services/auth';
@@ -79,6 +79,14 @@ export default function MenuPage() {
             Icone: Package,
             bg: 'bg-hf-green-100',
             cor: 'text-hf-green-800',
+          },
+          {
+            href: `/safras/${safraId}/relatorio`,
+            titulo: 'Gerar relatório',
+            subtitulo: 'PDF pra contadora',
+            Icone: FileDown,
+            bg: 'bg-hf-blue-bg',
+            cor: 'text-hf-blue',
           },
         ]
       : []),

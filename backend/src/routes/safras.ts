@@ -6,6 +6,7 @@ import * as vendasController from '../controllers/vendas.controller';
 import * as regrasController from '../controllers/regrasDespesaRecorrente.controller';
 import * as simulacaoController from '../controllers/simulacao.controller';
 import * as acertosController from '../controllers/acertos.controller';
+import * as relatorioController from '../controllers/relatorio.controller';
 import { authMiddleware } from '../middlewares/auth';
 
 const router = Router();
@@ -32,5 +33,6 @@ router.post('/:id/regras-recorrentes/:regraId/confirmar', regrasController.confi
 router.get('/:id/simulacao', simulacaoController.simular);
 router.post('/:id/acertos', acertosController.criar);
 router.get('/:id/acertos', acertosController.listar);
+router.get('/:id/relatorio', relatorioController.gerar);
 
 export default router;

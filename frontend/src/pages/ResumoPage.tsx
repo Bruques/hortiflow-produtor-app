@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, ChevronRight, ShoppingCart, Wallet, TrendingUp } from 'lucide-react';
+import { Calendar, ChevronRight, ShoppingCart, Wallet, TrendingUp, FileDown } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
 import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '@/components/PeriodoAvancadoButton';
@@ -73,6 +73,7 @@ export default function ResumoPage() {
   }, [safraId, periodo, periodoPersonalizado]);
 
   const meuSocio = socios.find((s) => s.usuario_id === usuarioId);
+  const souFinanciador = meuSocio?.papel === 'FINANCIADOR' || meuSocio?.papel === 'MISTO';
   const meuDivisao = simulacao?.divisao.find((d) => d.socio_id === meuSocio?.id) ?? null;
   const percentualAnel = Math.min(100, Math.max(0, meuDivisao?.percentual ?? 0));
   const offsetAnel = CIRCUNFERENCIA_ANEL * (1 - percentualAnel / 100);
@@ -114,6 +115,17 @@ export default function ResumoPage() {
             <span className="mt-0.5 w-full truncate text-legenda text-hf-stone-400">{safra.observacoes}</span>
           )}
         </button>
+
+        {souFinanciador && (
+          <button
+            type="button"
+            onClick={() => navigate(`/safras/${safraId}/relatorio`)}
+            className="flex items-center justify-center gap-2 rounded-2xl border border-hf-line bg-white py-2.5 text-legenda font-bold text-hf-green-700"
+          >
+            <FileDown className="h-4 w-4" strokeWidth={2.2} />
+            Gerar relatório em PDF
+          </button>
+        )}
 
         <div className="flex gap-2">
           <PeriodToggle value={periodo} onChange={selecionarPeriodo} incluirSafra={false} />
