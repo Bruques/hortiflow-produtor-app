@@ -246,7 +246,7 @@ export function ResumoScreen({ navigation }: Props) {
                   <Wallet size={17} color={cores.red.padrao} />
                 </View>
                 <Text style={styles.cardLabel}>Despesas</Text>
-                <Text style={[styles.cardValor, { color: cores.red.padrao }]}>{formatarMoeda(simulacao.despesas)}</Text>
+                <Text style={styles.cardValor}>{formatarMoeda(simulacao.despesas)}</Text>
               </View>
               <View style={styles.cardLucro}>
                 <View style={[styles.cardIconeArea, { backgroundColor: cores.green[100] }]}>
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   },
   itemVendaData: {
     fontSize: fonte.etiqueta,
-    color: cores.stone[400],
+    color: cores.stone[600],
     marginTop: 1,
   },
   itemVendaValor: {

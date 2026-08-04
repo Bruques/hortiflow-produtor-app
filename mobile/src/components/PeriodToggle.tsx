@@ -60,6 +60,12 @@ const styles = StyleSheet.create({
   },
   segmentoAtivo: {
     backgroundColor: '#FFFFFF',
+    // Equivalente ao shadow-sm do Tailwind (web), pra manter o mesmo destaque do item ativo.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   segmentoTexto: {
     fontSize: 12.5,

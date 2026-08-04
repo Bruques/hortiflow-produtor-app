@@ -1,6 +1,7 @@
 import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { cores } from '../theme';
 import { LoginScreen } from '../screens/LoginScreen';
 import { InicioScreen } from '../screens/InicioScreen';
 import { EntrarSociedadeScreen } from '../screens/EntrarSociedadeScreen';
@@ -46,6 +47,15 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Sem isso, o React Navigation aplica seu DefaultTheme (fundo #f2f2f2) atrás das telas dentro
+// do Tab.Navigator (SafraTabs.tsx) — diferente do cores.cream[50] da Topbar acima dele, criando
+// uma faixa visível entre os dois. Sobrescreve só `colors.background` pra igualar ao resto do
+// app (feedback do dev, 2026-08-04).
+const temaNavegacao = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: cores.cream[50] },
+};
+
 // A decisão entre stack logado/deslogado vem inteiramente do AuthContext (bootstrap de
 // sessão completo — docs/specs/mobile/01-auth.md). Logado, a tela inicial é "Início"
 // (docs/specs/mobile/03-safra.md); ao entrar numa safra, o destino é a rota "Safra", que
@@ -64,7 +74,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={temaNavegacao}>
       <Stack.Navigator initialRouteName={logado ? 'Inicio' : 'Login'} screenOptions={{ headerShown: false }}>
         {logado ? (
           <>
