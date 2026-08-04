@@ -91,13 +91,13 @@ export default function ResumoPage() {
           onClick={() => navigate('/')}
           className="flex flex-col items-start gap-0.5 text-left"
         >
-          <span className="text-[12.5px] text-hf-stone-600">Safra atual</span>
+          <span className="text-legenda text-hf-stone-600">Safra atual</span>
           <span className="flex items-center gap-1.5">
-            <h2 className="font-rounded text-[21px] font-extrabold text-hf-stone-900">{safra.nome}</h2>
+            <h2 className="font-rounded text-tituloTela font-extrabold text-hf-stone-900">{safra.nome}</h2>
             <ChevronRight className="h-4 w-4 text-hf-stone-600" />
           </span>
           <span className="mt-1 flex w-full items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[12.5px] text-hf-stone-600">
+            <span className="flex items-center gap-1.5 text-legenda text-hf-stone-600">
               <Calendar className="h-3.5 w-3.5" />
               {safra.data_inicio && safra.data_fim
                 ? `${formatarData(safra.data_inicio)} a ${formatarData(safra.data_fim)}`
@@ -105,13 +105,13 @@ export default function ResumoPage() {
                   ? `Aberta em ${formatarData(safra.data_inicio)}`
                   : 'Datas não definidas'}
             </span>
-            <span className="flex items-center gap-1.5 rounded-full bg-hf-green-100 px-2.5 py-1 text-[11.5px] font-bold text-hf-green-700">
+            <span className="flex items-center gap-1.5 rounded-full bg-hf-green-100 px-2.5 py-1 text-etiqueta font-bold text-hf-green-700">
               <span className="h-1.5 w-1.5 rounded-full bg-hf-green-600" />
               {ROTULO_STATUS_SAFRA[safra.status]}
             </span>
           </span>
           {safra.observacoes && (
-            <span className="mt-0.5 w-full truncate text-[12.5px] text-hf-stone-400">{safra.observacoes}</span>
+            <span className="mt-0.5 w-full truncate text-legenda text-hf-stone-400">{safra.observacoes}</span>
           )}
         </button>
 
@@ -120,21 +120,21 @@ export default function ResumoPage() {
           <PeriodoPersonalizadoButton value={periodoPersonalizado} onChange={selecionarPeriodoPersonalizado} />
         </div>
 
-        {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+        {erro && <p className="text-center text-corpo font-medium text-hf-red">{erro}</p>}
 
         {carregando && !simulacao && (
-          <p className="text-center text-sm text-hf-stone-600">Calculando...</p>
+          <p className="text-center text-corpo text-hf-stone-600">Calculando...</p>
         )}
 
         {simulacao && (
           <>
             <div className="flex items-center justify-between gap-3.5 rounded-[18px] bg-gradient-to-br from-hf-green-800 to-hf-green-900 p-5 text-white">
               <div>
-                <p className="m-0 mb-1 text-[12.5px] opacity-80">Você recebe (estimado)</p>
-                <p className="m-0 text-[26px] font-extrabold tabular-nums tracking-tight">
+                <p className="m-0 mb-1 text-legenda opacity-80">Você recebe (estimado)</p>
+                <p className="m-0 text-hero font-extrabold tabular-nums tracking-tight">
                   {formatarMoeda(meuDivisao?.valor ?? 0)}
                 </p>
-                <p className="m-0 mt-1.5 text-xs opacity-85">
+                <p className="m-0 mt-1.5 text-auxiliar opacity-85">
                   Seu percentual: {meuDivisao?.percentual ?? 0}%
                 </p>
               </div>
@@ -153,38 +153,38 @@ export default function ResumoPage() {
                     strokeDashoffset={offsetAnel}
                   />
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-[15px] font-extrabold">
+                <div className="absolute inset-0 flex items-center justify-center text-destaqueMedio font-extrabold">
                   {percentualAnel}%
                 </div>
               </div>
             </div>
 
             <div>
-              <h3 className="mb-2.5 text-base font-extrabold text-hf-stone-900">Resumo do período</h3>
+              <h3 className="mb-2.5 text-tituloSecao font-extrabold text-hf-stone-900">Resumo do período</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5">
                   <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-hf-blue-bg">
                     <ShoppingCart className="h-[17px] w-[17px] text-hf-blue" />
                   </div>
-                  <span className="text-xs text-hf-stone-600">Receita (Vendas)</span>
-                  <span className="-mt-1.5 text-[17px] font-extrabold tabular-nums">{formatarMoeda(simulacao.receita)}</span>
+                  <span className="text-auxiliar text-hf-stone-600">Receita (Vendas)</span>
+                  <span className="-mt-1.5 text-valorDestaque font-extrabold tabular-nums">{formatarMoeda(simulacao.receita)}</span>
                 </div>
                 <div className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5">
                   <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-hf-red-bg">
                     <Wallet className="h-[17px] w-[17px] text-hf-red" />
                   </div>
-                  <span className="text-xs text-hf-stone-600">Despesas</span>
-                  <span className="-mt-1.5 text-[17px] font-extrabold tabular-nums">{formatarMoeda(simulacao.despesas)}</span>
+                  <span className="text-auxiliar text-hf-stone-600">Despesas</span>
+                  <span className="-mt-1.5 text-valorDestaque font-extrabold tabular-nums">{formatarMoeda(simulacao.despesas)}</span>
                 </div>
                 <div className="col-span-2 flex items-center gap-3 rounded-2xl border border-hf-line p-3.5">
                   <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-hf-green-100">
                     <TrendingUp className="h-[17px] w-[17px] text-hf-green-600" />
                   </div>
                   <div className="flex flex-1 items-center justify-between">
-                    <span className="text-xs text-hf-stone-600">Lucro líquido</span>
+                    <span className="text-auxiliar text-hf-stone-600">Lucro líquido</span>
                     <span
                       className={
-                        'text-[17px] font-extrabold tabular-nums ' +
+                        'text-valorDestaque font-extrabold tabular-nums ' +
                         (simulacao.lucroLiquido < 0 ? 'text-hf-red' : '')
                       }
                     >
@@ -197,17 +197,17 @@ export default function ResumoPage() {
 
             <div>
               <div className="mb-2.5 flex items-baseline justify-between">
-                <h3 className="text-base font-extrabold text-hf-stone-900">Vendas recentes</h3>
+                <h3 className="text-tituloSecao font-extrabold text-hf-stone-900">Vendas recentes</h3>
                 <Link
                   to={`/safras/${safraId}/vendas`}
-                  className="flex items-center gap-0.5 text-[12.5px] font-bold text-hf-green-700"
+                  className="flex items-center gap-0.5 text-legenda font-bold text-hf-green-700"
                 >
                   Ver todas
                   <ChevronRight className="h-3 w-3" />
                 </Link>
               </div>
               {ultimasVendas.length === 0 && (
-                <p className="text-center text-sm text-hf-stone-600">Nenhuma venda neste período.</p>
+                <p className="text-center text-corpo text-hf-stone-600">Nenhuma venda neste período.</p>
               )}
               <div>
                 {ultimasVendas.map((v) => (
@@ -219,12 +219,12 @@ export default function ResumoPage() {
                       <ShoppingCart className="h-[18px] w-[18px] text-hf-blue" strokeWidth={2} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="m-0 text-sm font-bold text-hf-stone-900">
+                      <p className="m-0 text-corpo font-bold text-hf-stone-900">
                         {v.quantidade} {v.unidade_nome} × {formatarMoeda(Number(v.preco))}
                       </p>
-                      <p className="m-0 mt-0.5 text-xs text-hf-stone-600">{formatarData(v.data)}</p>
+                      <p className="m-0 mt-0.5 text-auxiliar text-hf-stone-600">{formatarData(v.data)}</p>
                     </div>
-                    <div className="shrink-0 text-[14.5px] font-extrabold tabular-nums text-hf-green-800">
+                    <div className="shrink-0 text-valorSecundario font-extrabold tabular-nums text-hf-green-800">
                       {formatarMoeda(Number(v.total))}
                     </div>
                   </div>
@@ -234,10 +234,10 @@ export default function ResumoPage() {
 
             <div>
               <div className="mb-2.5 flex items-baseline justify-between">
-                <h3 className="text-base font-extrabold text-hf-stone-900">Divisão do lucro</h3>
+                <h3 className="text-tituloSecao font-extrabold text-hf-stone-900">Divisão do lucro</h3>
                 <Link
                   to={`/sociedades/${sociedadeId}/configuracoes/socios`}
-                  className="flex items-center gap-0.5 text-[12.5px] font-bold text-hf-green-700"
+                  className="flex items-center gap-0.5 text-legenda font-bold text-hf-green-700"
                 >
                   Ver sócios
                   <ChevronRight className="h-3 w-3" />
@@ -253,33 +253,33 @@ export default function ResumoPage() {
                       className="flex items-center justify-between border-b border-hf-cream-100 py-3 last:border-b-0 last:pb-0"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-[13px] font-extrabold text-hf-green-800">
+                        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-textoPequeno font-extrabold text-hf-green-800">
                           {iniciais(d.nome)}
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-bold text-hf-stone-900">
+                            <span className="text-corpo font-bold text-hf-stone-900">
                               {d.nome}
                               {souEu ? ' (Você)' : ''}
                             </span>
                             {socio && (
-                              <span className="rounded-full bg-hf-green-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-green-700">
+                              <span className="rounded-full bg-hf-green-100 px-1.5 py-0.5 text-miniEtiqueta font-bold text-hf-green-700">
                                 {ROTULO_PAPEL_SOCIO[socio.papel]}
                               </span>
                             )}
                           </div>
-                          <div className="mt-0.5 text-[11.5px] text-hf-stone-400">Percentual: {d.percentual}%</div>
+                          <div className="mt-0.5 text-etiqueta text-hf-stone-400">Percentual: {d.percentual}%</div>
                         </div>
                       </div>
                       <div className="text-right">
                         <div
                           className={
-                            'text-[14.5px] font-extrabold tabular-nums ' + (d.valor < 0 ? 'text-hf-red' : '')
+                            'text-valorSecundario font-extrabold tabular-nums ' + (d.valor < 0 ? 'text-hf-red' : '')
                           }
                         >
                           {formatarMoeda(d.valor)}
                         </div>
-                        <div className="text-[10.5px] text-hf-stone-400">A receber</div>
+                        <div className="text-miniLegenda text-hf-stone-400">A receber</div>
                       </div>
                     </div>
                   );

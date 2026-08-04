@@ -26,6 +26,30 @@ Não é preciso colar o HTML nem re-explicar o histórico — é só isso.
 - Corpo/labels: `-apple-system` padrão do sistema
 - Números monetários e contadores: `font-variant-numeric: tabular-nums` sempre
 
+### Escala tipográfica (design system, `docs/specs/14-design-system-tipografia.md`)
+
+Tamanho de texto é um **token nomeado por papel semântico**, não um valor solto (`text-[17px]` no web, `fontSize: 17` no mobile) — web em `frontend/tailwind.config.ts` (bloco `theme.extend.fontSize`), mobile em `mobile/src/theme.ts` (`export const fonte`). **Toda tela nova ou redesenhada a partir de agora usa um token da lista abaixo; se nenhum papel existente encaixar, é um token novo, não um valor solto.**
+
+| Token | Papel | Web | Mobile |
+|---|---|---|---|
+| `miniEtiqueta` | Selo secundário muito pequeno (ex: tag de papel do sócio) | 10px | 10 |
+| `miniLegenda` | Legenda ínfima abaixo de um valor (ex: "A receber") | 10.5px | 10.5 |
+| `etiqueta` | Selo de status e percentuais em destaque pequeno | 11.5px | 11 |
+| `auxiliar` | Texto auxiliar pequeno dentro de cards (labels, notas) | 12px | 12 |
+| `legenda` | Texto secundário padrão (rótulos, datas, links auxiliares) | 12.5px | 12.5 |
+| `textoPequeno` | Avatares/iniciais e mensagens de status curtas | 13px | 13 |
+| `corpo` | Texto padrão de conteúdo (nomes, títulos de item, mensagens) | 14px | 13.5 |
+| `valorSecundario` | Valor monetário de destaque médio (itens de lista) | 14.5px | 14 |
+| `destaqueMedio` | Texto em destaque médio (ex: percentual dentro do anel) | 15px | 15 |
+| `tituloSecao` | Título de seção dentro de uma tela | 16px | 15 |
+| `valorDestaque` | Valor monetário em destaque (cards de resumo) | 17px | 17 |
+| `tituloTela` | Título principal da tela | 21px | 20 |
+| `hero` | Valor monetário principal, maior destaque da tela | 26px | 26 |
+
+Onde web e mobile já mostravam o mesmo papel visualmente com valores diferentes antes desta task (`etiqueta`, `corpo`, `valorSecundario`, `tituloSecao`, `tituloTela`), o valor de cada lado foi **preservado como estava** — a spec não muda tamanho por padrão, só nomeia e centraliza; alinhar esses valores entre plataformas é uma decisão visual separada, a tomar depois.
+
+**Migração incremental**: só `ResumoPage.tsx` (web) e `ResumoScreen.tsx` (mobile) foram migradas como prova de conceito. As demais telas ainda têm valores soltos e migram aos poucos, sempre que forem tocadas por outro motivo — mesmo critério já usado no checklist de redesign visual (`docs/design/checklist-telas.md`).
+
 ## Componentes recorrentes (nomes usados no wireframe, pra manter consistência ao nomear componentes React)
 
 - **Topbar**: hambúrguer + logo central + sino de notificação. Aparece em toda tela com bottom nav.

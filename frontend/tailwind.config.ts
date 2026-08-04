@@ -67,6 +67,28 @@ export default {
         // Usada em títulos e wordmark (peso 800) — dá o tom "amigável" do wireframe.
         rounded: ['ui-rounded', '"SF Pro Rounded"', '"Segoe UI Rounded"', '-apple-system', 'sans-serif'],
       },
+      // Escala tipográfica nomeada por papel semântico (docs/specs/14-design-system-tipografia.md)
+      // — não por valor de pixel. Objetivo: mudar o tamanho de "todo valor monetário em destaque"
+      // ou "todo título de seção" vira 1 linha aqui, em vez de caçar `text-[Npx]` solto em cada
+      // tela. Equivalente no mobile: `fonte` em `mobile/src/theme.ts` (mesmos nomes; valor numérico
+      // igual quando o papel já é visualmente o mesmo nas duas plataformas — ver notas-de-design.md
+      // para os casos, hoje pré-existentes, em que web e mobile ainda divergem no mesmo papel).
+      // Migração incremental: só telas novas/redesenhadas são obrigadas a usar estes tokens.
+      fontSize: {
+        miniEtiqueta: '10px', // selo secundário muito pequeno (ex: tag de papel do sócio)
+        miniLegenda: '10.5px', // legenda ínfima abaixo de um valor (ex: "A receber")
+        etiqueta: '11.5px', // selo de status e percentuais em destaque pequeno
+        auxiliar: '12px', // texto auxiliar pequeno dentro de cards (labels, notas)
+        legenda: '12.5px', // texto secundário padrão (rótulos, datas, links auxiliares)
+        textoPequeno: '13px', // texto pequeno para avatares/iniciais e mensagens de status
+        corpo: '14px', // texto padrão de conteúdo (nomes, títulos de item, mensagens)
+        valorSecundario: '14.5px', // valor monetário de destaque médio (itens de lista)
+        destaqueMedio: '15px', // texto em destaque médio (ex: percentual dentro do anel)
+        tituloSecao: '16px', // título de seção dentro de uma tela
+        valorDestaque: '17px', // valor monetário em destaque (cards de resumo)
+        tituloTela: '21px', // título principal da tela
+        hero: '26px', // valor monetário principal, maior destaque da tela
+      },
     },
   },
   plugins: [],

@@ -47,3 +47,24 @@ export const fontes = {
   titulo: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }),
   corpo: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }),
 } as const;
+
+// Escala tipográfica nomeada por papel semântico (docs/specs/14-design-system-tipografia.md)
+// — equivalente ao bloco `fontSize` de `frontend/tailwind.config.ts`, mesmos nomes. Valor
+// numérico igual ao do web quando o papel já é visualmente o mesmo nas duas plataformas; onde
+// já divergiam antes desta task (ex: `tituloSecao`, `corpo`), o valor de cada lado foi mantido
+// como estava — ver notas-de-design.md para a lista dessas divergências pré-existentes.
+export const fonte = {
+  miniEtiqueta: 10, // selo secundário muito pequeno (ex: tag de papel do sócio)
+  miniLegenda: 10.5, // legenda ínfima abaixo de um valor (ex: "A receber")
+  etiqueta: 11, // selo de status e percentuais em destaque pequeno
+  auxiliar: 12, // texto auxiliar pequeno dentro de cards (labels, notas)
+  legenda: 12.5, // texto secundário padrão (rótulos, datas, links auxiliares)
+  textoPequeno: 13, // texto pequeno para avatares/iniciais e mensagens de status
+  corpo: 13.5, // texto padrão de conteúdo (nomes, títulos de item, mensagens)
+  valorSecundario: 14, // valor monetário de destaque médio (itens de lista)
+  destaqueMedio: 15, // texto em destaque médio (ex: percentual dentro do anel)
+  tituloSecao: 15, // título de seção dentro de uma tela
+  valorDestaque: 17, // valor monetário em destaque (cards de resumo)
+  tituloTela: 20, // título principal da tela
+  hero: 26, // valor monetário principal, maior destaque da tela
+} as const;

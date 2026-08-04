@@ -18,7 +18,7 @@ import { formatarData } from '../lib/data';
 import { formatarMoeda, iniciais } from '../lib/formatacao';
 import { ROTULO_STATUS_SAFRA } from '../lib/rotulos';
 import { FiltroPeriodo } from '../components/FiltroPeriodo';
-import { cores, espacamento, raio } from '../theme';
+import { cores, espacamento, fonte, raio } from '../theme';
 import type { PeriodoFiltro, Simulacao } from '../types/simulacao';
 import type { Socio } from '../types/sociedade';
 import type { VendaLocal } from '../types/venda';
@@ -327,11 +327,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   rotuloSafraAtual: {
-    fontSize: 12.5,
+    fontSize: fonte.legenda,
     color: cores.stone[600],
   },
   tituloSafra: {
-    fontSize: 20,
+    fontSize: fonte.tituloTela,
     fontWeight: '800',
     color: cores.stone[900],
   },
@@ -347,11 +347,11 @@ const styles = StyleSheet.create({
     gap: espacamento.xs,
   },
   dataTexto: {
-    fontSize: 12.5,
+    fontSize: fonte.legenda,
     color: cores.stone[600],
   },
   badgeStatus: {
-    fontSize: 11,
+    fontSize: fonte.etiqueta,
     fontWeight: '700',
     color: cores.green[700],
     backgroundColor: cores.green[100],
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   observacoes: {
     marginTop: espacamento.xs,
-    fontSize: 12.5,
+    fontSize: fonte.legenda,
     color: cores.stone[400],
   },
   cardRecebe: {
@@ -373,17 +373,17 @@ const styles = StyleSheet.create({
     padding: espacamento.lg,
   },
   cardRecebeLabel: {
-    fontSize: 12.5,
+    fontSize: fonte.legenda,
     color: 'rgba(255,255,255,0.8)',
     marginBottom: 2,
   },
   cardRecebeValor: {
-    fontSize: 26,
+    fontSize: fonte.hero,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   cardRecebePercentual: {
-    fontSize: 12,
+    fontSize: fonte.auxiliar,
     color: 'rgba(255,255,255,0.85)',
     marginTop: espacamento.xs,
   },
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   anelTexto: {
-    fontSize: 15,
+    fontSize: fonte.destaqueMedio,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -411,11 +411,11 @@ const styles = StyleSheet.create({
   erro: {
     color: cores.red.padrao,
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: fonte.textoPequeno,
     fontWeight: '500',
   },
   tituloSecao: {
-    fontSize: 15,
+    fontSize: fonte.tituloSecao,
     fontWeight: '800',
     color: cores.stone[900],
     marginBottom: espacamento.sm + 2,
@@ -458,16 +458,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardLabel: {
-    fontSize: 12,
+    fontSize: fonte.auxiliar,
     color: cores.stone[600],
   },
   cardValor: {
-    fontSize: 17,
+    fontSize: fonte.valorDestaque,
     fontWeight: '800',
     color: cores.stone[900],
   },
   cardValorInline: {
-    fontSize: 17,
+    fontSize: fonte.valorDestaque,
     fontWeight: '800',
     color: cores.stone[900],
   },
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarTexto: {
-    fontSize: 13,
+    fontSize: fonte.textoPequeno,
     fontWeight: '800',
     color: cores.green[800],
   },
@@ -496,17 +496,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   linhaDivisaoNome: {
-    fontSize: 13.5,
+    fontSize: fonte.corpo,
     fontWeight: '700',
     color: cores.stone[900],
   },
   linhaDivisaoPercentual: {
-    fontSize: 11,
+    fontSize: fonte.etiqueta,
     color: cores.stone[400],
     marginTop: 1,
   },
   linhaDivisaoValor: {
-    fontSize: 14,
+    fontSize: fonte.valorSecundario,
     fontWeight: '800',
     color: cores.green[800],
   },
@@ -516,13 +516,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   linkVerTodas: {
-    fontSize: 12.5,
+    fontSize: fonte.legenda,
     fontWeight: '700',
     color: cores.green[700],
   },
   vazio: {
     textAlign: 'center',
-    fontSize: 13.5,
+    fontSize: fonte.corpo,
     color: cores.stone[600],
     marginTop: espacamento.sm,
   },
@@ -546,17 +546,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemVendaTitulo: {
-    fontSize: 13.5,
+    fontSize: fonte.corpo,
     fontWeight: '700',
     color: cores.stone[900],
   },
   itemVendaData: {
-    fontSize: 11,
+    fontSize: fonte.etiqueta,
     color: cores.stone[400],
     marginTop: 1,
   },
   itemVendaValor: {
-    fontSize: 14,
+    fontSize: fonte.valorSecundario,
     fontWeight: '800',
     color: cores.green[800],
   },
