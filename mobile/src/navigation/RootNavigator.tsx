@@ -17,6 +17,7 @@ import { ConfiguracoesRegrasDespesaScreen } from '../screens/ConfiguracoesRegras
 import { AcertosScreen } from '../screens/AcertosScreen';
 import { NovoAcertoScreen } from '../screens/NovoAcertoScreen';
 import { AcertoDetalheScreen } from '../screens/AcertoDetalheScreen';
+import { RelatorioScreen } from '../screens/RelatorioScreen';
 import { useAuth } from '../context/AuthContext';
 import type { DespesaLocal } from '../types/despesa';
 import type { VendaLocal } from '../types/venda';
@@ -43,6 +44,7 @@ export type RootStackParamList = {
   Acertos: { safraId: string };
   NovoAcerto: { safraId: string };
   AcertoDetalhe: { acertoId: string; safraId: string };
+  Relatorio: { safraId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -92,6 +94,7 @@ export function RootNavigator() {
             <Stack.Screen name="Acertos" component={AcertosScreen} />
             <Stack.Screen name="NovoAcerto" component={NovoAcertoScreen} />
             <Stack.Screen name="AcertoDetalhe" component={AcertoDetalheScreen} />
+            <Stack.Screen name="Relatorio" component={RelatorioScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

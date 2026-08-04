@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Calendar, ChevronRight, ShoppingCart, TrendingUp, Wallet } from 'lucide-react-native';
+import { Calendar, ChevronRight, FileDown, ShoppingCart, TrendingUp, Wallet } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -151,6 +151,7 @@ export function ResumoScreen({ navigation }: Props) {
   }
 
   const meuSocio = socios.find((s) => s.usuario_id === usuario?.id);
+  const souFinanciador = meuSocio?.papel === 'FINANCIADOR' || meuSocio?.papel === 'MISTO';
   const meuDivisao = simulacao?.divisao.find((d) => d.socio_id === meuSocio?.id) ?? null;
   const percentualAnel = Math.min(100, Math.max(0, meuDivisao?.percentual ?? 0));
   const offsetAnel = CIRCUNFERENCIA_ANEL * (1 - percentualAnel / 100);
@@ -188,6 +189,16 @@ export function ResumoScreen({ navigation }: Props) {
         </View>
         {safra.observacoes && <Text style={styles.observacoes}>{safra.observacoes}</Text>}
       </Pressable>
+
+      {souFinanciador && (
+        <Pressable
+          style={styles.botaoRelatorio}
+          onPress={() => navigation.navigate('Relatorio', { safraId: safraAtiva.safraId })}
+        >
+          <FileDown size={16} color={cores.green[700]} strokeWidth={2.2} />
+          <Text style={styles.botaoRelatorioTexto}>Gerar relatório em PDF</Text>
+        </Pressable>
+      )}
 
       <View style={styles.filtroArea}>
         <PeriodToggle valor={periodo} onSelecionar={selecionarPeriodo} incluirSafra={false} />
@@ -330,6 +341,22 @@ const styles = StyleSheet.create({
   filtroArea: {
     flexDirection: 'row',
     gap: espacamento.sm,
+  },
+  botaoRelatorio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.xs + 2,
+    borderWidth: 1,
+    borderColor: cores.linha,
+    backgroundColor: '#FFFFFF',
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.sm + 2,
+  },
+  botaoRelatorioTexto: {
+    fontSize: fonte.legenda,
+    fontWeight: '700',
+    color: cores.green[700],
   },
   cabecalhoSafra: {
     gap: 2,

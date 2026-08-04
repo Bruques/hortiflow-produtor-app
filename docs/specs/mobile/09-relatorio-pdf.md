@@ -28,7 +28,7 @@ Mesma regra do web: só sócio `FINANCIADOR` ou `MISTO`. O botão/card fica esco
 
 ### Download e compartilhamento — dependência nova
 O app mobile ainda não baixa nem compartilha nenhum arquivo binário (a única leitura de arquivo hoje é `expo-image-picker`, pra anexar foto de comprovante, e isso nunca sai do dispositivo). Baixar o PDF da API e abrir a folha de compartilhamento nativa exige duas libs novas do ecossistema Expo:
-- **`expo-file-system`**: salva o PDF recebido (como base64/blob da resposta) num arquivo temporário no dispositivo — pré-requisito pra `expo-sharing`, que compartilha por caminho de arquivo, não por dado em memória
+- **`expo-file-system`**: salva o PDF recebido num arquivo temporário no dispositivo — pré-requisito pra `expo-sharing`, que compartilha por caminho de arquivo, não por dado em memória
 - **`expo-sharing`**: abre a folha de compartilhamento nativa (iOS: share sheet; Android: intent chooser) apontando pro arquivo salvo
 
 Ambas são módulos oficiais do Expo (mesma família de `expo-image-picker`/`expo-secure-store` já usados no projeto), sem custo de configuração nativa adicional em managed workflow.
@@ -57,3 +57,11 @@ GET /safras/:id/relatorio
 3. Sem conexão, a tela mostra aviso pedindo internet e o botão de gerar fica desabilitado — nenhuma chamada é feita
 4. Trocar o período antes de gerar reflete no PDF baixado (mesmo intervalo aplicado no web pro mesmo filtro)
 5. Se o backend retornar erro (ex: 403 por alguma inconsistência de papel), a tela mostra mensagem de erro em vez de travar ou abrir a folha de compartilhamento com arquivo inválido
+
+## Decisões registradas durante a implementação
+
+- **API do Expo SDK 57 mudou desde o texto original da spec**: `expo-file-system` nesta versão usa as classes `File`/`Directory` (`new File(Paths.cache, nome)`, `.create()`, `.write()`), não a API legada baseada em `downloadAsync(url, uri)` de versões anteriores. Confirmado consultando a documentação versionada antes de codar (`mobile/AGENTS.md` já avisa que a API do Expo muda entre versões).
+- **Download feito com `expo/fetch` (fetch WHATWG do próprio Expo) em vez de `File.createDownloadTask()`**: a API de download por task não deixa claro, na documentação, o que acontece quando o servidor responde com erro HTTP (403/400) em vez de 200 — existe o risco real de gravar o corpo JSON do erro num arquivo `.pdf` como se fosse sucesso, e só o usuário descobriria ao tentar abrir um PDF corrompido. Com `expo/fetch`, a resposta expõe `response.ok`/`response.status` explicitamente, então o erro é tratado igual ao resto do app (mensagem do campo `error` do backend) antes de qualquer arquivo ser gravado. Único lugar do app que não passa pelo `apiClient`/axios — nota deixada em `mobile/src/services/relatorio.ts`.
+- **`mobile/src/services/relatorio.ts`, `mobile/src/screens/RelatorioScreen.tsx`**: seguem o mesmo padrão de "exige conexão" já usado em `NovoAcertoScreen.tsx` (spec `05`) — `useConectividade()` bloqueia a tela inteira antes de qualquer tentativa de chamada, com o mesmo aviso visual (`WifiOff`, texto explicando o porquê).
+- **Pontos de entrada**: botão em `ResumoScreen.tsx` (acima do seletor de período, mesma posição do web) e card em `MenuScreen.tsx` (ao lado de "Unidades de Venda", reaproveitando a mesma flag `souFinanciador` já calculada ali) — ambos condicionados a `FINANCIADOR`/`MISTO`.
+- **Validado sem simulador/dispositivo físico**, mesma limitação já registrada nas specs `00`, `04` e `05`: `npm run lint` (type-check), `npm test` (14 suítes/54 testes) e `npx expo export --platform ios` (bundling completo com as duas libs novas, sem erro) confirmam que o código compila; os critérios que dependem de interação real (tocar em "Baixar/Compartilhar" e ver a folha de compartilhamento nativa abrir com o PDF correto, alternar conexão e ver o aviso aparecer/sumir) ainda precisam ser conferidos rodando o app de verdade.

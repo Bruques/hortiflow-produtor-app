@@ -30,7 +30,8 @@
         {
           "cameraPermission": "O HortiFlow usa a câmera para anexar a foto do comprovante a uma despesa."
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }
