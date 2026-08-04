@@ -31,6 +31,7 @@ Sem estrutura rígida — anote como quiser, mova de seção quando fizer sentid
 Roadmap de specs (`docs/specs/mobile/00` a `08`) **concluído** — todas implementadas e validadas, exceto a `07` (despesa pessoal), adiada para depois do MVP.
 
 - **[ ] `07-despesa-pessoal.md`** — despesa pessoal isolada, offline sem dependência de cache de sócios. Spec já escrita e aprovada; adiada para pós-MVP (decisão do dev, 2026-08-03) — retomar quando o desenvolvedor pedir.
+- **[ ] `09-relatorio-pdf.md`** — leva pro mobile a geração do relatório em PDF já implementada no web (`docs/specs/15-relatorio-pdf.md`, 2026-08-04). Spec escrita, aguardando revisão do desenvolvedor antes de implementar. Introduz duas dependências novas no app (`expo-file-system`, `expo-sharing`), pra baixar o PDF e abrir a folha de compartilhamento nativa.
 
 ### Prioridade alta (segurança / risco ativo)
 
