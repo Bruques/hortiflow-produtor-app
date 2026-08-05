@@ -132,6 +132,37 @@ export async function buscarRegraPorId(regraId: string) {
   return prisma.regraDespesaRecorrente.findUnique({ where: { id: regraId } });
 }
 
+interface AtualizarRegraInput {
+  tipo_despesa: TipoDespesa;
+  valor: number;
+  unidade_id?: string;
+  rateio?: RateioInput[];
+}
+
+// Edita valor/tipo_despesa/unidade/rateio de uma regra já criada (docs/specs/04, adendo
+// 2026-08-04). Nunca toca em Despesa já gerada — ela guarda uma cópia própria dos dados no
+// momento da criação (mesmo princípio do Acerto), então editar a regra só muda o que ela vai
+// gerar dali pra frente. tipo_gatilho, ativo, socio_id e criado_por não são editáveis aqui.
+export async function atualizarRegra(regraId: string, input: AtualizarRegraInput) {
+  const regra = await prisma.regraDespesaRecorrente.update({
+    where: { id: regraId },
+    data: {
+      tipo_despesa: input.tipo_despesa,
+      valor: input.valor,
+      unidade_id: input.unidade_id ?? null,
+      rateios: {
+        deleteMany: {},
+        ...(input.rateio && {
+          create: input.rateio.map((r) => ({ socio_sociedade_id: r.socio_id, percentual: r.percentual })),
+        }),
+      },
+    },
+    include: { rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
+  });
+  const { rateios, ...resto } = regra;
+  return { ...resto, rateio: mapearRateio(rateios) };
+}
+
 // Valida os ids marcados na tela de Venda (`regras_por_venda_aplicadas`) antes de repassar
 // pro service de vendas: todos precisam ser regra POR_VENDA ativa, da Sociedade e da unidade
 // da venda — evita que um id de outra sociedade/unidade ou desativado passe direto.

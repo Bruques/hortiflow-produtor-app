@@ -8,7 +8,15 @@ export interface CriarRegraInput {
   tipo_despesa: TipoDespesa;
   valor: number;
   unidade_id?: string;
-  // Ausente = despesas geradas seguem o rateio padrão; definido só na criação (sem edição depois)
+  // Ausente = despesas geradas seguem o rateio padrão
+  rateio?: { socio_id: string; percentual: number }[];
+}
+
+export interface AtualizarRegraInput {
+  tipo_despesa: TipoDespesa;
+  valor: number;
+  unidade_id?: string;
+  // Ausente = remove o rateio personalizado, volta a seguir o rateio padrão (docs/specs/04, adendo 2026-08-04)
   rateio?: { socio_id: string; percentual: number }[];
 }
 
@@ -19,6 +27,14 @@ export async function criarRegraRequest(
   input: CriarRegraInput
 ): Promise<{ regra: RegraDespesaRecorrente }> {
   const { data } = await apiClient.post(`/sociedades/${sociedadeId}/regras-recorrentes`, input);
+  return data;
+}
+
+export async function atualizarRegraRequest(
+  regraId: string,
+  input: AtualizarRegraInput
+): Promise<{ regra: RegraDespesaRecorrente }> {
+  const { data } = await apiClient.put(`/regras-recorrentes/${regraId}`, input);
   return data;
 }
 

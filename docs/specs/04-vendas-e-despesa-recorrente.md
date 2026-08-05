@@ -206,6 +206,38 @@ Isso não é só inconsistência de rótulo: numa regra que paga o meeiro por ca
 
 **Fica de fora desta mudança:** qualquer alteração em `calcularDivisao`, rateio, ou no fluxo de confirmação de sugestão do dia — só o preenchimento de `socio_id` muda, de "escolhido na tela" para "sempre quem criou a regra".
 
+## Adendo (2026-08-04) — editar regra recorrente já criada (sem exclusão)
+
+Origem: hoje só existe `PATCH .../{ ativo }` — pra corrigir um valor errado ou trocar o tipo de despesa gerado, a única saída era desativar a regra antiga e criar outra do zero, perdendo o histórico de qual regra gerou quais despesas passadas. O dev avaliou também permitir **excluir** a regra, mas decidiu manter só edição por enquanto (exclusão fica em aberto pra discussão futura, não implementar).
+
+**Por que editar é seguro sem tocar em despesas já geradas:** `Despesa` grava `valor`, `tipo` e o rateio (via `RateioDespesa`) como uma cópia no momento da criação — não referencia a regra ao vivo pra nada além de auditoria (`regra_origem_id`). Editar a regra depois **não recalcula nem altera nenhuma Despesa já criada** por ela; só muda o que vai ser gerado nas próximas vendas (`POR_VENDA`) ou confirmações de sugestão (`POR_PERIODO`).
+
+**Decisão de escopo (confirmada com o dev):** o rateio também é editável — deixa de ser "definido só na criação" (limitação registrada em `docs/specs/13-rateio-de-despesas.md` e no comentário de `criarRegra`). `tipo_gatilho` (`POR_VENDA`/`POR_PERIODO`) **não é editável** — trocar o gatilho muda a natureza da regra (unidade obrigatória vs. não, aparecer em sugestão vs. gerar por venda); pra isso o financiador desativa a regra atual e cria uma nova.
+
+### Mudança de contrato de API
+
+```
+PUT /regras-recorrentes/:id
+  auth obrigatório, requer papel FINANCIADOR ou MISTO na sociedade dona da regra
+  body: { tipo_despesa: TipoDespesa, valor: number, unidade_id?: string, rateio?: { socio_id: string, percentual: number }[] }
+  → 200 { regra: { id, tipo_gatilho, tipo_despesa, valor, unidade_id, unidade_nome, ativo, rateio } }
+  → 404 se a regra não existe
+  → 403 se papel MEEIRO, ou não for sócio da sociedade dona da regra
+  → 422 se unidade_id ausente numa regra POR_VENDA, se unidade_id não pertence à sociedade, ou se rateio não soma 100% entre sócios da mesma sociedade
+```
+
+- `unidade_id`: obrigatório e validado só quando a regra é `POR_VENDA` (mesma validação de `criarRegra`); ignorado se a regra for `POR_PERIODO`
+- `rateio` omitido no body: remove qualquer rateio personalizado existente, regra volta a seguir o rateio padrão (percentual de lucro vigente) — mesma semântica de "ausente = padrão" já usada na criação, não um "deixa como estava"
+- `rateio` enviado: substitui por completo o rateio anterior (apaga as linhas de `RateioRegra` existentes e recria a partir do body), mesma validação de soma 100% e sócios da mesma sociedade já usada em `criarRegra`
+- Editar não mexe em `ativo`, `socio_id` nem `criado_por` — continuam só por `PATCH .../{ ativo }` e nunca editáveis, respectivamente
+- Nenhuma Despesa já criada é apagada, recriada ou recalculada por essa edição — diferente do `PUT` de Venda (que reprocessa despesas geradas), aqui é puramente "o que essa regra vai gerar dali pra frente"
+
+### Frontend (`ConfiguracoesRegrasDespesaPage.tsx`)
+
+- Cada card de regra ganha uma ação "Editar" (visível só pra `FINANCIADOR`/`MISTO`, mesma condição de `souFinanciador` que já controla o toggle de ativo/inativo)
+- Abre o mesmo formulário já usado para "Nova regra" (tipo de despesa, unidade se `POR_VENDA`, valor, seletor de rateio padrão/exclusivo/personalizado), pré-preenchido com os dados atuais da regra — `tipo_gatilho` aparece travado/somente leitura, não é um campo editável
+- Salvar chama `PUT /regras-recorrentes/:id` e recarrega a listagem; mesmo tratamento de erro (`erroRegras`) já usado no fluxo de criação
+
 ## Critérios de aceite
 
 1. Dado uma Safra em andamento, `POST /safras/:id/vendas` cria a Venda com `total` calculado no backend
@@ -231,3 +263,10 @@ Isso não é só inconsistência de rótulo: numa regra que paga o meeiro por ca
 19. `GET /safras/:id/vendas` retorna `regras_aplicadas` com os ids das regras que geraram despesa para cada venda
 20. Dado uma Venda editada com um novo `regras_por_venda_aplicadas` diferente do estado salvo, `PUT /safras/:id/vendas/:vendaId` apaga as despesas antigas dessa venda e recria só para os ids da nova lista; se o campo for omitido no `PUT`, as despesas já geradas não são alteradas
 21. Frontend: ao abrir a tela para editar uma Venda existente, os toggles de regra `POR_VENDA` vêm marcados conforme `regras_aplicadas` daquela venda, não todos marcados por padrão
+22. Dado uma regra `POR_VENDA` existente com 3 Despesas já geradas por ela, `PUT /regras-recorrentes/:id` alterando o `valor` não modifica nenhuma dessas 3 Despesas — só o valor usado na próxima venda lançada muda
+23. `PUT /regras-recorrentes/:id` com papel `MEEIRO` autenticado: 403; nenhum campo da regra é alterado
+24. `PUT /regras-recorrentes/:id` de uma regra `POR_VENDA` sem `unidade_id` no body: 422
+25. `PUT /regras-recorrentes/:id` com `rateio` que não soma 100% entre sócios da sociedade: 422, regra não é alterada
+26. Dado uma regra com rateio personalizado, `PUT /regras-recorrentes/:id` sem o campo `rateio` no body remove o rateio personalizado — a regra passa a seguir o rateio padrão nas próximas despesas geradas
+27. `PUT /regras-recorrentes/:id` não aceita nem altera `tipo_gatilho`, `ativo`, `socio_id` ou `criado_por`, mesmo se enviados no body
+28. Frontend: cada regra na listagem tem uma ação de editar (só visível para `FINANCIADOR`/`MISTO`), que abre o mesmo formulário de criação pré-preenchido, com `tipo_gatilho` travado

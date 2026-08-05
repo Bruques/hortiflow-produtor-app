@@ -11,13 +11,13 @@ Levar pro app mobile o lançamento de Vendas — a outra operação de alto volu
 - Lançar Venda: `data`, `quantidade`, `preco`, `comprador?`, `unidade_id` (obrigatório), `pago` (toggle "Já foi pago?"), e os toggles opt-in de regras `POR_VENDA` aplicáveis (`regras_por_venda_aplicadas`)
 - Listar vendas da safra, com indicação de status de pagamento e das regras que geraram despesa
 - Editar e excluir Venda — bloqueado (`409`) se a data já estiver coberta por um Acerto; editar recalcula despesas `POR_VENDA` conforme os toggles atuais
-- Configurar `RegraDespesaRecorrente`: criar (com `tipo_gatilho`, `tipo_despesa`, `valor`, `unidade_id` obrigatório quando `POR_VENDA`, e rateio opcional — mesmo seletor da spec `04`), listar, ativar/desativar — só `FINANCIADOR`/`MISTO` cria/edita
+- Configurar `RegraDespesaRecorrente`: criar (com `tipo_gatilho`, `tipo_despesa`, `valor`, `unidade_id` obrigatório quando `POR_VENDA`, e rateio opcional — mesmo seletor da spec `04`), listar, ativar/desativar, **editar** (`tipo_despesa`, `valor`, `unidade_id`, rateio — ver adendo 2026-08-04 da spec `04` web) — só `FINANCIADOR`/`MISTO` cria/edita
 - **Sugestões do dia** (`POR_PERIODO`): lista de regras pendentes de confirmação hoje, com botão de confirmação de 1 clique
 - Fila de sincronização offline pra Venda e pra confirmação de sugestão (ambas criam dado no servidor a partir de uma ação de campo)
 
 **Fica de fora:**
 - Fator de conversão entre unidades (mesma decisão do web: cada unidade é independente)
-- Editar o rateio de uma regra recorrente já criada (mesma limitação do web)
+- Excluir uma regra recorrente já criada (avaliado e descartado por ora — mesma decisão do web, adendo 2026-08-04 da spec `04`; só ativar/desativar/editar)
 - Despesa Pessoal — spec `07` mobile
 
 ## Regras de negócio
@@ -36,7 +36,8 @@ Levar pro app mobile o lançamento de Vendas — a outra operação de alto volu
 - Como toda sociedade precisa ter ao menos uma unidade cadastrada antes de lançar a primeira Venda (regra já existente no backend), na prática essa dependência é resolvida naturalmente no onboarding (spec `02`/`03`), que já exige conexão
 
 ### Unidades de venda e Regras recorrentes exigem conexão
-- Mesmo critério das specs `02`/`03`/`05`: cadastrar/desativar unidade e criar/desativar regra recorrente são ações raras, restritas a `FINANCIADOR`/`MISTO`, com validação de servidor (nome duplicado, `422` de unidade errada) — **não entram na fila offline**
+- Mesmo critério das specs `02`/`03`/`05`: cadastrar/desativar unidade e criar/desativar/**editar** regra recorrente são ações raras, restritas a `FINANCIADOR`/`MISTO`, com validação de servidor (nome duplicado, `422` de unidade errada ou rateio inválido) — **não entram na fila offline**. Sem internet, o botão de editar fica desabilitado com o mesmo aviso já usado pra criar
+- Editar uma regra não recalcula nem toca em nenhuma Despesa já sincronizada por ela — mesma garantia da spec `04` web (adendo 2026-08-04)
 
 ### Toggles de regra `POR_VENDA` (opt-in explícito)
 - Ao abrir "Nova venda", os toggles das regras `POR_VENDA` ativas da unidade escolhida vêm **marcados por padrão**; o sócio pode desmarcar antes de salvar
@@ -71,6 +72,7 @@ POST  /sociedades/:id/regras-recorrentes
 
 GET   /sociedades/:id/regras-recorrentes    → 200 { regras: [...] } | 403
 PATCH /regras-recorrentes/:id               { ativo } → 200 { regra } | 403
+PUT   /regras-recorrentes/:id               { tipo_despesa, valor, unidade_id?, rateio? } → 200 { regra } | 422 (unidade/rateio inválido) | 403
 
 GET   /safras/:id/regras-recorrentes/sugestoes  → 200 { sugestoes: [...] } | 403
 POST  /safras/:id/regras-recorrentes/:regraId/confirmar → 201 { despesa } | 403 | 409 (já confirmada hoje)
@@ -92,6 +94,9 @@ POST  /safras/:id/regras-recorrentes/:regraId/confirmar → 201 { despesa } | 40
 12. Confirmar uma sugestão sem internet enfileira a criação da despesa correspondente, sincronizando quando a conexão voltar
 13. Dado que unidades/regras nunca foram carregadas (nenhuma conexão desde a instalação), a tela de nova venda avisa que é preciso conectar antes do primeiro lançamento
 14. Existe teste unitário garantindo que o item de Venda na fila de sincronização carrega tudo que o backend exige (`unidade_id`, `regras_por_venda_aplicadas`, `pago`) e não tenta calcular despesas geradas no cliente
+15. O financiador consegue editar uma `RegraDespesaRecorrente` existente (valor, tipo de despesa, unidade se `POR_VENDA`, rateio); Despesas já geradas por ela antes da edição não mudam de valor
+16. Editar uma regra sem internet mostra aviso de que é preciso conexão, mesmo comportamento já existente pra criar; nenhuma tentativa de enfileirar a edição offline
+17. Um `MEEIRO` não vê a ação de editar regra na listagem
 
 ## Decisões registradas durante a implementação
 

@@ -99,6 +99,64 @@ export async function atualizarAtivo(req: Request, res: Response): Promise<void>
   res.json({ regra: resultado.regra });
 }
 
+const putSchema = z.object({
+  tipo_despesa: z.nativeEnum(TipoDespesa),
+  valor: z.number().positive(),
+  unidade_id: z.string().min(1).optional(),
+  rateio: z.array(z.object({ socio_id: z.string().min(1), percentual: z.number().positive() })).optional(),
+});
+
+export async function atualizar(req: Request, res: Response): Promise<void> {
+  const { id } = req.params; // regra id
+
+  const parsed = putSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Dados de regra inválidos' });
+    return;
+  }
+
+  const regraAtual = await regrasService.buscarRegraPorId(id);
+  if (!regraAtual) {
+    res.status(404).json({ error: 'Regra não encontrada' });
+    return;
+  }
+
+  const podeConfigurar = await regrasService.podeConfigurarRegra(req.usuarioId, regraAtual.sociedade_id);
+  if (!podeConfigurar) {
+    res.status(403).json({ error: 'Só sócios financiadores podem configurar despesa recorrente' });
+    return;
+  }
+
+  // tipo_gatilho não é editável — unidade_id só se aplica/persiste se a regra já for POR_VENDA
+  if (regraAtual.tipo_gatilho === TipoGatilhoRegra.POR_VENDA) {
+    if (!parsed.data.unidade_id) {
+      res.status(422).json({ error: 'unidade_id é obrigatório para regras do tipo POR_VENDA' });
+      return;
+    }
+    const unidadeValida = await unidadesService.unidadePertenceASociedade(parsed.data.unidade_id, regraAtual.sociedade_id);
+    if (!unidadeValida) {
+      res.status(422).json({ error: 'unidade_id informado não pertence a essa sociedade' });
+      return;
+    }
+  }
+
+  if (parsed.data.rateio) {
+    const rateioValido = await regrasService.rateioValido(regraAtual.sociedade_id, parsed.data.rateio);
+    if (!rateioValido) {
+      res.status(422).json({ error: 'rateio precisa somar 100% entre sócios da mesma sociedade' });
+      return;
+    }
+  }
+
+  const regra = await regrasService.atualizarRegra(id, {
+    tipo_despesa: parsed.data.tipo_despesa,
+    valor: parsed.data.valor,
+    unidade_id: regraAtual.tipo_gatilho === TipoGatilhoRegra.POR_VENDA ? parsed.data.unidade_id : undefined,
+    rateio: parsed.data.rateio,
+  });
+  res.json({ regra });
+}
+
 export async function sugestoes(req: Request, res: Response): Promise<void> {
   const { id } = req.params; // safra id
 

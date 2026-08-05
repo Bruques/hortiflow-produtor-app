@@ -7,5 +7,6 @@ const router = Router();
 router.use(authMiddleware);
 
 router.patch('/:id', regrasController.atualizarAtivo);
+router.put('/:id', regrasController.atualizar);
 
 export default router;

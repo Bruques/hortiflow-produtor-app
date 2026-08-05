@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Percent, Plus, SlidersHorizontal, User } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Percent, Plus, SlidersHorizontal, User } from 'lucide-react';
 import { meRequest } from '@/services/auth';
 import { listarSociosRequest } from '@/services/sociedades';
 import {
   atualizarAtivoRequest,
+  atualizarRegraRequest,
   criarRegraRequest,
   listarRegrasRequest,
 } from '@/services/regrasDespesaRecorrente';
 import { listarUnidadesRequest } from '@/services/unidadesVenda';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { cn, formatarMoeda, iniciais } from '@/lib/utils';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
@@ -64,6 +66,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
   const [erroRegras, setErroRegras] = useState<string | null>(null);
 
   const [novaRegraAberta, setNovaRegraAberta] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [tipoGatilho, setTipoGatilho] = useState<TipoGatilhoRegra>('POR_VENDA');
   const [tipoDespesaRegra, setTipoDespesaRegra] = useState<TipoDespesa>('OUTRO');
   const [valorRegraCentavos, setValorRegraCentavos] = useState(''); // só dígitos, sem formatação
@@ -159,26 +162,60 @@ export default function ConfiguracoesRegrasDespesaPage() {
       .filter((r) => r.percentual > 0);
   }
 
-  async function criarRegra() {
+  function fecharFormulario() {
+    setNovaRegraAberta(false);
+    setEditandoId(null);
+    setValorRegraCentavos('');
+    setModoRateio('padrao');
+    setRateioPercentuais({});
+  }
+
+  function abrirEdicao(regra: RegraDespesaRecorrente) {
+    setErroRegras(null);
+    setEditandoId(regra.id);
+    setTipoGatilho(regra.tipo_gatilho);
+    setTipoDespesaRegra(regra.tipo_despesa);
+    setValorRegraCentavos(String(Math.round(Number(regra.valor) * 100)));
+    setUnidadeRegra(regra.unidade_id ?? '');
+    if (!regra.rateio) {
+      setModoRateio('padrao');
+      setRateioPercentuais({});
+    } else if (regra.rateio.length === 1) {
+      setModoRateio('exclusivo');
+      setRateioExclusivoId(regra.rateio[0].socio_id);
+    } else {
+      setModoRateio('personalizado');
+      setRateioPercentuais(Object.fromEntries(regra.rateio.map((r) => [r.socio_id, String(r.percentual)])));
+    }
+    setNovaRegraAberta(true);
+  }
+
+  async function salvarRegra() {
     if (!sociedadeId || !valorRegraCentavos || !rateioValido) return;
     if (tipoGatilho === 'POR_VENDA' && !unidadeRegra) return;
     setErroRegras(null);
     setSalvandoRegra(true);
     try {
-      await criarRegraRequest(sociedadeId, {
-        tipo_gatilho: tipoGatilho,
-        tipo_despesa: tipoDespesaRegra,
-        valor: valorRegraNumero,
-        unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
-        rateio: rateioParaEnviar(),
-      });
-      setValorRegraCentavos('');
-      setModoRateio('padrao');
-      setRateioPercentuais({});
-      setNovaRegraAberta(false);
+      if (editandoId) {
+        await atualizarRegraRequest(editandoId, {
+          tipo_despesa: tipoDespesaRegra,
+          valor: valorRegraNumero,
+          unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
+          rateio: rateioParaEnviar(),
+        });
+      } else {
+        await criarRegraRequest(sociedadeId, {
+          tipo_gatilho: tipoGatilho,
+          tipo_despesa: tipoDespesaRegra,
+          valor: valorRegraNumero,
+          unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
+          rateio: rateioParaEnviar(),
+        });
+      }
+      fecharFormulario();
       carregarRegras();
     } catch {
-      setErroRegras('Não foi possível criar a regra');
+      setErroRegras(editandoId ? 'Não foi possível salvar a regra' : 'Não foi possível criar a regra');
     } finally {
       setSalvandoRegra(false);
     }
@@ -245,6 +282,16 @@ export default function ConfiguracoesRegrasDespesaPage() {
                     )}
                   </div>
                 </div>
+                {souFinanciador && (
+                  <button
+                    type="button"
+                    aria-label="Editar regra"
+                    onClick={() => abrirEdicao(r)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-stone-600"
+                  >
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} />
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label={r.ativo ? 'Desativar regra' : 'Ativar regra'}
@@ -266,7 +313,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
             );
           })}
 
-          {souFinanciador && !novaRegraAberta && (
+          {souFinanciador && (
             <button
               type="button"
               onClick={() => setNovaRegraAberta(true)}
@@ -277,18 +324,27 @@ export default function ConfiguracoesRegrasDespesaPage() {
             </button>
           )}
 
-          {souFinanciador && novaRegraAberta && (
-            <div className="flex flex-col gap-3 rounded-2xl border border-hf-line p-3.5">
+          <BottomSheet aberto={souFinanciador && novaRegraAberta} onFechar={fecharFormulario}>
+            <h4 className="m-0 shrink-0 pb-3 text-[13px] font-extrabold text-hf-stone-900">
+              {editandoId ? 'Editar regra' : 'Nova regra'}
+            </h4>
+            <div className="flex flex-col gap-3 overflow-y-auto pb-1">
               <div>
                 <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Gatilho</label>
                 <select
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base disabled:bg-hf-cream-100 disabled:text-hf-stone-500"
                   value={tipoGatilho}
+                  disabled={!!editandoId}
                   onChange={(e) => setTipoGatilho(e.target.value as TipoGatilhoRegra)}
                 >
                   <option value="POR_VENDA">Por venda (valor por unidade)</option>
                   <option value="POR_PERIODO">Por período (valor fixo recorrente)</option>
                 </select>
+                {editandoId && (
+                  <p className="m-0 mt-1.5 text-xs text-hf-stone-400">
+                    O gatilho não pode ser alterado — desative essa regra e crie outra se precisar mudar.
+                  </p>
+                )}
               </div>
               {tipoGatilho === 'POR_VENDA' && (
                 <div>
@@ -465,30 +521,30 @@ export default function ConfiguracoesRegrasDespesaPage() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNovaRegraAberta(false)}
-                  className="flex-1 rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-700"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={criarRegra}
-                  disabled={
-                    salvandoRegra ||
-                    !valorRegraCentavos ||
-                    !rateioValido ||
-                    (tipoGatilho === 'POR_VENDA' && !unidadeRegra)
-                  }
-                  className="flex-1 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
-                >
-                  {salvandoRegra ? 'Criando...' : 'Criar regra'}
-                </button>
-              </div>
             </div>
-          )}
+            <div className="flex shrink-0 gap-2 pt-3">
+              <button
+                type="button"
+                onClick={fecharFormulario}
+                className="flex-1 rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-700"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={salvarRegra}
+                disabled={
+                  salvandoRegra ||
+                  !valorRegraCentavos ||
+                  !rateioValido ||
+                  (tipoGatilho === 'POR_VENDA' && !unidadeRegra)
+                }
+                className="flex-1 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+              >
+                {salvandoRegra ? 'Salvando...' : editandoId ? 'Salvar alterações' : 'Criar regra'}
+              </button>
+            </div>
+          </BottomSheet>
         </div>
       </div>
     </div>

@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Check, Percent, Plus, Receipt, SlidersHorizontal, User, X } from 'lucide-react-native';
+import { ArrowLeft, Check, Pencil, Percent, Plus, Receipt, SlidersHorizontal, User, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BottomSheet } from '../components/BottomSheet';
 import { useAuth } from '../context/AuthContext';
 import { obterSociosCache } from '../lib/sociedadesCache';
 import { listarSociosRequest } from '../services/sociedades';
-import { atualizarAtivoRequest, criarRegraRequest, listarRegrasRequest, listarSugestoesRequest } from '../services/regrasDespesaRecorrente';
+import {
+  atualizarAtivoRequest,
+  atualizarRegraRequest,
+  criarRegraRequest,
+  listarRegrasRequest,
+  listarSugestoesRequest,
+} from '../services/regrasDespesaRecorrente';
 import { listarUnidadesRequest } from '../services/unidadesVenda';
 import { obterSugestoesCache, salvarSugestoesCache } from '../lib/sugestoesCache';
 import { confirmarSugestao } from '../lib/sugestaoQueue';
@@ -53,6 +60,7 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
   const [sugestoesDispensadas, setSugestoesDispensadas] = useState<Set<string>>(new Set());
 
   const [novaAberta, setNovaAberta] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [tipoGatilho, setTipoGatilho] = useState<TipoGatilhoRegra>('POR_VENDA');
   const [tipoDespesaRegra, setTipoDespesaRegra] = useState<TipoDespesa>('OUTRO');
   const [valorCentavos, setValorCentavos] = useState('');
@@ -173,25 +181,59 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
   const formNovaRegraValida =
     !!valorCentavos && rateioValido && (tipoGatilho !== 'POR_VENDA' || !!unidadeRegra);
 
-  async function criarRegra() {
+  function fecharFormulario() {
+    setNovaAberta(false);
+    setEditandoId(null);
+    setValorCentavos('');
+    setModoRateio('padrao');
+    setRateioPercentuais({});
+  }
+
+  function abrirEdicao(regra: RegraDespesaRecorrente) {
+    setErro(null);
+    setEditandoId(regra.id);
+    setTipoGatilho(regra.tipo_gatilho);
+    setTipoDespesaRegra(regra.tipo_despesa);
+    setValorCentavos(String(Math.round(Number(regra.valor) * 100)));
+    setUnidadeRegra(regra.unidade_id ?? '');
+    if (!regra.rateio) {
+      setModoRateio('padrao');
+      setRateioPercentuais({});
+    } else if (regra.rateio.length === 1) {
+      setModoRateio('exclusivo');
+      setRateioExclusivoId(regra.rateio[0].socio_id);
+    } else {
+      setModoRateio('personalizado');
+      setRateioPercentuais(Object.fromEntries(regra.rateio.map((r) => [r.socio_id, String(r.percentual)])));
+    }
+    setNovaAberta(true);
+  }
+
+  async function salvarRegra() {
     if (!formNovaRegraValida) return;
     setErro(null);
     setSalvando(true);
     try {
-      await criarRegraRequest(sociedadeId, {
-        tipo_gatilho: tipoGatilho,
-        tipo_despesa: tipoDespesaRegra,
-        valor: valorNumero,
-        unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
-        rateio: rateioParaEnviar(),
-      });
-      setValorCentavos('');
-      setModoRateio('padrao');
-      setRateioPercentuais({});
-      setNovaAberta(false);
+      if (editandoId) {
+        await atualizarRegraRequest(editandoId, {
+          tipo_despesa: tipoDespesaRegra,
+          valor: valorNumero,
+          unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
+          rateio: rateioParaEnviar(),
+        });
+      } else {
+        await criarRegraRequest(sociedadeId, {
+          tipo_gatilho: tipoGatilho,
+          tipo_despesa: tipoDespesaRegra,
+          valor: valorNumero,
+          unidade_id: tipoGatilho === 'POR_VENDA' ? unidadeRegra : undefined,
+          rateio: rateioParaEnviar(),
+        });
+      }
+      fecharFormulario();
       await carregarRegras();
     } catch (e) {
-      setErro(mensagemErro(e, 'Não foi possível criar a regra'));
+      setErro(mensagemErro(e, editandoId ? 'Não foi possível salvar a regra' : 'Não foi possível criar a regra'));
     } finally {
       setSalvando(false);
     }
@@ -273,26 +315,36 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
                   )}
                 </View>
               </View>
-              <Switch
-                value={r.ativo}
-                onValueChange={() => alternarAtivo(r)}
-                disabled={!souFinanciador}
-                trackColor={{ false: cores.cream[100], true: cores.green[700] }}
-                thumbColor="#FFFFFF"
-              />
+              {souFinanciador && (
+                <Pressable style={styles.botaoEditar} onPress={() => abrirEdicao(r)} hitSlop={6} accessibilityLabel="Editar regra">
+                  <Pencil size={14} color={cores.stone[600]} strokeWidth={2.2} />
+                </Pressable>
+              )}
+              <View style={styles.toggleWrapper}>
+                <Switch
+                  value={r.ativo}
+                  onValueChange={() => alternarAtivo(r)}
+                  disabled={!souFinanciador}
+                  trackColor={{ false: cores.cream[100], true: cores.green[700] }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
             </View>
           );
         })}
 
-        {souFinanciador && !novaAberta && (
+        {souFinanciador && (
           <Pressable style={styles.botaoAdicionar} onPress={() => setNovaAberta(true)}>
             <Plus size={16} color={cores.green[700]} />
             <Text style={styles.botaoAdicionarTexto}>Nova regra</Text>
           </Pressable>
         )}
+      </ScrollView>
 
-        {souFinanciador && novaAberta && (
-          <View style={styles.formNova}>
+      <BottomSheet aberto={souFinanciador && novaAberta} onFechar={fecharFormulario}>
+        <Text style={styles.tituloForm}>{editandoId ? 'Editar regra' : 'Nova regra'}</Text>
+        <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+          <View style={{ gap: espacamento.md }}>
             <View>
               <Text style={styles.label}>Gatilho</Text>
               <View style={styles.linhaChips}>
@@ -306,14 +358,20 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
                   return (
                     <Pressable
                       key={opcao.valor}
-                      style={[styles.chip, ativo && styles.chipAtivo]}
-                      onPress={() => setTipoGatilho(opcao.valor)}
+                      style={[styles.chip, ativo && styles.chipAtivo, !!editandoId && styles.chipDesabilitado]}
+                      onPress={() => !editandoId && setTipoGatilho(opcao.valor)}
+                      disabled={!!editandoId}
                     >
                       <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{opcao.texto}</Text>
                     </Pressable>
                   );
                 })}
               </View>
+              {editandoId && (
+                <Text style={styles.textoAjuda}>
+                  O gatilho não pode ser alterado — desative essa regra e crie outra se precisar mudar.
+                </Text>
+              )}
             </View>
 
             {tipoGatilho === 'POR_VENDA' && (
@@ -449,22 +507,24 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
                 </View>
               )}
             </View>
-
-            <View style={styles.linhaBotoes}>
-              <Pressable style={styles.botaoSecundario} onPress={() => setNovaAberta(false)}>
-                <Text style={styles.botaoSecundarioTexto}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.botaoPrimario, (salvando || !formNovaRegraValida) && styles.botaoDesabilitado]}
-                onPress={criarRegra}
-                disabled={salvando || !formNovaRegraValida}
-              >
-                <Text style={styles.textoBotaoPrimario}>{salvando ? 'Criando...' : 'Criar regra'}</Text>
-              </Pressable>
-            </View>
           </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+
+        <View style={styles.linhaBotoes}>
+          <Pressable style={styles.botaoSecundario} onPress={fecharFormulario}>
+            <Text style={styles.botaoSecundarioTexto}>Cancelar</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.botaoPrimario, (salvando || !formNovaRegraValida) && styles.botaoDesabilitado]}
+            onPress={salvarRegra}
+            disabled={salvando || !formNovaRegraValida}
+          >
+            <Text style={styles.textoBotaoPrimario}>
+              {salvando ? 'Salvando...' : editandoId ? 'Salvar alterações' : 'Criar regra'}
+            </Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -563,14 +623,27 @@ const styles = StyleSheet.create({
     paddingVertical: espacamento.md,
   },
   botaoAdicionarTexto: { fontSize: 13.5, fontWeight: '700', color: cores.green[700] },
-  formNova: {
-    gap: espacamento.md,
+  botaoEditar: {
+    width: 32,
+    height: 32,
+    borderRadius: raio.pill,
     borderWidth: 1.5,
     borderColor: cores.linha,
-    borderRadius: raio.lg,
-    padding: espacamento.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  // O Switch nativo carrega um padding interno que o RN não conta no layout do mesmo jeito
+  // que um botão comum — sem essa caixa com altura igual à do botão de editar (32), ele
+  // aparece deslocado verticalmente em relação aos outros ícones da linha.
+  toggleWrapper: {
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tituloForm: { fontSize: 13, fontWeight: '800', color: cores.stone[900], marginBottom: espacamento.sm },
+  formScroll: { maxHeight: '65%' },
   label: { fontSize: 12, fontWeight: '700', color: cores.green[700], marginBottom: espacamento.sm },
+  textoAjuda: { fontSize: 11, color: cores.stone[400], marginTop: espacamento.sm },
   linhaChips: { flexDirection: 'row', gap: espacamento.sm },
   chip: {
     borderWidth: 1.5,
@@ -581,6 +654,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   chipAtivo: { borderColor: cores.green[800], backgroundColor: cores.green[800] },
+  chipDesabilitado: { opacity: 0.5 },
   chipTexto: { fontSize: 12.5, fontWeight: '700', color: cores.stone[700] },
   chipTextoAtivo: { color: '#FFFFFF' },
   valorLinha: {
