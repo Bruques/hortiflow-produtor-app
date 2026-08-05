@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tituloForm: { fontSize: 13, fontWeight: '800', color: cores.stone[900], marginBottom: espacamento.sm },
-  formScroll: { maxHeight: '65%' },
+  formScroll: { flex: 1 },
   label: { fontSize: 12, fontWeight: '700', color: cores.green[700], marginBottom: espacamento.sm },
   textoAjuda: { fontSize: 11, color: cores.stone[400], marginTop: espacamento.sm },
   linhaChips: { flexDirection: 'row', gap: espacamento.sm },
@@ -719,7 +719,13 @@ const styles = StyleSheet.create({
   },
   stepperSinal: { fontSize: 15, fontWeight: '700', color: cores.green[800] },
   stepperValor: { minWidth: 34, textAlign: 'center', fontSize: 14, fontWeight: '800', color: cores.stone[900] },
-  linhaBotoes: { flexDirection: 'row', gap: espacamento.sm },
+  linhaBotoes: {
+    flexDirection: 'row',
+    gap: espacamento.sm,
+    borderTopWidth: 1,
+    borderTopColor: cores.cream[100],
+    paddingTop: espacamento.md,
+  },
   botaoSecundario: {
     flex: 1,
     borderWidth: 1,
