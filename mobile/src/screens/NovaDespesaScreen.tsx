@@ -23,6 +23,7 @@ import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
 import { iniciais } from '../lib/formatacao';
 import { TelaComTeclado } from '../components/TelaComTeclado';
+import { DateSelectorChip } from '../components/DateSelectorChip';
 import { cores, espacamento, raio } from '../theme';
 import type { TipoDespesa } from '../types/despesa';
 import type { Socio } from '../types/sociedade';
@@ -45,21 +46,6 @@ function formatarValorMascara(digitos: string): string {
   const [inteiro, decimal] = (Number(digitos) / 100).toFixed(2).split('.');
   const inteiroComPontos = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `${inteiroComPontos},${decimal}`;
-}
-
-function dataParaExibicao(iso: string): string {
-  if (!iso) return '';
-  const [ano, mes, dia] = iso.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
-
-function exibicaoParaData(texto: string): string | null {
-  const digitos = texto.replace(/\D/g, '');
-  if (digitos.length !== 8) return null;
-  const dia = digitos.slice(0, 2);
-  const mes = digitos.slice(2, 4);
-  const ano = digitos.slice(4, 8);
-  return `${ano}-${mes}-${dia}`;
 }
 
 // Tela de criação/edição de despesa da sociedade — equivalente à
@@ -95,9 +81,7 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
   const [valorCentavos, setValorCentavos] = useState(
     despesa ? String(Math.round(Number(despesa.valor) * 100)) : ''
   );
-  const [outraData, setOutraData] = useState(despesa ? despesa.data.slice(0, 10) !== hojeISO() : false);
   const [data, setData] = useState(despesa?.data.slice(0, 10) ?? hojeISO());
-  const [textoData, setTextoData] = useState(despesa ? dataParaExibicao(despesa.data.slice(0, 10)) : '');
   const [foto, setFoto] = useState<string | null>(despesa?.foto_comprovante ?? null);
 
   const [erro, setErro] = useState<string | null>(null);
@@ -176,16 +160,6 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
 
   const valorNumero = valorCentavos ? Number(valorCentavos) / 100 : 0;
 
-  function alterarTextoData(texto: string) {
-    const digitos = texto.replace(/\D/g, '').slice(0, 8);
-    let formatado = digitos;
-    if (digitos.length > 4) formatado = `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
-    else if (digitos.length > 2) formatado = `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
-    setTextoData(formatado);
-    const iso = exibicaoParaData(digitos);
-    if (iso) setData(iso);
-  }
-
   async function tirarFoto() {
     const permissao = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissao.granted) {
@@ -201,8 +175,7 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
     setFoto(`data:image/jpeg;base64,${resultado.assets[0].base64}`);
   }
 
-  const dataValida = outraData ? !!exibicaoParaData(textoData) : true;
-  const formValido = !!socioId && valorCentavos !== '' && valorNumero > 0 && dataValida && rateioValido;
+  const formValido = !!socioId && valorCentavos !== '' && valorNumero > 0 && !!data && rateioValido;
 
   function rateioParaEnviar(): { socio_id: string; percentual: number }[] | undefined {
     if (modoRateio === 'padrao') return undefined;
@@ -317,6 +290,11 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
 
         {!semSociosEmCache && !travadaPorAcerto && (
           <>
+            <View>
+              <Text style={styles.label}>Data</Text>
+              <DateSelectorChip value={data} onChange={setData} />
+            </View>
+
             <View>
               <Text style={styles.label}>Quem bancou?</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -504,34 +482,6 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
                   keyboardType="numeric"
                 />
               </View>
-            </View>
-
-            <View>
-              <Text style={styles.label}>Data</Text>
-              <View style={styles.linhaChips}>
-                <Pressable
-                  style={[styles.chip, !outraData && styles.chipAtivo]}
-                  onPress={() => {
-                    setOutraData(false);
-                    setData(hojeISO());
-                  }}
-                >
-                  <Text style={[styles.chipTexto, !outraData && styles.chipTextoAtivo]}>Hoje</Text>
-                </Pressable>
-                <Pressable style={[styles.chip, outraData && styles.chipAtivo]} onPress={() => setOutraData(true)}>
-                  <Text style={[styles.chipTexto, outraData && styles.chipTextoAtivo]}>Outra data</Text>
-                </Pressable>
-              </View>
-              {outraData && (
-                <TextInput
-                  style={[styles.input, { marginTop: espacamento.sm }]}
-                  value={textoData}
-                  onChangeText={alterarTextoData}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor={cores.stone[400]}
-                  keyboardType="numeric"
-                />
-              )}
             </View>
 
             <View>

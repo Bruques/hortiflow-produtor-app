@@ -6,7 +6,7 @@ import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarDespesaRequest, atualizarDespesaRequest, excluirDespesaRequest, listarDespesasRequest } from '@/services/despesas';
 import { listarSociosRequest } from '@/services/sociedades';
 import { meRequest } from '@/services/auth';
-import { DatePickerField } from '@/components/ui/date-picker-field';
+import { DateSelectorChip } from '@/components/ui/date-selector-chip';
 import { cn, iniciais } from '@/lib/utils';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
@@ -40,17 +40,8 @@ const MODOS_RATEIO: { modo: ModoRateio; titulo: string; sub: string; Icone: type
   { modo: 'personalizado', titulo: 'Personalizado', sub: 'Você define o percentual de cada sócio', Icone: SlidersHorizontal },
 ];
 
-const MESES_ABREV = [
-  'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez',
-];
-
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function rotuloHoje(): string {
-  const hoje = new Date();
-  return `Hoje, ${hoje.getDate()} ${MESES_ABREV[hoje.getMonth()]}`;
 }
 
 // Máscara estilo apps de banco (Pix): usuário só digita números, e o valor se monta da direita
@@ -88,7 +79,6 @@ export default function NovaDespesaPage() {
   const [rateioPercentuais, setRateioPercentuais] = useState<Record<string, string>>({});
   const [descricao, setDescricao] = useState('');
   const [valorCentavos, setValorCentavos] = useState(''); // só dígitos, sem formatação
-  const [outraData, setOutraData] = useState(false);
   const [data, setData] = useState(hojeISO());
   const [foto, setFoto] = useState<string | null>(null);
   const [fotoInputKey, setFotoInputKey] = useState(0);
@@ -133,7 +123,6 @@ export default function NovaDespesaPage() {
         setDescricao(encontrada.descricao ?? '');
         setValorCentavos(String(Math.round(Number(encontrada.valor) * 100)));
         setData(encontrada.data.slice(0, 10));
-        setOutraData(encontrada.data.slice(0, 10) !== hojeISO());
         setFoto(encontrada.foto_comprovante ?? null);
         setTravadaPorAcerto(encontrada.coberta_por_acerto);
         setModoRateio(modoRateioDe(encontrada.rateio));
@@ -148,16 +137,6 @@ export default function NovaDespesaPage() {
       .catch(() => setErro('Não foi possível carregar a despesa'))
       .finally(() => setCarregandoDespesa(false));
   }, [despesaId, safraId]);
-
-  function selecionarOutraData() {
-    setOutraData(true);
-    setData('');
-  }
-
-  function selecionarHoje() {
-    setOutraData(false);
-    setData(hojeISO());
-  }
 
   function alterarValor(texto: string) {
     setValorCentavos(texto.replace(/\D/g, '').slice(0, 9));
@@ -315,6 +294,11 @@ export default function NovaDespesaPage() {
           <p className="text-center text-sm text-hf-stone-600">Carregando...</p>
         ) : (
           <>
+        <div>
+          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Data</label>
+          <DateSelectorChip value={data} onChange={setData} />
+        </div>
+
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Quem bancou?</label>
           <div className="flex gap-2 overflow-x-auto">
@@ -559,37 +543,6 @@ export default function NovaDespesaPage() {
               className="w-[200px] bg-transparent text-left text-[40px] font-extrabold tabular-nums text-hf-stone-900 outline-none"
             />
           </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Data</label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={selecionarHoje}
-              className={cn(
-                'whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[12.5px] font-bold',
-                !outraData ? 'border-hf-green-800 bg-hf-green-800 text-white' : 'border-hf-line bg-white text-hf-stone-700'
-              )}
-            >
-              {rotuloHoje()}
-            </button>
-            <button
-              type="button"
-              onClick={selecionarOutraData}
-              className={cn(
-                'whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[12.5px] font-bold',
-                outraData ? 'border-hf-green-800 bg-hf-green-800 text-white' : 'border-hf-line bg-white text-hf-stone-700'
-              )}
-            >
-              Outra data
-            </button>
-          </div>
-          {outraData && (
-            <div className="mt-2.5">
-              <DatePickerField value={data} onChange={setData} />
-            </div>
-          )}
         </div>
 
         <div>

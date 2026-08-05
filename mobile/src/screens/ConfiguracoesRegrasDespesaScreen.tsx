@@ -341,7 +341,7 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
         )}
       </ScrollView>
 
-      <BottomSheet aberto={souFinanciador && novaAberta} onFechar={fecharFormulario}>
+      <BottomSheet aberto={souFinanciador && novaAberta} onFechar={fecharFormulario} alturaFixa>
         <Text style={styles.tituloForm}>{editandoId ? 'Editar regra' : 'Nova regra'}</Text>
         <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <View style={{ gap: espacamento.md }}>

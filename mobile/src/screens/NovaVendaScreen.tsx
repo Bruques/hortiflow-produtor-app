@@ -17,6 +17,7 @@ import { useConectividade } from '../lib/useConectividade';
 import { obterUnidadesVendaCache, salvarUnidadesVendaCache } from '../lib/unidadesVendaCache';
 import { listarUnidadesRequest } from '../services/unidadesVenda';
 import { TelaComTeclado } from '../components/TelaComTeclado';
+import { DateSelectorChip } from '../components/DateSelectorChip';
 import { obterRegrasCache, salvarRegrasCache } from '../lib/regrasCache';
 import { listarRegrasRequest } from '../services/regrasDespesaRecorrente';
 import { criarVenda, editarVenda, excluirVenda } from '../lib/vendasQueue';
@@ -40,21 +41,6 @@ function formatarValorMascara(digitos: string): string {
   return `${inteiroComPontos},${decimal}`;
 }
 
-function dataParaExibicao(iso: string): string {
-  if (!iso) return '';
-  const [ano, mes, dia] = iso.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
-
-function exibicaoParaData(texto: string): string | null {
-  const digitos = texto.replace(/\D/g, '');
-  if (digitos.length !== 8) return null;
-  const dia = digitos.slice(0, 2);
-  const mes = digitos.slice(2, 4);
-  const ano = digitos.slice(4, 8);
-  return `${ano}-${mes}-${dia}`;
-}
-
 // Tela de criação/edição de venda — equivalente à frontend/src/pages/NovaVendaPage.tsx do web.
 // Diferente do web, sempre escreve através do cache local + fila de sincronização
 // (mobile/src/lib/vendasQueue.ts): funciona sem internet por padrão (docs/specs/mobile/
@@ -72,9 +58,7 @@ export function NovaVendaScreen({ navigation, route }: Props) {
   const [regrasMarcadas, setRegrasMarcadas] = useState<string[]>(venda?.regras_aplicadas ?? []);
   const unidadeDosTogglesRef = useRef<string | null>(venda?.unidade_id ?? null);
 
-  const [outraData, setOutraData] = useState(venda ? venda.data.slice(0, 10) !== hojeISO() : false);
   const [data, setData] = useState(venda?.data.slice(0, 10) ?? hojeISO());
-  const [textoData, setTextoData] = useState(venda ? dataParaExibicao(venda.data.slice(0, 10)) : '');
   const [quantidadeTexto, setQuantidadeTexto] = useState(venda?.quantidade ?? '1');
   const [precoCentavos, setPrecoCentavos] = useState(venda ? String(Math.round(Number(venda.preco) * 100)) : '');
   const [comprador, setComprador] = useState(venda?.comprador ?? '');
@@ -148,22 +132,11 @@ export function NovaVendaScreen({ navigation, route }: Props) {
     setQuantidadeTexto(texto.replace(/\D/g, '').slice(0, 4));
   }
 
-  function alterarTextoData(texto: string) {
-    const digitos = texto.replace(/\D/g, '').slice(0, 8);
-    let formatado = digitos;
-    if (digitos.length > 4) formatado = `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
-    else if (digitos.length > 2) formatado = `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
-    setTextoData(formatado);
-    const iso = exibicaoParaData(digitos);
-    if (iso) setData(iso);
-  }
-
   const quantidade = Number(quantidadeTexto) || 0;
   const precoNumero = precoCentavos ? Number(precoCentavos) / 100 : 0;
   const total = quantidade * precoNumero;
   const unidadeSelecionada = unidades.find((u) => u.id === unidadeId);
-  const dataValida = outraData ? !!exibicaoParaData(textoData) : true;
-  const formValido = quantidade > 0 && precoNumero > 0 && dataValida && !!unidadeId;
+  const formValido = quantidade > 0 && precoNumero > 0 && !!data && !!unidadeId;
 
   async function salvar() {
     if (!formValido || salvandoRef.current) return;
@@ -271,30 +244,7 @@ export function NovaVendaScreen({ navigation, route }: Props) {
           <>
             <View>
               <Text style={styles.label}>Data</Text>
-              <View style={styles.linhaChips}>
-                <Pressable
-                  style={[styles.chip, !outraData && styles.chipAtivo]}
-                  onPress={() => {
-                    setOutraData(false);
-                    setData(hojeISO());
-                  }}
-                >
-                  <Text style={[styles.chipTexto, !outraData && styles.chipTextoAtivo]}>Hoje</Text>
-                </Pressable>
-                <Pressable style={[styles.chip, outraData && styles.chipAtivo]} onPress={() => setOutraData(true)}>
-                  <Text style={[styles.chipTexto, outraData && styles.chipTextoAtivo]}>Outra data</Text>
-                </Pressable>
-              </View>
-              {outraData && (
-                <TextInput
-                  style={[styles.input, { marginTop: espacamento.sm }]}
-                  value={textoData}
-                  onChangeText={alterarTextoData}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor={cores.stone[400]}
-                  keyboardType="numeric"
-                />
-              )}
+              <DateSelectorChip value={data} onChange={setData} />
             </View>
 
             {unidades.length > 1 && (
@@ -566,17 +516,6 @@ const styles = StyleSheet.create({
   quantidadeUnidade: {
     fontSize: 11,
     color: cores.stone[400],
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: cores.linha,
-    borderRadius: raio.lg,
-    paddingHorizontal: espacamento.lg,
-    paddingVertical: espacamento.md,
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: cores.stone[900],
-    backgroundColor: '#FFFFFF',
   },
   inputComIcone: {
     flexDirection: 'row',

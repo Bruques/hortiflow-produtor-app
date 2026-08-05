@@ -7,21 +7,24 @@ export interface BottomSheetProps {
   aberto: boolean;
   onFechar: () => void;
   children: ReactNode;
+  // Por padrão a folha "abraça" o conteúdo (até um teto de 82%, pra nunca estourar a tela) —
+  // é o que serve o CalendarSheet e o filtro de período, ambos com conteúdo curto. O formulário
+  // de regra de despesa recorrente é o único caso que precisa de altura sempre fixa: ele muda de
+  // tamanho (rateio personalizado aparece/some) e, com altura livre, o rodapé (Cancelar/Criar
+  // regra) ficava colado no último item em vez de fixo no rodapé da folha.
+  alturaFixa?: boolean;
 }
 
 // Esqueleto de folha (fundo escurecido + alça + cantos arredondados) extraído de
 // CalendarSheet.tsx pra ser reaproveitado por qualquer filtro que abra uma folha — mesmo papel
 // do `DropdownSheet` do web (decisão de 2026-08-04, ver docs/design/notas-de-design.md).
-// Altura fixa (em vez de "abraçar" o conteúdo) porque o formulário de regra de despesa
-// recorrente muda de tamanho (rateio personalizado aparece/some) — com altura livre, o rodapé
-// (Cancelar/Criar regra) ficava colado no último item em vez de fixo no rodapé da folha.
 // KeyboardAvoidingView não mede a distância até o teclado corretamente dentro de <Modal> (bug
 // conhecido do RN — sobrava um vão em branco entre o rodapé e o teclado), então a altura do
 // teclado é acompanhada manualmente. A folha em si NÃO se desloca (bottom fica sempre 0) — só o
 // paddingBottom cresce pra "comer" o espaço do teclado, encolhendo a área de conteúdo. Deslocar a
 // folha inteira (bottom: alturaTeclado) fazia esse ajuste competir com o auto-scroll nativo do
 // ScrollView pro campo focado, produzindo um pulo que só se corrigia rolando manualmente.
-export function BottomSheet({ aberto, onFechar, children }: BottomSheetProps) {
+export function BottomSheet({ aberto, onFechar, children, alturaFixa = false }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   const [alturaTeclado, setAlturaTeclado] = useState(0);
 
@@ -42,6 +45,7 @@ export function BottomSheet({ aberto, onFechar, children }: BottomSheetProps) {
       <View
         style={[
           styles.sheet,
+          alturaFixa ? styles.sheetAlturaFixa : styles.sheetAlturaLivre,
           {
             paddingBottom: alturaTeclado > 0 ? alturaTeclado + espacamento.lg : insets.bottom + espacamento.lg,
           },
@@ -64,12 +68,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '82%',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: espacamento.lg + 4,
     paddingTop: espacamento.sm + 2,
+  },
+  sheetAlturaFixa: {
+    height: '82%',
+  },
+  sheetAlturaLivre: {
+    maxHeight: '82%',
   },
   alca: {
     alignSelf: 'center',
