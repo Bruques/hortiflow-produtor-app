@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { clearToken, getToken, getUsuarioSalvo, setToken, setUsuarioSalvo } from '../lib/tokenStorage';
 import { deveDeslogarPorErro } from '../lib/bootstrapSessao';
 import { meRequest } from '../services/auth';
+import apiClient from '../services/apiClient';
 import type { Usuario } from '../types/usuario';
 
 interface AuthContextValue {
@@ -62,6 +63,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
     setLogado(false);
   }, []);
+
+  // Sem isso, um 401 numa chamada qualquer feita depois do bootstrap (token expirado em uso,
+  // não só ao abrir o app) deixava o usuário preso na tela com erro genérico de carregamento,
+  // sem nunca ser levado de volta pro login — mesmo gap do apiClient do web.
+  useEffect(() => {
+    const id = apiClient.interceptors.response.use(
+      (response) => response,
+      (erro) => {
+        if (deveDeslogarPorErro(erro)) {
+          sair();
+        }
+        return Promise.reject(erro);
+      }
+    );
+    return () => apiClient.interceptors.response.eject(id);
+  }, [sair]);
 
   return (
     <AuthContext.Provider value={{ usuario, logado, carregando, entrar, sair }}>
