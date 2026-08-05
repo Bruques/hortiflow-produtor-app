@@ -8,6 +8,7 @@ import { obterSociosCache } from '../lib/sociedadesCache';
 import { listarSociosRequest } from '../services/sociedades';
 import { atualizarAtivoUnidadeRequest, criarUnidadeRequest, listarUnidadesRequest } from '../services/unidadesVenda';
 import { mensagemErro } from '../lib/erroApi';
+import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
 import type { UnidadeVenda } from '../types/unidadeVenda';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -92,6 +93,7 @@ export function ConfiguracoesUnidadesVendaScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
+      <TelaComTeclado>
       <View style={styles.cabecalho}>
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
@@ -100,7 +102,7 @@ export function ConfiguracoesUnidadesVendaScreen({ navigation, route }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         {erro && <Text style={styles.erro}>{erro}</Text>}
 
         {!carregandoPapel && !souFinanciador && (
@@ -156,6 +158,7 @@ export function ConfiguracoesUnidadesVendaScreen({ navigation, route }: Props) {
           </View>
         )}
       </ScrollView>
+      </TelaComTeclado>
     </SafeAreaView>
   );
 }

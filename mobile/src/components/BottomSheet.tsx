@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cores, espacamento, raio } from '../theme';
 
@@ -12,16 +12,22 @@ export interface BottomSheetProps {
 // Esqueleto de folha (fundo escurecido + alça + cantos arredondados) extraído de
 // CalendarSheet.tsx pra ser reaproveitado por qualquer filtro que abra uma folha — mesmo papel
 // do `DropdownSheet` do web (decisão de 2026-08-04, ver docs/design/notas-de-design.md).
+// KeyboardAvoidingView por dentro porque o Modal do RN não sobe sozinho quando a folha tem
+// TextInput (ex: formulário de regra de despesa recorrente) — sem isso o teclado do iOS cobre
+// o campo/botão da folha.
 export function BottomSheet({ aberto, onFechar, children }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={aberto} transparent animationType="slide" onRequestClose={onFechar}>
       <Pressable style={styles.fundo} onPress={onFechar} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + espacamento.lg }]}>
+      <KeyboardAvoidingView
+        style={[styles.sheet, { paddingBottom: insets.bottom + espacamento.lg }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.alca} />
         {children}
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

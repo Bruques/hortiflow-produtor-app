@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangle, ArrowLeft, Check, Minus, Plus } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,6 +12,7 @@ import {
 import { obterSociosCache, salvarSociosCache } from '../lib/sociedadesCache';
 import { mensagemErro } from '../lib/erroApi';
 import { BannerSemConexao } from '../components/BannerSemConexao';
+import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
 import type { PapelSocio, Socio } from '../types/sociedade';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -142,6 +143,7 @@ export function SociosScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <BannerSemConexao />
+      <TelaComTeclado>
       <View style={styles.cabecalho}>
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
@@ -152,7 +154,7 @@ export function SociosScreen({ navigation, route }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <View style={styles.conteudo}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         <View>
           <Text style={styles.titulo}>Percentual de lucro</Text>
           <Text style={styles.legenda}>A soma precisa fechar em 100%</Text>
@@ -300,7 +302,7 @@ export function SociosScreen({ navigation, route }: Props) {
             <Text style={styles.codigoLegenda}>Código para um novo sócio entrar na sociedade</Text>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       <View style={styles.rodapeAcao}>
         <Pressable
@@ -315,6 +317,7 @@ export function SociosScreen({ navigation, route }: Props) {
           )}
         </Pressable>
       </View>
+      </TelaComTeclado>
     </SafeAreaView>
   );
 }
@@ -349,7 +352,7 @@ const styles = StyleSheet.create({
     color: cores.stone[900],
   },
   conteudo: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: espacamento.xl,
     paddingVertical: espacamento.lg,
     gap: espacamento.md,

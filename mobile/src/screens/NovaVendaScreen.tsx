@@ -16,6 +16,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useConectividade } from '../lib/useConectividade';
 import { obterUnidadesVendaCache, salvarUnidadesVendaCache } from '../lib/unidadesVendaCache';
 import { listarUnidadesRequest } from '../services/unidadesVenda';
+import { TelaComTeclado } from '../components/TelaComTeclado';
 import { obterRegrasCache, salvarRegrasCache } from '../lib/regrasCache';
 import { listarRegrasRequest } from '../services/regrasDespesaRecorrente';
 import { criarVenda, editarVenda, excluirVenda } from '../lib/vendasQueue';
@@ -220,6 +221,7 @@ export function NovaVendaScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
+      <TelaComTeclado>
       <View style={styles.cabecalho}>
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
@@ -240,7 +242,7 @@ export function NovaVendaScreen({ navigation, route }: Props) {
         )}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         {erro && <Text style={styles.erro}>{erro}</Text>}
 
         {travadaPorAcerto && (
@@ -443,6 +445,7 @@ export function NovaVendaScreen({ navigation, route }: Props) {
           </Pressable>
         </View>
       )}
+      </TelaComTeclado>
     </SafeAreaView>
   );
 }

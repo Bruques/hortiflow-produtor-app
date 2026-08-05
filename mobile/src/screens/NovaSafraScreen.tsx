@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangle, ArrowLeft, Info, Sprout } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { abrirSafraRequest, listarSafrasRequest } from '../services/safras';
 import { mensagemErro } from '../lib/erroApi';
 import { useSafraAtiva } from '../context/SafraContext';
+import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
 import type { Safra } from '../types/safra';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -53,6 +54,7 @@ export function NovaSafraScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
+      <TelaComTeclado>
       <View style={styles.cabecalho}>
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
@@ -61,7 +63,7 @@ export function NovaSafraScreen({ navigation }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <View style={styles.conteudo}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         {erro && <Text style={styles.erro}>{erro}</Text>}
 
         {safraEmAndamento && (
@@ -113,7 +115,7 @@ export function NovaSafraScreen({ navigation }: Props) {
             A partir da criação, todo lançamento novo de despesa ou venda passa a pertencer a essa safra.
           </Text>
         </View>
-      </View>
+      </ScrollView>
 
       <View style={styles.rodape}>
         <Pressable
@@ -128,6 +130,7 @@ export function NovaSafraScreen({ navigation }: Props) {
           )}
         </Pressable>
       </View>
+      </TelaComTeclado>
     </SafeAreaView>
   );
 }
@@ -160,7 +163,7 @@ const styles = StyleSheet.create({
     color: cores.stone[900],
   },
   conteudo: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: espacamento.xl,
     paddingVertical: espacamento.lg,
     gap: espacamento.lg,

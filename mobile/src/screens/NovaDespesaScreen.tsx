@@ -22,6 +22,7 @@ import { criarDespesa, editarDespesa, excluirDespesa } from '../lib/despesasQueu
 import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
 import { iniciais } from '../lib/formatacao';
+import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
 import type { TipoDespesa } from '../types/despesa';
 import type { Socio } from '../types/sociedade';
@@ -268,6 +269,7 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
+      <TelaComTeclado>
       <View style={styles.cabecalho}>
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
@@ -288,7 +290,7 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
         )}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         {erro && <Text style={styles.erro}>{erro}</Text>}
 
         {travadaPorAcerto && (
@@ -571,6 +573,7 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
           </Pressable>
         </View>
       )}
+      </TelaComTeclado>
     </SafeAreaView>
   );
 }

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react-native';
 import { AxiosError } from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { trocarSenhaRequest } from '../services/auth';
+import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -55,6 +56,7 @@ export function TrocaSenhaScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
+      <TelaComTeclado>
       <View style={styles.cabecalho}>
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
@@ -63,7 +65,7 @@ export function TrocaSenhaScreen({ navigation }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <View style={styles.conteudo}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         <View>
           <Text style={styles.titulo}>Trocar senha</Text>
           <Text style={styles.subtitulo}>Confirme a senha atual para definir uma nova</Text>
@@ -135,7 +137,8 @@ export function TrocaSenhaScreen({ navigation }: Props) {
             )}
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
+      </TelaComTeclado>
     </SafeAreaView>
   );
 }
@@ -168,7 +171,7 @@ const styles = StyleSheet.create({
     color: cores.stone[900],
   },
   conteudo: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: espacamento.xl,
     paddingVertical: espacamento.lg,
     gap: espacamento.lg,

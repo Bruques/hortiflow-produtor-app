@@ -343,7 +343,7 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
 
       <BottomSheet aberto={souFinanciador && novaAberta} onFechar={fecharFormulario}>
         <Text style={styles.tituloForm}>{editandoId ? 'Editar regra' : 'Nova regra'}</Text>
-        <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={{ gap: espacamento.md }}>
             <View>
               <Text style={styles.label}>Gatilho</Text>

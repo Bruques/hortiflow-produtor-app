@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Eye, EyeOff, Lock, Phone, ShieldCheck, UserPlus } from 'lucide-react-native';
 import { AxiosError } from 'axios';
@@ -7,6 +7,7 @@ import { loginRequest, registerRequest } from '../services/auth';
 import { formatarTelefone, somenteDigitos } from '../lib/telefone';
 import { useAuth } from '../context/AuthContext';
 import { BrandLockup } from '../components/BrandMark';
+import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
 
 type Modo = 'login' | 'cadastro';
@@ -60,7 +61,8 @@ export function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
-      <View style={styles.conteudo}>
+      <TelaComTeclado>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         <View style={styles.marca}>
           <BrandLockup />
         </View>
@@ -161,7 +163,8 @@ export function LoginScreen() {
             <Text style={styles.rodapeTexto}>Seus dados são protegidos e suas informações financeiras ficam seguras.</Text>
           </View>
         </View>
-      </View>
+      </ScrollView>
+      </TelaComTeclado>
     </SafeAreaView>
   );
 }
@@ -172,9 +175,10 @@ const styles = StyleSheet.create({
     backgroundColor: cores.cream[50],
   },
   conteudo: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: espacamento.xl,
     paddingTop: espacamento.xl,
+    paddingBottom: espacamento.xl,
     justifyContent: 'center',
     gap: espacamento.lg,
   },
