@@ -65,7 +65,7 @@ export function TrocaSenhaScreen({ navigation }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View>
           <Text style={styles.titulo}>Trocar senha</Text>
           <Text style={styles.subtitulo}>Confirme a senha atual para definir uma nova</Text>

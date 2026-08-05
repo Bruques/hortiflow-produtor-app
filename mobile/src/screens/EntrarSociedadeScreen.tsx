@@ -133,7 +133,7 @@ export function EntrarSociedadeScreen({ navigation }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <Text style={styles.subtitulo}>Informe o código de 6 dígitos recebido do outro sócio.</Text>
 
         <View>

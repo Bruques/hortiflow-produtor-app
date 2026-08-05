@@ -63,7 +63,7 @@ export function NovaSafraScreen({ navigation }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {erro && <Text style={styles.erro}>{erro}</Text>}
 
         {safraEmAndamento && (

@@ -62,7 +62,7 @@ export function LoginScreen() {
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <TelaComTeclado>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.marca}>
           <BrandLockup />
         </View>

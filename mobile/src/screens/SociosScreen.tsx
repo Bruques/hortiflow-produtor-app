@@ -154,7 +154,7 @@ export function SociosScreen({ navigation, route }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View>
           <Text style={styles.titulo}>Percentual de lucro</Text>
           <Text style={styles.legenda}>A soma precisa fechar em 100%</Text>

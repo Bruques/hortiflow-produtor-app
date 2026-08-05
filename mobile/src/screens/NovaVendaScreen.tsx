@@ -242,7 +242,7 @@ export function NovaVendaScreen({ navigation, route }: Props) {
         )}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {erro && <Text style={styles.erro}>{erro}</Text>}
 
         {travadaPorAcerto && (
