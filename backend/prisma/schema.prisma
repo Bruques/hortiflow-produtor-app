@@ -40,12 +40,18 @@ enum TipoGatilhoRegra {
   POR_PERIODO
 }
 
+enum StatusUsuario {
+  ATIVO
+  BLOQUEADO
+}
+
 model Usuario {
-  id         String   @id @default(uuid())
+  id         String        @id @default(uuid())
   nome       String
-  telefone   String   @unique
+  telefone   String        @unique
   senha_hash String
-  criado_em  DateTime @default(now())
+  status     StatusUsuario @default(ATIVO)
+  criado_em  DateTime      @default(now())
 
   socioSociedades  SocioSociedade[]
   despesas         Despesa[]

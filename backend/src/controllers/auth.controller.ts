@@ -83,6 +83,11 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  if (usuario.status === 'BLOQUEADO') {
+    res.status(401).json({ error: 'Conta suspensa. Entre em contato para reativar.' });
+    return;
+  }
+
   const token = gerarToken(usuario.id);
   res.json({
     usuario: { id: usuario.id, nome: usuario.nome, telefone: usuario.telefone },
