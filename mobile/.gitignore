@@ -40,3 +40,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# artefatos de build local (eas build --local) — gerados sob demanda, não fazem parte do código
+*.aab
+*.apk

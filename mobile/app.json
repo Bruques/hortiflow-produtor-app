@@ -41,7 +41,16 @@
           "cameraPermission": "O HortiFlow usa a câmera para anexar a foto do comprovante a uma despesa."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#faf9f4"
+        }
+      ]
     ],
     "extra": {
       "eas": {
