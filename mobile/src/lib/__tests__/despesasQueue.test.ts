@@ -122,7 +122,8 @@ describe('despesasQueue', () => {
     );
 
     // O que chegou ao backend carrega tudo que ele exige (docs/specs/mobile/
-    // 04-despesas-da-sociedade.md, contrato de POST /safras/:id/despesas).
+    // 04-despesas-da-sociedade.md, contrato de POST /safras/:id/despesas). `idempotency_key` é
+    // o `localId` gerado pela fila, ecoado pro backend deduplicar um retry (ver despesasQueue.ts).
     expect(criarDespesaRequest).toHaveBeenCalledWith('safra-1', {
       socio_id: 'u-1',
       tipo: 'ADUBO',
@@ -131,6 +132,7 @@ describe('despesasQueue', () => {
       foto_comprovante: 'data:image/jpeg;base64,ZmFrZQ==',
       descricao: 'Adubo pro talhão 2',
       rateio: [{ socio_id: 'sc-1', percentual: 60 }, { socio_id: 'sc-2', percentual: 40 }],
+      idempotency_key: expect.any(String),
     });
 
     // Transicionou pendente -> sincronizado (o item já não aparece mais como pendente).

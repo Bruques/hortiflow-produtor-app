@@ -22,16 +22,13 @@ import { obterRegrasCache, salvarRegrasCache } from '../lib/regrasCache';
 import { listarRegrasRequest } from '../services/regrasDespesaRecorrente';
 import { criarVenda, editarVenda, excluirVenda } from '../lib/vendasQueue';
 import { formatarMoeda } from '../lib/formatacao';
+import { hojeISO } from '../lib/data';
 import { cores, espacamento, raio } from '../theme';
 import type { UnidadeVenda } from '../types/unidadeVenda';
 import type { RegraDespesaRecorrente } from '../types/regraDespesaRecorrente';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NovaVenda'>;
-
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // Máscara "estilo Pix" — mesma lógica de NovaDespesaScreen.tsx.
 function formatarValorMascara(digitos: string): string {

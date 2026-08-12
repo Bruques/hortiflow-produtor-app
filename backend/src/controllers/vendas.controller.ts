@@ -15,6 +15,7 @@ const criarSchema = z.object({
   unidade_id: z.string().min(1),
   pago: z.boolean().optional(),
   regras_por_venda_aplicadas: z.array(z.string().min(1)).optional(),
+  idempotency_key: z.string().min(1).optional(),
 });
 
 const atualizarSchema = criarSchema.partial();

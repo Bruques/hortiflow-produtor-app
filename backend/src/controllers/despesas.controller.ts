@@ -16,6 +16,7 @@ const criarSchema = z.object({
   foto_comprovante: z.string().optional(),
   descricao: z.string().optional(),
   rateio: rateioSchema.optional(),
+  idempotency_key: z.string().min(1).optional(),
 });
 
 const atualizarSchema = criarSchema.partial().extend({

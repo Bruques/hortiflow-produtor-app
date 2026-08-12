@@ -2,6 +2,7 @@ import { enfileirar, registrarProcessador, sincronizarTudo } from './syncQueue';
 import { inserirDespesaLocalPendente, removerDespesaCache, substituirDespesaLocalPorServidor } from './despesasCache';
 import { marcarSugestaoConfirmadaLocalmente } from './sugestoesCache';
 import { confirmarSugestaoRequest } from '../services/regrasDespesaRecorrente';
+import { hojeISO } from './data';
 import { AxiosError } from 'axios';
 import type { DespesaLocal } from '../types/despesa';
 import type { SugestaoDespesaRecorrente } from '../types/regraDespesaRecorrente';
@@ -63,7 +64,7 @@ export async function confirmarSugestao(safraId: string, sugestao: SugestaoDespe
     socio_nome: sugestao.socio_nome,
     tipo: sugestao.tipo_despesa,
     valor: sugestao.valor,
-    data: new Date().toISOString().slice(0, 10),
+    data: hojeISO(),
     foto_comprovante: null,
     descricao: null,
     rateio: null,

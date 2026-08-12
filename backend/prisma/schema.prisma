@@ -127,6 +127,10 @@ model Despesa {
   descricao        String?
   regra_origem_id  String?
   venda_origem_id  String?
+  // Chave de idempotência opcional enviada pelo cliente (o `localId` gerado pela fila de sync
+  // offline do mobile) — permite que um retry de POST após timeout de rede reconheça que a
+  // despesa já foi criada em vez de duplicar (ver docs/specs/mobile/00-setup-e-infra.md).
+  idempotency_key  String?     @unique
   criado_em        DateTime    @default(now())
 
   safra       Safra                   @relation(fields: [safra_id], references: [id])
@@ -202,16 +206,18 @@ model AporteTrabalho {
 }
 
 model Venda {
-  id         String   @id @default(uuid())
-  safra_id   String
-  unidade_id String
-  data       DateTime
-  quantidade Decimal  @db.Decimal(10, 2)
-  preco      Decimal  @db.Decimal(10, 2)
-  total      Decimal  @db.Decimal(10, 2)
-  comprador  String?
-  pago       Boolean  @default(false)
-  criado_em  DateTime @default(now())
+  id              String   @id @default(uuid())
+  safra_id        String
+  unidade_id      String
+  data            DateTime
+  quantidade      Decimal  @db.Decimal(10, 2)
+  preco           Decimal  @db.Decimal(10, 2)
+  total           Decimal  @db.Decimal(10, 2)
+  comprador       String?
+  pago            Boolean  @default(false)
+  // Mesma chave de idempotência de Despesa — ver comentário lá.
+  idempotency_key String?  @unique
+  criado_em       DateTime @default(now())
 
   safra           Safra        @relation(fields: [safra_id], references: [id])
   unidade         UnidadeVenda @relation(fields: [unidade_id], references: [id])

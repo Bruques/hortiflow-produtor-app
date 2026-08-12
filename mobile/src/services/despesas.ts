@@ -18,6 +18,9 @@ export interface CriarDespesaInput {
   descricao?: string;
   // Ausente = rateio padrão (segue o percentual de lucro)
   rateio?: RateioInput[];
+  // localId da fila de sync offline, ecoado como chave de idempotência — mesmo propósito de
+  // `idempotency_key` em services/vendas.ts (ver comentário lá).
+  idempotency_key?: string;
 }
 
 export async function criarDespesaRequest(

@@ -58,7 +58,7 @@ interface PayloadExcluirVenda {
 export function registrarProcessadoresVendas(): void {
   registrarProcessador('venda.criar', async (payloadRaw) => {
     const { localId, safraId, ...input } = payloadRaw as PayloadCriarVenda;
-    const { venda } = await criarVendaRequest(safraId, input);
+    const { venda } = await criarVendaRequest(safraId, { ...input, idempotency_key: localId });
     // Mesmo cuidado de despesasQueue.ts: a partir daqui a venda JÁ EXISTE no servidor — se a
     // atualização do cache local falhar, nunca deixar isso re-disparar um novo POST no
     // próximo retry (criaria uma venda duplicada de verdade).

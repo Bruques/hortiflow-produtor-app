@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Calendar, ChevronDown } from 'lucide-react-native';
 import { CalendarSheet } from './CalendarSheet';
+import { hojeISO } from '../lib/data';
 import { cores, espacamento, raio } from '../theme';
 
 export interface DateSelectorChipProps {
@@ -10,10 +11,6 @@ export interface DateSelectorChipProps {
 }
 
 const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function rotulo(iso: string): string {
   if (!iso) return 'Selecionar data';

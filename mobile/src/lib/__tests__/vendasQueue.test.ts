@@ -121,7 +121,8 @@ describe('vendasQueue', () => {
     );
 
     // O que chegou ao backend carrega tudo que ele exige (contrato de POST /safras/:id/vendas)
-    // — e nenhum campo de despesa gerada, já que isso nasce no servidor.
+    // — e nenhum campo de despesa gerada, já que isso nasce no servidor. `idempotency_key` é o
+    // `localId` gerado pela fila, ecoado pro backend deduplicar um retry (ver vendasQueue.ts).
     expect(criarVendaRequest).toHaveBeenCalledWith('safra-1', {
       data: '2026-08-02',
       quantidade: 10,
@@ -130,6 +131,7 @@ describe('vendasQueue', () => {
       unidade_id: 'un-1',
       pago: false,
       regras_por_venda_aplicadas: ['regra-1'],
+      idempotency_key: expect.any(String),
     });
 
     const pendentes = await listarPendentes('venda.criar');

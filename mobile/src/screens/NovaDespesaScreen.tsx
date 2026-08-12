@@ -22,6 +22,7 @@ import { criarDespesa, editarDespesa, excluirDespesa } from '../lib/despesasQueu
 import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
 import { iniciais } from '../lib/formatacao';
+import { hojeISO } from '../lib/data';
 import { TelaComTeclado } from '../components/TelaComTeclado';
 import { DateSelectorChip } from '../components/DateSelectorChip';
 import { cores, espacamento, raio } from '../theme';
@@ -34,10 +35,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'NovaDespesa'>;
 type ModoRateio = 'padrao' | 'exclusivo' | 'personalizado';
 
 const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
-
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // Máscara "estilo Pix": o produtor só digita números, o valor se monta da direita pra
 // esquerda — mesma lógica de frontend/src/pages/NovaDespesaPage.tsx (web).

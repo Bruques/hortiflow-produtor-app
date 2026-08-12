@@ -57,7 +57,7 @@ interface PayloadExcluirDespesa {
 export function registrarProcessadoresDespesas(): void {
   registrarProcessador('despesa.criar', async (payloadRaw) => {
     const { localId, safraId, ...input } = payloadRaw as PayloadCriarDespesa;
-    const { despesa } = await criarDespesaRequest(safraId, input);
+    const { despesa } = await criarDespesaRequest(safraId, { ...input, idempotency_key: localId });
     // A partir daqui a despesa JÁ EXISTE no servidor — se a atualização do cache local
     // abaixo falhar por qualquer motivo, NUNCA deixar isso re-disparar um novo POST na
     // próxima tentativa (o item seria marcado 'erro' e reprocessado, criando uma despesa

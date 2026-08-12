@@ -1,4 +1,4 @@
-import { TipoDespesa, RateioDespesa, SocioSociedade, Usuario } from '@prisma/client';
+import { Prisma, TipoDespesa, RateioDespesa, SocioSociedade, Usuario } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as acertosService from './acertos.service';
 
@@ -29,6 +29,9 @@ interface CriarDespesaInput {
   descricao?: string;
   // Ausente = rateio padrão (segue o percentual_lucro vigente); ver docs/specs/13-rateio-de-despesas.md.
   rateio?: RateioInput[];
+  // Chave opcional gerada pelo cliente (localId da fila de sync offline do mobile) — mesmo
+  // propósito de `idempotency_key` em vendas.service.ts (ver comentário lá).
+  idempotency_key?: string;
 }
 
 // Não é Partial<CriarDespesaInput> porque `rateio` aqui distingue 3 estados: ausente (não
@@ -56,30 +59,57 @@ export async function rateioValido(sociedadeId: string, rateio: RateioInput[]): 
   return encontrados === new Set(rateio.map((r) => r.socio_id)).size;
 }
 
+const includeCriarDespesa = {
+  socio: true,
+  rateios: { include: { socioSociedade: { include: { usuario: true } } } },
+} as const;
+
 export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
-  const despesa = await prisma.despesa.create({
-    data: {
-      safra_id: safraId,
-      socio_id: input.socio_id,
-      tipo: input.tipo,
-      valor: input.valor,
-      data: input.data,
-      foto_comprovante: input.foto_comprovante,
-      descricao: input.descricao,
-      ...(input.rateio && {
-        rateios: {
-          create: input.rateio.map((r) => ({ socio_sociedade_id: r.socio_id, percentual: r.percentual })),
-        },
-      }),
-    },
-    // `socio: true` faltava aqui — sem isso a resposta do POST não carregava `socio_nome`,
-    // diferente de `listarDespesas`. O app web nunca sentiu porque só usa a resposta do POST
-    // como sinal de sucesso e busca a lista de novo em seguida; o app mobile usa a resposta
-    // na hora pra já confirmar o registro otimista local, e por isso expôs a falta do campo
-    // (ver docs/specs/mobile/04-despesas-da-sociedade.md, decisões registradas).
-    include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
-  });
-  const { rateios, socio, ...resto } = despesa;
+  let despesa;
+  try {
+    despesa = await prisma.despesa.create({
+      data: {
+        safra_id: safraId,
+        socio_id: input.socio_id,
+        tipo: input.tipo,
+        valor: input.valor,
+        data: input.data,
+        foto_comprovante: input.foto_comprovante,
+        descricao: input.descricao,
+        idempotency_key: input.idempotency_key,
+        ...(input.rateio && {
+          rateios: {
+            create: input.rateio.map((r) => ({ socio_sociedade_id: r.socio_id, percentual: r.percentual })),
+          },
+        }),
+      },
+      // `socio: true` faltava aqui — sem isso a resposta do POST não carregava `socio_nome`,
+      // diferente de `listarDespesas`. O app web nunca sentiu porque só usa a resposta do POST
+      // como sinal de sucesso e busca a lista de novo em seguida; o app mobile usa a resposta
+      // na hora pra já confirmar o registro otimista local, e por isso expôs a falta do campo
+      // (ver docs/specs/mobile/04-despesas-da-sociedade.md, decisões registradas).
+      include: includeCriarDespesa,
+    });
+  } catch (erro) {
+    // Retry de uma criação já processada com sucesso (resposta do primeiro POST perdida por
+    // timeout de rede) — mesmo tratamento de `criarVenda` em vendas.service.ts: devolve a
+    // despesa já existente em vez de duplicar.
+    if (
+      input.idempotency_key &&
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === 'P2002'
+    ) {
+      const existente = await prisma.despesa.findUniqueOrThrow({
+        where: { idempotency_key: input.idempotency_key },
+        include: includeCriarDespesa,
+      });
+      const { rateios, socio, idempotency_key, ...resto } = existente;
+      return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios), coberta_por_acerto: false };
+    }
+    throw erro;
+  }
+
+  const { rateios, socio, idempotency_key, ...resto } = despesa;
   // `coberta_por_acerto` também faltava aqui, mesmo motivo do `socio_nome` acima: uma despesa
   // recém-criada nunca está coberta por um Acerto já existente sobre esse período.
   return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios), coberta_por_acerto: false };

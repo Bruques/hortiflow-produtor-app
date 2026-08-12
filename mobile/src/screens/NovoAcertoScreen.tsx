@@ -8,7 +8,7 @@ import { buscarSimulacaoPersonalizadaRequest } from '../services/simulacao';
 import { useConectividade } from '../lib/useConectividade';
 import { useSafraAtiva } from '../context/SafraContext';
 import { mensagemErro } from '../lib/erroApi';
-import { adicionarDias, formatarData } from '../lib/data';
+import { adicionarDias, formatarData, hojeISO } from '../lib/data';
 import { formatarMoeda, iniciais } from '../lib/formatacao';
 import { DatePickerField } from '../components/DatePickerField';
 import { cores, espacamento, raio } from '../theme';
@@ -17,10 +17,6 @@ import type { Simulacao } from '../types/simulacao';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NovoAcerto'>;
-
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // Registrar acerto, equivalente à frontend/src/pages/NovoAcertoPage.tsx do web — exige conexão
 // o tempo todo (nunca entra na fila de sincronização genérica, mesmo critério de sociedade/

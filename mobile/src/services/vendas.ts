@@ -11,6 +11,10 @@ export interface CriarVendaInput {
   unidade_id: string;
   pago?: boolean;
   regras_por_venda_aplicadas?: string[];
+  // localId da fila de sync offline, ecoado como chave de idempotência — se o POST já tiver
+  // sido processado (resposta perdida por timeout de rede) o backend devolve a venda
+  // existente em vez de criar duplicata (bug relatado 2026-08-11).
+  idempotency_key?: string;
 }
 
 export async function criarVendaRequest(safraId: string, input: CriarVendaInput): Promise<{ venda: Venda }> {

@@ -12,6 +12,11 @@ interface CriarVendaInput {
   unidade_id: string;
   pago?: boolean;
   regras_por_venda_aplicadas?: string[];
+  // Chave opcional gerada pelo cliente (localId da fila de sync offline do mobile) — permite
+  // reconhecer um retry de POST após timeout de rede como a mesma venda, em vez de duplicar
+  // (bug relatado 2026-08-11: venda sincronizava no servidor mas o app não recebia a resposta
+  // a tempo, reenviava e ficava com duas entradas). Ver docs/specs/mobile/00-setup-e-infra.md.
+  idempotency_key?: string;
 }
 
 type AtualizarVendaInput = Partial<CriarVendaInput>;
@@ -35,19 +40,47 @@ function comNomeDaUnidade(venda: Venda & { unidade: { nome: string } }) {
 export async function criarVenda(safraId: string, sociedadeId: string, input: CriarVendaInput) {
   const total = input.quantidade * input.preco;
 
-  const venda = await prisma.venda.create({
-    data: {
-      safra_id: safraId,
-      data: input.data,
-      quantidade: input.quantidade,
-      preco: input.preco,
-      total,
-      comprador: input.comprador,
-      unidade_id: input.unidade_id,
-      pago: input.pago ?? false,
-    },
-    include: { unidade: true },
-  });
+  let venda: Prisma.VendaGetPayload<{ include: { unidade: true } }>;
+  try {
+    venda = await prisma.venda.create({
+      data: {
+        safra_id: safraId,
+        data: input.data,
+        quantidade: input.quantidade,
+        preco: input.preco,
+        total,
+        comprador: input.comprador,
+        unidade_id: input.unidade_id,
+        pago: input.pago ?? false,
+        idempotency_key: input.idempotency_key,
+      },
+      include: { unidade: true },
+    });
+  } catch (erro) {
+    // Retry de uma criação que já tinha sido processada com sucesso antes (a resposta do
+    // primeiro POST se perdeu por timeout/instabilidade de rede — cenário comum do produtor
+    // na roça) cai aqui como violação da constraint única de idempotency_key: devolve a venda
+    // já existente em vez de propagar o erro, pra não deixar o cliente reenviar pra sempre nem
+    // criar uma segunda venda.
+    if (
+      input.idempotency_key &&
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === 'P2002'
+    ) {
+      const existente = await prisma.venda.findUniqueOrThrow({
+        where: { idempotency_key: input.idempotency_key },
+        include: { unidade: true, despesasGeradas: true },
+      });
+      return {
+        ...comNomeDaUnidade(existente),
+        regras_aplicadas: existente.despesasGeradas
+          .map((d) => d.regra_origem_id)
+          .filter((id): id is string => id !== null),
+        coberta_por_acerto: false,
+      };
+    }
+    throw erro;
+  }
 
   const regrasAplicadas = await gerarDespesasPorVenda(
     prisma,

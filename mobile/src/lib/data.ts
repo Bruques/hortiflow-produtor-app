@@ -1,3 +1,17 @@
+// Data de hoje (calendário local do aparelho) em "AAAA-MM-DD". `new Date().toISOString()`
+// converte pra UTC antes de fatiar — à noite num fuso negativo (ex: Brasília, UTC-3) o
+// relógio UTC já virou o dia seguinte, e o resultado vem um dia adiantado (bug relatado
+// 2026-08-11: às 21:28 em Brasília o seletor de data já vinha com o dia seguinte marcado).
+// Usa getters locais (getFullYear/getMonth/getDate), mesmo padrão já usado corretamente em
+// CalendarGrid.tsx e periodoResumo.ts pra não ter esse problema.
+export function hojeISO(): string {
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, '0');
+  const dia = String(agora.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
 // Reescrita de formatarData de frontend/src/lib/utils.ts — datas de safra são só "dia", sem
 // hora relevante; formata direto a partir da string ISO, sem passar por conversão de fuso
 // (new Date(iso).toLocaleDateString() aplicaria o fuso local e voltaria um dia).
