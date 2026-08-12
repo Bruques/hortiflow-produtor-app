@@ -1,8 +1,12 @@
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { sincronizarTudo } from './syncQueue';
 
+// Mesmo critério de useConectividade.ts: só `isConnected`, sem `isInternetReachable` (instável
+// no Android — ver comentário lá). Usar o sinal de alcance aqui também arriscava o inverso: uma
+// falsa leitura de "não alcança a internet" nunca marcava `conectadoAgora` como true, e a
+// sincronização automática ao reconectar simplesmente não disparava.
 function estaConectado(estado: NetInfoState): boolean {
-  return estado.isConnected === true && estado.isInternetReachable !== false;
+  return estado.isConnected === true;
 }
 
 // Só dispara ao **voltar** a ficar online (offline → online), não em toda mudança de estado —

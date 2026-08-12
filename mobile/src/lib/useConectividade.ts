@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 
-// `isConnected` já cobre o caso comum (sem rádio/wifi); `isInternetReachable` pode ficar
-// `null` momentaneamente enquanto o NetInfo ainda está checando — nesse meio-tempo tratamos
-// como conectado para não piscar o banner "sem conexão" à toa a cada abertura de tela.
+// Só `isConnected` (rádio conectado a wifi/dados) decide o banner — `isInternetReachable` é
+// conhecidamente instável no Android (a própria lib documenta falso-negativo: a checagem ativa
+// de alcance à internet pode falhar por motivos que não são "o produtor está sem internet", ex:
+// DNS lento, o host de teste da lib bloqueado por firewall/operadora), e usá-lo aqui piscava o
+// banner "sem conexão" com o aparelho plenamente online (bug relatado 2026-08-12). `isConnected`
+// sozinho é menos preciso pra casos raros (wifi conectado mas sem saída pra internet), mas é
+// muito mais estável — prefere menos falsos positivos a mais precisão nesse caso.
 export function useConectividade(): boolean {
   const [conectado, setConectado] = useState(true);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((estado) => {
-      const semConexao = estado.isConnected === false || estado.isInternetReachable === false;
-      setConectado(!semConexao);
+      setConectado(estado.isConnected !== false);
     });
     return unsubscribe;
   }, []);

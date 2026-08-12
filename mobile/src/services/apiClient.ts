@@ -13,8 +13,13 @@ export async function anexarTokenNoHeader(
   return config;
 }
 
+// Sem timeout, uma requisição travada (nem sucesso nem erro) nunca resolve — como a fila de
+// sincronização processa um item por vez (syncQueue.ts), isso trava a fila inteira até o
+// processo do app ser encerrado, deixando itens presos em "erro" que nunca chegam a ser
+// tentados de novo (bug relatado 2026-08-12: venda presa em erro mesmo com internet).
 const apiClient = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL,
+  timeout: 15000,
 });
 
 apiClient.interceptors.request.use(anexarTokenNoHeader);
