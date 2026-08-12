@@ -3,14 +3,16 @@ import {
   atualizarPercentuaisRequest,
   criarSociedadeRequest,
   criarSocioRequest,
+  editarNomeSocioRequest,
   entrarSociedadeRequest,
+  removerSocioRequest,
 } from '../sociedades';
 import apiClient from '../apiClient';
 import { enfileirar } from '../../lib/syncQueue';
 
 jest.mock('../apiClient', () => ({
   __esModule: true,
-  default: { post: jest.fn(), get: jest.fn(), put: jest.fn() },
+  default: { post: jest.fn(), get: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn() },
 }));
 
 jest.mock('../../lib/syncQueue', () => ({
@@ -29,6 +31,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   (apiClient.post as jest.Mock).mockRejectedValue(erroDeRede());
   (apiClient.put as jest.Mock).mockRejectedValue(erroDeRede());
+  (apiClient.patch as jest.Mock).mockRejectedValue(erroDeRede());
+  (apiClient.delete as jest.Mock).mockRejectedValue(erroDeRede());
 });
 
 describe('ações de sociedade offline não enfileiram nada', () => {
@@ -51,6 +55,16 @@ describe('ações de sociedade offline não enfileiram nada', () => {
 
   it('adicionar sócio sem conta', async () => {
     await expect(criarSocioRequest('soc-1', 'João', 'MEEIRO')).rejects.toThrow();
+    expect(enfileirar).not.toHaveBeenCalled();
+  });
+
+  it('editar nome de sócio sem conta', async () => {
+    await expect(editarNomeSocioRequest('soc-1', 'sc-1', 'João da Silva')).rejects.toThrow();
+    expect(enfileirar).not.toHaveBeenCalled();
+  });
+
+  it('remover sócio', async () => {
+    await expect(removerSocioRequest('soc-1', 'sc-1')).rejects.toThrow();
     expect(enfileirar).not.toHaveBeenCalled();
   });
 });

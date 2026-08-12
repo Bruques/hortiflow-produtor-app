@@ -225,3 +225,104 @@ export async function atualizarPercentuais(
 
   return { socios: await listarSocios(sociedadeId) };
 }
+
+type EditarNomeSocioResultado =
+  | { erro: 'NAO_ENCONTRADO' }
+  | { erro: 'TEM_CONTA' }
+  | { socio: Awaited<ReturnType<typeof listarSocios>>[number] };
+
+export async function editarNomeSocio(
+  sociedadeId: string,
+  socioId: string,
+  nome: string
+): Promise<EditarNomeSocioResultado> {
+  const socio = await prisma.socioSociedade.findUnique({ where: { id: socioId } });
+  if (!socio || socio.sociedade_id !== sociedadeId) {
+    return { erro: 'NAO_ENCONTRADO' };
+  }
+  if (socio.usuario_id) {
+    return { erro: 'TEM_CONTA' };
+  }
+
+  await prisma.socioSociedade.update({ where: { id: socioId }, data: { nome } });
+
+  const socios = await listarSocios(sociedadeId);
+  return { socio: socios.find((s) => s.id === socioId)! };
+}
+
+type RemoverSocioResultado =
+  | { erro: 'NAO_ENCONTRADO' }
+  | { erro: 'UNICO_SOCIO' }
+  | { erro: 'AUTO_REMOCAO' }
+  | { erro: 'TEM_LANCAMENTOS' }
+  | { socios: Awaited<ReturnType<typeof listarSocios>> };
+
+export async function removerSocio(
+  sociedadeId: string,
+  socioId: string,
+  usuarioIdSolicitante: string
+): Promise<RemoverSocioResultado> {
+  const socio = await prisma.socioSociedade.findUnique({ where: { id: socioId } });
+  if (!socio || socio.sociedade_id !== sociedadeId) {
+    return { erro: 'NAO_ENCONTRADO' };
+  }
+
+  if (socio.usuario_id === usuarioIdSolicitante) {
+    return { erro: 'AUTO_REMOCAO' };
+  }
+
+  const outros = await prisma.socioSociedade.findMany({
+    where: { sociedade_id: sociedadeId, id: { not: socioId } },
+  });
+  if (outros.length === 0) {
+    return { erro: 'UNICO_SOCIO' };
+  }
+
+  const [acertos, rateiosDespesa, rateiosRegra, lancamentosUsuario] = await Promise.all([
+    prisma.acertoSocio.count({ where: { socio_id: socioId } }),
+    prisma.rateioDespesa.count({ where: { socio_sociedade_id: socioId } }),
+    prisma.rateioRegra.count({ where: { socio_sociedade_id: socioId } }),
+    socio.usuario_id
+      ? Promise.all([
+          prisma.despesa.count({
+            where: { socio_id: socio.usuario_id, safra: { sociedade_id: sociedadeId } },
+          }),
+          prisma.aporteTrabalho.count({
+            where: { socio_id: socio.usuario_id, safra: { sociedade_id: sociedadeId } },
+          }),
+          prisma.regraDespesaRecorrente.count({
+            where: { socio_id: socio.usuario_id, sociedade_id: sociedadeId },
+          }),
+        ]).then((contagens) => contagens.reduce((acc, c) => acc + c, 0))
+      : Promise.resolve(0),
+  ]);
+
+  if (acertos + rateiosDespesa + rateiosRegra + lancamentosUsuario > 0) {
+    return { erro: 'TEM_LANCAMENTOS' };
+  }
+
+  const percentualRemovido = Number(socio.percentual_lucro);
+  const totalRestante = outros.reduce((acc, s) => acc + Number(s.percentual_lucro), 0);
+
+  const novosPercentuais = outros.map((s) => {
+    const atual = Number(s.percentual_lucro);
+    const acrescimo =
+      totalRestante > 0 ? percentualRemovido * (atual / totalRestante) : percentualRemovido / outros.length;
+    return { id: s.id, percentual: Math.round((atual + acrescimo) * 100) / 100 };
+  });
+
+  const somaNovos = novosPercentuais.reduce((acc, s) => acc + s.percentual, 0);
+  const diferenca = Math.round((100 - somaNovos) * 100) / 100;
+  if (diferenca !== 0) {
+    novosPercentuais[0].percentual = Math.round((novosPercentuais[0].percentual + diferenca) * 100) / 100;
+  }
+
+  await prisma.$transaction([
+    ...novosPercentuais.map((s) =>
+      prisma.socioSociedade.update({ where: { id: s.id }, data: { percentual_lucro: s.percentual } })
+    ),
+    prisma.socioSociedade.delete({ where: { id: socioId } }),
+  ]);
+
+  return { socios: await listarSocios(sociedadeId) };
+}

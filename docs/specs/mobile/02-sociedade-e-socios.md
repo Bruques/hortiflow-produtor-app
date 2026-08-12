@@ -19,8 +19,10 @@ Também define a primeira regra concreta de "o que entra na fila offline e o que
 
 **Fica de fora:**
 - Safra — spec `03` (a partir daqui a numeração das specs de negócio muda: Safra `03`, Despesas/Vendas `04`, Painel/Acerto `05`, Despesa Pessoal `06`). Isso inclui a Home "de verdade" (centrada em safra) e o fluxo de criar sociedade+safra juntas — ficam para a `03`
-- Remover sócio, editar nome da sociedade depois de criada — mesmas lacunas já registradas na spec web, não é escopo aqui também
+- Editar nome da sociedade depois de criada
 - Qualquer permissão granular por papel (financiador/meeiro têm a mesma visão, conforme `CLAUDE.md`)
+
+> **Atualização (2026-08-11)**: editar nome de sócio sem conta e remover sócio deixaram de ser lacuna — ver incremento "editar nome e remover sócio" na spec web `02-sociedade-e-socios.md`. `PATCH`/`DELETE /sociedades/:id/socios/:socioId` foram levados para `SociosScreen` junto com o web, seguindo a mesma regra desta spec de "exige conexão no momento, sem fila offline" (são ações raras que dependem de validação do servidor — ver abaixo).
 
 ## Regras de negócio
 

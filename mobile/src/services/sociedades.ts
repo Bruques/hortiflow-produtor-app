@@ -57,3 +57,20 @@ export async function atualizarPercentuaisRequest(
   const { data } = await apiClient.put(`/sociedades/${sociedadeId}/socios/percentuais`, { socios });
   return data;
 }
+
+export async function editarNomeSocioRequest(
+  sociedadeId: string,
+  socioId: string,
+  nome: string
+): Promise<{ socio: Socio }> {
+  const { data } = await apiClient.patch(`/sociedades/${sociedadeId}/socios/${socioId}`, { nome });
+  return data;
+}
+
+export async function removerSocioRequest(
+  sociedadeId: string,
+  socioId: string
+): Promise<{ socios: Socio[] }> {
+  const { data } = await apiClient.delete(`/sociedades/${sociedadeId}/socios/${socioId}`);
+  return data;
+}

@@ -16,6 +16,8 @@ router.get('/', sociedadesController.listar);
 router.get('/:id/socios', sociedadesController.listarSocios);
 router.post('/:id/socios', sociedadesController.criarSocio);
 router.put('/:id/socios/percentuais', sociedadesController.atualizarPercentuais);
+router.patch('/:id/socios/:socioId', sociedadesController.editarNomeSocio);
+router.delete('/:id/socios/:socioId', sociedadesController.removerSocio);
 router.post('/:id/safras', safrasController.abrir);
 router.get('/:id/safras', safrasController.listar);
 router.post('/:id/regras-recorrentes', regrasController.criar);

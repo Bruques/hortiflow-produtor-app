@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy, Pencil, Trash2, X } from 'lucide-react';
 import {
   atualizarPercentuaisRequest,
   criarSocioRequest,
+  editarNomeSocioRequest,
   listarSociedadesRequest,
   listarSociosRequest,
+  removerSocioRequest,
 } from '@/services/sociedades';
 import { cn, iniciais } from '@/lib/utils';
 import type { PapelSocio, Socio } from '@/types/sociedade';
@@ -45,6 +47,12 @@ export default function ConfiguracoesSociosPage() {
   const [nomeNovoSocio, setNomeNovoSocio] = useState('');
   const [papelNovoSocio, setPapelNovoSocio] = useState<PapelSocio>('MEEIRO');
   const [salvandoNovoSocio, setSalvandoNovoSocio] = useState(false);
+
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [nomeEmEdicao, setNomeEmEdicao] = useState('');
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const [removendoId, setRemovendoId] = useState<string | null>(null);
+  const [erroAcaoSocio, setErroAcaoSocio] = useState<string | null>(null);
 
   function carregarSocios() {
     if (!sociedadeId) return;
@@ -133,6 +141,44 @@ export default function ConfiguracoesSociosPage() {
     }
   }
 
+  function iniciarEdicaoNome(socio: EdicaoSocio) {
+    setErroAcaoSocio(null);
+    setEditandoId(socio.id);
+    setNomeEmEdicao(socio.nome);
+  }
+
+  async function salvarNomeSocio(socioId: string) {
+    if (!sociedadeId || !nomeEmEdicao.trim()) return;
+    setErroAcaoSocio(null);
+    setSalvandoNome(true);
+    try {
+      await editarNomeSocioRequest(sociedadeId, socioId, nomeEmEdicao.trim());
+      setEditandoId(null);
+      carregarSocios();
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErroAcaoSocio(data?.error ?? 'Não foi possível editar o nome do sócio');
+    } finally {
+      setSalvandoNome(false);
+    }
+  }
+
+  async function removerSocio(socio: EdicaoSocio) {
+    if (!sociedadeId) return;
+    if (!window.confirm(`Remover ${socio.nome} da sociedade? Essa ação não pode ser desfeita.`)) return;
+    setErroAcaoSocio(null);
+    setRemovendoId(socio.id);
+    try {
+      await removerSocioRequest(sociedadeId, socio.id);
+      carregarSocios();
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErroAcaoSocio(data?.error ?? 'Não foi possível remover o sócio');
+    } finally {
+      setRemovendoId(null);
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <div className="sticky top-0 z-10 bg-white px-[18px] pb-1 pt-2.5">
@@ -183,49 +229,112 @@ export default function ConfiguracoesSociosPage() {
 
               <div>
                 {edicoes.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-2 border-b border-hf-cream-100 py-3 last:border-b-0">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-[13px] font-extrabold text-hf-green-800">
-                        {iniciais(s.nome)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="m-0 truncate text-sm font-bold text-hf-stone-900">{s.nome}</p>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                          <span className="inline-block rounded-full bg-hf-green-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-green-700">
-                            {s.papel === 'FINANCIADOR' ? 'Financiador' : s.papel === 'MEEIRO' ? 'Meeiro' : 'Misto'}
-                          </span>
-                          {!s.usuario_id && (
-                            <span className="inline-block rounded-full bg-hf-cream-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-stone-400">
-                              Sem conta
-                            </span>
+                  <div key={s.id} className="flex flex-col gap-2 border-b border-hf-cream-100 py-3 last:border-b-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-hf-green-100 text-[13px] font-extrabold text-hf-green-800">
+                          {iniciais(s.nome)}
+                        </div>
+                        <div className="min-w-0">
+                          {editandoId === s.id ? (
+                            <input
+                              type="text"
+                              autoFocus
+                              value={nomeEmEdicao}
+                              onChange={(e) => setNomeEmEdicao(e.target.value)}
+                              className="h-8 w-full max-w-[160px] rounded-lg border border-hf-green-500 bg-white px-2 text-sm font-bold outline-none"
+                            />
+                          ) : (
+                            <p className="m-0 truncate text-sm font-bold text-hf-stone-900">{s.nome}</p>
                           )}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            <span className="inline-block rounded-full bg-hf-green-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-green-700">
+                              {s.papel === 'FINANCIADOR' ? 'Financiador' : s.papel === 'MEEIRO' ? 'Meeiro' : 'Misto'}
+                            </span>
+                            {!s.usuario_id && (
+                              <span className="inline-block rounded-full bg-hf-cream-100 px-1.5 py-0.5 text-[10px] font-bold text-hf-stone-400">
+                                Sem conta
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        <button
+                          type="button"
+                          aria-label={`Diminuir percentual de ${s.nome}`}
+                          onClick={() => ajustarPct(s.id, -5)}
+                          className="flex h-[27px] w-[27px] items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
+                        >
+                          <Minus className="h-3.5 w-3.5" strokeWidth={2.4} />
+                        </button>
+                        <span className="min-w-[42px] text-center text-[15px] font-extrabold tabular-nums text-hf-stone-900">
+                          {s.percentual_lucro}%
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Aumentar percentual de ${s.nome}`}
+                          onClick={() => ajustarPct(s.id, 5)}
+                          className="flex h-[27px] w-[27px] items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2.5">
-                      <button
-                        type="button"
-                        aria-label={`Diminuir percentual de ${s.nome}`}
-                        onClick={() => ajustarPct(s.id, -5)}
-                        className="flex h-[27px] w-[27px] items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
-                      >
-                        <Minus className="h-3.5 w-3.5" strokeWidth={2.4} />
-                      </button>
-                      <span className="min-w-[42px] text-center text-[15px] font-extrabold tabular-nums text-hf-stone-900">
-                        {s.percentual_lucro}%
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={`Aumentar percentual de ${s.nome}`}
-                        onClick={() => ajustarPct(s.id, 5)}
-                        className="flex h-[27px] w-[27px] items-center justify-center rounded-full border-[1.5px] border-hf-line text-hf-green-800"
-                      >
-                        <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
-                      </button>
+
+                    <div className="flex items-center gap-2">
+                      {editandoId === s.id ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => salvarNomeSocio(s.id)}
+                            disabled={salvandoNome || !nomeEmEdicao.trim()}
+                            className="flex items-center gap-1 rounded-full bg-hf-green-800 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+                          >
+                            <Check className="h-3 w-3" strokeWidth={2.6} />
+                            {salvandoNome ? 'Salvando...' : 'Salvar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditandoId(null)}
+                            disabled={salvandoNome}
+                            className="flex items-center gap-1 rounded-full border border-hf-line px-2.5 py-1 text-[11px] font-bold text-hf-stone-700"
+                          >
+                            <X className="h-3 w-3" strokeWidth={2.6} />
+                            Cancelar
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {!s.usuario_id && (
+                            <button
+                              type="button"
+                              aria-label={`Editar nome de ${s.nome}`}
+                              onClick={() => iniciarEdicaoNome(s)}
+                              className="flex items-center gap-1 rounded-full border border-hf-line px-2.5 py-1 text-[11px] font-bold text-hf-stone-700"
+                            >
+                              <Pencil className="h-3 w-3" strokeWidth={2.4} />
+                              Editar nome
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`Remover ${s.nome}`}
+                            onClick={() => removerSocio(s)}
+                            disabled={removendoId === s.id}
+                            className="flex items-center gap-1 rounded-full border border-hf-red px-2.5 py-1 text-[11px] font-bold text-hf-red disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3 w-3" strokeWidth={2.4} />
+                            {removendoId === s.id ? 'Removendo...' : 'Remover'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
+
+              {erroAcaoSocio && <p className="text-center text-sm font-medium text-hf-red">{erroAcaoSocio}</p>}
             </>
           )}
 

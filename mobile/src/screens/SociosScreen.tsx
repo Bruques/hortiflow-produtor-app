@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AlertTriangle, ArrowLeft, Check, Minus, Plus } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Check, Minus, Pencil, Plus, Trash2, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   atualizarPercentuaisRequest,
   criarSocioRequest,
+  editarNomeSocioRequest,
   listarSociedadesRequest,
   listarSociosRequest,
+  removerSocioRequest,
 } from '../services/sociedades';
 import { obterSociosCache, salvarSociosCache } from '../lib/sociedadesCache';
 import { mensagemErro } from '../lib/erroApi';
@@ -54,6 +56,12 @@ export function SociosScreen({ navigation, route }: Props) {
   const [nomeNovoSocio, setNomeNovoSocio] = useState('');
   const [papelNovoSocio, setPapelNovoSocio] = useState<PapelSocio>('MEEIRO');
   const [salvandoNovoSocio, setSalvandoNovoSocio] = useState(false);
+
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [nomeEmEdicao, setNomeEmEdicao] = useState('');
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const [removendoId, setRemovendoId] = useState<string | null>(null);
+  const [erroAcaoSocio, setErroAcaoSocio] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     const cache = await obterSociosCache(sociedadeId);
@@ -140,6 +148,49 @@ export function SociosScreen({ navigation, route }: Props) {
     }
   }
 
+  function iniciarEdicaoNome(socio: Socio) {
+    setErroAcaoSocio(null);
+    setEditandoId(socio.id);
+    setNomeEmEdicao(socio.nome);
+  }
+
+  async function salvarNomeSocio(socioId: string) {
+    if (!nomeEmEdicao.trim()) return;
+    setErroAcaoSocio(null);
+    setSalvandoNome(true);
+    try {
+      await editarNomeSocioRequest(sociedadeId, socioId, nomeEmEdicao.trim());
+      setEditandoId(null);
+      await carregar();
+    } catch (err) {
+      setErroAcaoSocio(mensagemErro(err, 'Não foi possível editar o nome do sócio'));
+    } finally {
+      setSalvandoNome(false);
+    }
+  }
+
+  function removerSocio(socio: Socio) {
+    Alert.alert(`Remover ${socio.nome}?`, 'Essa ação não pode ser desfeita.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Remover',
+        style: 'destructive',
+        onPress: async () => {
+          setErroAcaoSocio(null);
+          setRemovendoId(socio.id);
+          try {
+            await removerSocioRequest(sociedadeId, socio.id);
+            await carregar();
+          } catch (err) {
+            setErroAcaoSocio(mensagemErro(err, 'Não foi possível remover o sócio'));
+          } finally {
+            setRemovendoId(null);
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <BannerSemConexao />
@@ -188,42 +239,102 @@ export function SociosScreen({ navigation, route }: Props) {
             <View style={styles.listaSocios}>
               {socios.map((s) => (
                 <View key={s.id} style={styles.linhaSocio}>
-                  <View style={styles.linhaSocioInfo}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarTexto}>{iniciais(s.nome)}</Text>
-                    </View>
-                    <View style={styles.linhaSocioTextos}>
-                      <Text style={styles.linhaSocioNome} numberOfLines={1}>
-                        {s.nome}
-                      </Text>
-                      <View style={styles.tags}>
-                        <Text style={styles.tagPapel}>{ROTULO_PAPEL[s.papel]}</Text>
-                        {!s.usuario_id && <Text style={styles.tagSemConta}>Sem conta</Text>}
+                  <View style={styles.linhaSocioTopo}>
+                    <View style={styles.linhaSocioInfo}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarTexto}>{iniciais(s.nome)}</Text>
+                      </View>
+                      <View style={styles.linhaSocioTextos}>
+                        {editandoId === s.id ? (
+                          <TextInput
+                            style={styles.inputEdicaoNome}
+                            autoFocus
+                            value={nomeEmEdicao}
+                            onChangeText={setNomeEmEdicao}
+                          />
+                        ) : (
+                          <Text style={styles.linhaSocioNome} numberOfLines={1}>
+                            {s.nome}
+                          </Text>
+                        )}
+                        <View style={styles.tags}>
+                          <Text style={styles.tagPapel}>{ROTULO_PAPEL[s.papel]}</Text>
+                          {!s.usuario_id && <Text style={styles.tagSemConta}>Sem conta</Text>}
+                        </View>
                       </View>
                     </View>
+                    <View style={styles.stepper}>
+                      <Pressable
+                        style={styles.stepperBotao}
+                        onPress={() => ajustarPct(s.id, -5)}
+                        hitSlop={6}
+                        accessibilityLabel={`Diminuir percentual de ${s.nome}`}
+                      >
+                        <Minus size={14} color={cores.green[800]} />
+                      </Pressable>
+                      <Text style={styles.stepperValor}>{Number(s.percentual_lucro)}%</Text>
+                      <Pressable
+                        style={styles.stepperBotao}
+                        onPress={() => ajustarPct(s.id, 5)}
+                        hitSlop={6}
+                        accessibilityLabel={`Aumentar percentual de ${s.nome}`}
+                      >
+                        <Plus size={14} color={cores.green[800]} />
+                      </Pressable>
+                    </View>
                   </View>
-                  <View style={styles.stepper}>
-                    <Pressable
-                      style={styles.stepperBotao}
-                      onPress={() => ajustarPct(s.id, -5)}
-                      hitSlop={6}
-                      accessibilityLabel={`Diminuir percentual de ${s.nome}`}
-                    >
-                      <Minus size={14} color={cores.green[800]} />
-                    </Pressable>
-                    <Text style={styles.stepperValor}>{Number(s.percentual_lucro)}%</Text>
-                    <Pressable
-                      style={styles.stepperBotao}
-                      onPress={() => ajustarPct(s.id, 5)}
-                      hitSlop={6}
-                      accessibilityLabel={`Aumentar percentual de ${s.nome}`}
-                    >
-                      <Plus size={14} color={cores.green[800]} />
-                    </Pressable>
+
+                  <View style={styles.acoesSocio}>
+                    {editandoId === s.id ? (
+                      <>
+                        <Pressable
+                          style={styles.botaoAcaoSalvar}
+                          onPress={() => salvarNomeSocio(s.id)}
+                          disabled={salvandoNome || !nomeEmEdicao.trim()}
+                        >
+                          <Check size={12} color="#FFFFFF" strokeWidth={2.6} />
+                          <Text style={styles.textoBotaoAcaoSalvar}>{salvandoNome ? 'Salvando...' : 'Salvar'}</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.botaoAcaoSecundario}
+                          onPress={() => setEditandoId(null)}
+                          disabled={salvandoNome}
+                        >
+                          <X size={12} color={cores.stone[600]} strokeWidth={2.6} />
+                          <Text style={styles.textoBotaoAcaoSecundario}>Cancelar</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <>
+                        {!s.usuario_id && (
+                          <Pressable
+                            style={styles.botaoAcaoSecundario}
+                            onPress={() => iniciarEdicaoNome(s)}
+                            accessibilityLabel={`Editar nome de ${s.nome}`}
+                          >
+                            <Pencil size={12} color={cores.stone[600]} strokeWidth={2.4} />
+                            <Text style={styles.textoBotaoAcaoSecundario}>Editar nome</Text>
+                          </Pressable>
+                        )}
+                        <Pressable
+                          style={styles.botaoAcaoRemover}
+                          onPress={() => removerSocio(s)}
+                          disabled={removendoId === s.id}
+                          accessibilityLabel={`Remover ${s.nome}`}
+                        >
+                          <Trash2 size={12} color={cores.red.padrao} strokeWidth={2.4} />
+                          <Text style={styles.textoBotaoAcaoRemover}>
+                            {removendoId === s.id ? 'Removendo...' : 'Remover'}
+                          </Text>
+                        </Pressable>
+                      </>
+                    )}
                   </View>
                 </View>
               ))}
             </View>
+
+            {erroAcaoSocio && <Text style={styles.erro}>{erroAcaoSocio}</Text>}
           </>
         )}
 
@@ -414,13 +525,76 @@ const styles = StyleSheet.create({
     gap: espacamento.xs,
   },
   linhaSocio: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: cores.cream[100],
     paddingVertical: espacamento.sm + 4,
     gap: espacamento.sm,
+  },
+  linhaSocioTopo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: espacamento.sm,
+  },
+  acoesSocio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espacamento.xs + 2,
+  },
+  inputEdicaoNome: {
+    height: 32,
+    maxWidth: 160,
+    borderWidth: 1,
+    borderColor: cores.green[500],
+    borderRadius: raio.md,
+    paddingHorizontal: espacamento.sm,
+    fontSize: 14,
+    fontWeight: '700',
+    color: cores.stone[900],
+  },
+  botaoAcaoSalvar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: cores.green[800],
+    borderRadius: raio.pill,
+    paddingHorizontal: espacamento.sm + 2,
+    paddingVertical: espacamento.xs,
+  },
+  textoBotaoAcaoSalvar: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  botaoAcaoSecundario: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: cores.linha,
+    borderRadius: raio.pill,
+    paddingHorizontal: espacamento.sm + 2,
+    paddingVertical: espacamento.xs,
+  },
+  textoBotaoAcaoSecundario: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: cores.stone[600],
+  },
+  botaoAcaoRemover: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: cores.red.padrao,
+    borderRadius: raio.pill,
+    paddingHorizontal: espacamento.sm + 2,
+    paddingVertical: espacamento.xs,
+  },
+  textoBotaoAcaoRemover: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: cores.red.padrao,
   },
   linhaSocioInfo: {
     flexDirection: 'row',

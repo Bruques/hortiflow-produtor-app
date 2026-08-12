@@ -235,3 +235,69 @@ model AcertoSocio {
 6. Dado uma Sociedade com um sócio sem conta chamado "João", um segundo usuário que entra com o código de convite vê "João" listado em `GET /sociedades/convite/:codigo`; ao confirmar entrada com `vincular_socio_id` = id do João, o sócio "João" passa a ter conta (aparece com telefone), mantendo o mesmo `id`, percentual e papel de antes — nenhum sócio novo é criado
 7. Tentar vincular um `vincular_socio_id` que já tem conta retorna 409; um que não existe/não é dessa sociedade retorna 404
 8. Frontend: tela de Configurações ganha um botão "Adicionar sócio" (nome + papel) na seção de sócios; tela de "Entrar por código" pergunta "é algum desses sócios?" quando o convite tem sócios sem conta, com opção "Não, sou novo sócio"
+
+---
+
+## Incremento (2026-08-11): editar nome e remover sócio
+
+### Motivação
+
+As duas lacunas registradas como "fora de escopo" no incremento anterior (linha "Editar nome ou remover um sócio... não é escopo") viraram um problema real: o usuário relatou que, ao cadastrar um sócio sem conta com o nome errado por engano, não havia como corrigir nem desfazer — o sócio ficava preso na sociedade permanentemente. Este incremento cobre os dois casos.
+
+### Escopo
+
+**Entra:**
+- Editar o `nome` de um sócio **sem conta** (o caso motivador — nome digitado errado ao cadastrar)
+- Remover um sócio da Sociedade, com o percentual dele redistribuído automaticamente entre os demais
+- Bloquear a remoção se o sócio já tiver qualquer lançamento vinculado (ver "Regras de negócio")
+
+**Fica de fora:**
+- Editar o nome de um sócio **com conta** — isso é o `Usuario.nome` da própria pessoa, compartilhado entre todas as sociedades de que ela participa; editar esse campo é uma ação de perfil de usuário, não de gestão de sócios de uma sociedade específica, e não é o problema relatado
+- Reverter/desfazer a remoção (se removeu errado, precisa cadastrar de novo)
+
+### Regras de negócio
+
+**Editar nome do sócio sem conta**
+- `PATCH /sociedades/:id/socios/:socioId` com `{ nome: string }`, autenticado, só quem já é sócio da Sociedade
+- 400 se `nome` vazio
+- 404 se `socioId` não existe ou não pertence à sociedade `:id`
+- 409 se o sócio tem `usuario_id` preenchido (tem conta — nome não é editável por aqui, ver "Fica de fora")
+
+**Remover sócio**
+- `DELETE /sociedades/:id/socios/:socioId`, autenticado, só quem já é sócio da Sociedade
+- 404 se `socioId` não existe ou não pertence à sociedade `:id`
+- 409 se for o único sócio da sociedade (uma sociedade não pode ficar sem sócio)
+- 409 se o `socioId` corresponder ao próprio usuário autenticado (auto-remoção não é permitida — descoberto durante teste manual, 2026-08-11: sem essa checagem, um sócio conseguia se auto-remover e ficava sem nenhum acesso à sociedade, já que a autorização de toda a API de sociedade depende de `SocioSociedade` existir para aquele usuário; recuperar exigiria reentrar pelo código de convite. Se um sócio realmente precisa sair, outro sócio remove-o)
+- 409 se o sócio já tiver qualquer lançamento vinculado — verificado em: `AcertoSocio`, `RateioDespesa`, `RateioRegra` (todos referenciam `SocioSociedade.id` diretamente); e, se o sócio tiver conta vinculada, também `Despesa`, `AporteTrabalho` e `RegraDespesaRecorrente` lançados por esse usuário dentro de safras dessa sociedade. Mensagem de erro explica que o sócio já tem lançamentos e por isso não pode ser removido, só fica de fora de futuras divisões — não é o caso comum (a maior parte das remoções acontece logo depois de cadastrar errado, antes de qualquer lançamento)
+- Se permitido: remove o `SocioSociedade` e redistribui o `percentual_lucro` dele proporcionalmente entre os sócios restantes (ex: removendo um sócio de 20% numa sociedade 50/30/20, o 50 e o 30 crescem na mesma proporção entre si, fechando 100% de novo); se todos os restantes estiverem em 0%, divide o percentual removido igualmente entre eles. Arredondamento de centavos de percentual é absorvido pelo primeiro sócio da lista, pra soma fechar exatamente 100
+- Sócio removido some de `GET /sociedades/:id/socios`; código de convite e demais sócios não são afetados
+
+### Contrato de API
+
+```
+PATCH /sociedades/:id/socios/:socioId
+  auth obrigatório, requer ser sócio da sociedade :id
+  body: { nome: string }
+  → 200 { socio: { id, nome, telefone: null, percentual_lucro, papel } }
+  → 400 se nome vazio
+  → 403 se usuário autenticado não é sócio da sociedade
+  → 404 se socioId não existe/não pertence à sociedade
+  → 409 se o sócio tem conta vinculada
+
+DELETE /sociedades/:id/socios/:socioId
+  auth obrigatório, requer ser sócio da sociedade :id
+  → 200 { socios: [...] } (lista atualizada, com percentuais redistribuídos)
+  → 403 se usuário autenticado não é sócio da sociedade
+  → 404 se socioId não existe/não pertence à sociedade
+  → 409 se for o único sócio, ou se já tiver lançamentos vinculados
+```
+
+### Critérios de aceite
+
+1. Dado um sócio sem conta com nome errado, `PATCH .../socios/:socioId` com o nome correto atualiza e o novo nome aparece em `GET .../socios`
+2. `PATCH` num sócio com conta vinculada retorna 409
+3. Dado uma sociedade 60/40 (dois sócios), remover o de 40% deixa o restante com 100% e um único sócio na lista
+4. Dado uma sociedade 50/30/20, remover o de 20% deixa 62.5/37.5 (redistribuição proporcional), somando exatamente 100
+5. Tentar remover o único sócio de uma sociedade retorna 409
+6. Tentar remover um sócio que já aparece em algum Acerto, rateio de despesa/regra, ou (se tiver conta) já lançou despesa/aporte/regra na sociedade retorna 409, e nenhuma alteração é feita
+7. Frontend: cada linha de sócio na tela de Configurações ganha ação de editar (só sócio sem conta) e remover, com confirmação antes de remover

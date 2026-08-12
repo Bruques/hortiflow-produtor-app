@@ -29,6 +29,10 @@ const novoSocioSchema = z.object({
   papel: z.nativeEnum(PapelSocio),
 });
 
+const editarNomeSocioSchema = z.object({
+  nome: z.string().min(1),
+});
+
 export async function criar(req: Request, res: Response): Promise<void> {
   const parsed = criarSociedadeSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -63,6 +67,70 @@ export async function entrar(req: Request, res: Response): Promise<void> {
       return;
     }
     res.status(409).json({ error: 'Esse sócio já está vinculado a uma conta' });
+    return;
+  }
+
+  res.json(resultado);
+}
+
+export async function editarNomeSocio(req: Request, res: Response): Promise<void> {
+  const { id, socioId } = req.params;
+
+  const autorizado = await sociedadesService.ehSocio(req.usuarioId, id);
+  if (!autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  const parsed = editarNomeSocioSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Nome é obrigatório' });
+    return;
+  }
+
+  const resultado = await sociedadesService.editarNomeSocio(id, socioId, parsed.data.nome);
+
+  if ('erro' in resultado) {
+    if (resultado.erro === 'NAO_ENCONTRADO') {
+      res.status(404).json({ error: 'Sócio não encontrado' });
+      return;
+    }
+    res.status(409).json({ error: 'Esse sócio tem conta própria — o nome dele não pode ser editado por aqui' });
+    return;
+  }
+
+  res.json(resultado);
+}
+
+export async function removerSocio(req: Request, res: Response): Promise<void> {
+  const { id, socioId } = req.params;
+
+  const autorizado = await sociedadesService.ehSocio(req.usuarioId, id);
+  if (!autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  const resultado = await sociedadesService.removerSocio(id, socioId, req.usuarioId);
+
+  if ('erro' in resultado) {
+    if (resultado.erro === 'NAO_ENCONTRADO') {
+      res.status(404).json({ error: 'Sócio não encontrado' });
+      return;
+    }
+    if (resultado.erro === 'UNICO_SOCIO') {
+      res.status(409).json({ error: 'Não é possível remover o único sócio da sociedade' });
+      return;
+    }
+    if (resultado.erro === 'AUTO_REMOCAO') {
+      res
+        .status(409)
+        .json({ error: 'Você não pode remover a si mesmo da sociedade — peça a outro sócio' });
+      return;
+    }
+    res
+      .status(409)
+      .json({ error: 'Esse sócio já tem lançamentos vinculados e não pode ser removido' });
     return;
   }
 
