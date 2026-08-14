@@ -12,7 +12,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "5"
+      "buildNumber": "7"
     },
     "android": {
       "package": "com.hortiflow.produtor",
@@ -23,22 +23,25 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ],
-      "versionCode": 7
+      "versionCode": 8
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-sqlite",
       "expo-asset",
       [
         "expo-image-picker",
         {
-          "cameraPermission": "O HortiFlow usa a câmera para anexar a foto do comprovante a uma despesa."
+          "cameraPermission": "O HortiFlow usa a câmera para anexar a foto do comprovante a uma despesa.",
+          "microphonePermission": false
         }
       ],
       "expo-sharing",
