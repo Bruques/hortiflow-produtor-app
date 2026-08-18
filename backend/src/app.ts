@@ -16,6 +16,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Railway roda o backend atrás de um proxy reverso — sem isso, o Express enxerga o IP do
+// proxy em vez do IP real do visitante, o que quebra a contagem por IP do loginLimiter abaixo
+// (todo mundo cai no mesmo "balde", inclusive risco de travar um revisor da Apple sem querer).
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
