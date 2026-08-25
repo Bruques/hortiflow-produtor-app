@@ -19,6 +19,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      // Registro de auditoria best-effort (spec 17) — chamado direto por essa instância (não
+      // por services/auth.ts) pra não criar import circular entre apiClient e auth.
+      apiClient.post('/auth/logout', { automatico: true }).catch(() => {});
       localStorage.removeItem('token');
       window.location.href = '/login';
     }

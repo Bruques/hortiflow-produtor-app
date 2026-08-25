@@ -5,11 +5,17 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import { SafraProvider } from './src/context/SafraContext';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { initSentry } from './src/lib/sentry';
 import { iniciarSincronizacaoAutomatica } from './src/lib/syncTrigger';
 import { sincronizarTudo } from './src/lib/syncQueue';
 import { registrarProcessadoresDespesas } from './src/lib/despesasQueue';
 import { registrarProcessadoresVendas } from './src/lib/vendasQueue';
 import { registrarProcessadoresSugestoes } from './src/lib/sugestaoQueue';
+
+// Fora do componente, de propósito: precisa rodar uma única vez, o mais cedo possível no
+// bootstrap do app (antes do primeiro render), pra capturar erro mesmo em telas iniciais.
+initSentry();
 
 export default function App() {
   useEffect(() => {
@@ -39,11 +45,13 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <SafraProvider>
-          <RootNavigator />
-        </SafraProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <SafraProvider>
+            <RootNavigator />
+          </SafraProvider>
+        </AuthProvider>
+      </ErrorBoundary>
       <StatusBar style="auto" />
     </SafeAreaProvider>
   );

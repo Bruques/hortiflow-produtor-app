@@ -1,7 +1,16 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Precisa ser o primeiro import de tudo (antes das rotas): faz o patch que permite uma
+// exceção lançada dentro de um controller `async` chegar até o error handler no fim deste
+// arquivo — sem isso, a promise rejeitada de um controller assíncrono simplesmente some,
+// sem nunca acionar o `next(err)` (gap identificado na spec 17).
+import 'express-async-errors';
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
+import Sentry, { initSentry } from './lib/sentry';
 import authRoutes from './routes/auth';
 import sociedadesRoutes from './routes/sociedades';
 import safrasRoutes from './routes/safras';
@@ -11,7 +20,7 @@ import regrasDespesaRecorrenteRoutes from './routes/regrasDespesaRecorrente';
 import unidadesVendaRoutes from './routes/unidadesVenda';
 import acertosRoutes from './routes/acertos';
 
-dotenv.config();
+initSentry();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,6 +65,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     erro: err.message,
     stack: err.stack,
   });
+  Sentry.captureException(err);
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
 

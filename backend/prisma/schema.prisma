@@ -59,8 +59,26 @@ model Usuario {
   aportesTrabalho  AporteTrabalho[]
   regrasComoSocio  RegraDespesaRecorrente[] @relation("RegraSocio")
   regrasCriadas    RegraDespesaRecorrente[] @relation("RegraCriador")
+  eventosAuditoria EventoAuditoria[]
 
   @@map("usuarios")
+}
+
+// Spec 17 — trilha de eventos de conta (cadastro, login, logout, bloqueio/desbloqueio),
+// separada dos modelos de negócio porque alimenta o futuro dashboard de observabilidade,
+// não nenhum cálculo de divisão/sociedade.
+model EventoAuditoria {
+  id         String   @id @default(uuid())
+  usuario_id String?
+  tipo       String
+  metadata   Json?
+  criado_em  DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuario_id], references: [id])
+
+  @@index([usuario_id])
+  @@index([tipo])
+  @@map("eventos_auditoria")
 }
 
 model Sociedade {

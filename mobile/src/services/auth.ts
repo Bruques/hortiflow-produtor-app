@@ -24,3 +24,14 @@ export async function meRequest(): Promise<{ usuario: Usuario }> {
 export async function trocarSenhaRequest(senha_atual: string, senha_nova: string): Promise<void> {
   await apiClient.put('/auth/senha', { senha_atual, senha_nova });
 }
+
+// Best-effort de propósito (spec 17): usado tanto no logout manual quanto no automático
+// (401), nunca deve travar o fluxo de saída do usuário se a chamada falhar (ex: sem internet
+// no momento do logout).
+export async function logoutRequest(automatico: boolean): Promise<void> {
+  try {
+    await apiClient.post('/auth/logout', { automatico });
+  } catch {
+    // silencioso — é só um registro de auditoria, não pode impedir o logout
+  }
+}

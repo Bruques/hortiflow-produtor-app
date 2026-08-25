@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, type LucideIcon } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { meRequest } from '@/services/auth';
+import { meRequest, logoutRequest } from '@/services/auth';
 import { listarSociosRequest } from '@/services/sociedades';
 
 interface Item {
@@ -109,6 +109,7 @@ export default function MenuPage() {
   ];
 
   function sair() {
+    logoutRequest(false);
     localStorage.removeItem('token');
     navigate('/login');
   }

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { clearToken, getToken, getUsuarioSalvo, setToken, setUsuarioSalvo } from '../lib/tokenStorage';
 import { deveDeslogarPorErro } from '../lib/bootstrapSessao';
-import { meRequest } from '../services/auth';
+import { meRequest, logoutRequest } from '../services/auth';
 import apiClient from '../services/apiClient';
 import type { Usuario } from '../types/usuario';
 
@@ -58,7 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLogado(true);
   }, []);
 
-  const sair = useCallback(async () => {
+  // `automatico` default false cobre o caso de uso público (botão "Sair" chama `sair()` sem
+  // argumento); o interceptor abaixo passa `true` explicitamente. Auditoria é best-effort e
+  // roda em paralelo, sem esperar resposta, pra nunca atrasar/travar o logout em si.
+  const sair = useCallback(async (automatico = false) => {
+    logoutRequest(automatico);
     await clearToken();
     setUsuario(null);
     setLogado(false);
@@ -72,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (response) => response,
       (erro) => {
         if (deveDeslogarPorErro(erro)) {
-          sair();
+          sair(true);
         }
         return Promise.reject(erro);
       }

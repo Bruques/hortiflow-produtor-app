@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
+import { registrarEvento } from '../services/auditoria.service';
 
 const registerSchema = z.object({
   nome: z.string().min(1),
@@ -43,6 +44,8 @@ export async function register(req: Request, res: Response): Promise<void> {
   const usuario = await prisma.usuario.create({
     data: { nome, telefone, senha_hash },
   });
+
+  await registrarEvento(usuario.id, 'CONTA_CRIADA');
 
   const token = gerarToken(usuario.id);
   res.status(201).json({
@@ -88,11 +91,32 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  await registrarEvento(usuario.id, 'LOGIN');
+
   const token = gerarToken(usuario.id);
   res.json({
     usuario: { id: usuario.id, nome: usuario.nome, telefone: usuario.telefone },
     token,
   });
+}
+
+// Sem authMiddleware de propósito: no logout automático (token expirado), uma chamada
+// autenticada já falharia com 401 de novo, então essa rota só decodifica o token (sem
+// validar assinatura/expiração) para saber de quem é o evento — não é um limite de
+// segurança, é só atribuição de um registro de auditoria (spec 17).
+export async function logout(req: Request, res: Response): Promise<void> {
+  const { authorization } = req.headers;
+  const automatico = req.body?.automatico === true;
+
+  let usuarioId: string | null = null;
+  if (authorization) {
+    const [, token] = authorization.split(' ');
+    const payload = jwt.decode(token) as { usuarioId?: string } | null;
+    usuarioId = payload?.usuarioId ?? null;
+  }
+
+  await registrarEvento(usuarioId, 'LOGOUT', { automatico });
+  res.json({ ok: true });
 }
 
 export async function trocarSenha(req: Request, res: Response): Promise<void> {
