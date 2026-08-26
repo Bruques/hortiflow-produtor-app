@@ -173,7 +173,7 @@ export function InicioScreen({ navigation }: Props) {
             <Text style={styles.linkCentralizado}>Já tenho um código de convite</Text>
           </Pressable>
 
-          <Pressable style={styles.linkSair} onPress={sair}>
+          <Pressable style={styles.linkSair} onPress={() => sair()}>
             <LogOut size={16} color={cores.stone[600]} />
             <Text style={styles.linkSairTexto}>Sair</Text>
           </Pressable>
@@ -208,7 +208,7 @@ export function InicioScreen({ navigation }: Props) {
           ))}
         </View>
 
-        <Pressable style={styles.linkSair} onPress={sair}>
+        <Pressable style={styles.linkSair} onPress={() => sair()}>
           <LogOut size={16} color={cores.stone[600]} />
           <Text style={styles.linkSairTexto}>Sair</Text>
         </Pressable>

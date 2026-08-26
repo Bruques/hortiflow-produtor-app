@@ -149,7 +149,7 @@ export function MenuScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <Pressable style={styles.botaoSair} onPress={sair}>
+      <Pressable style={styles.botaoSair} onPress={() => sair()}>
         <LogOut size={18} color={cores.red.padrao} />
         <Text style={styles.botaoSairTexto}>Sair</Text>
       </Pressable>
