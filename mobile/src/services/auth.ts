@@ -27,10 +27,18 @@ export async function trocarSenhaRequest(senha_atual: string, senha_nova: string
 
 // Best-effort de propósito (spec 17): usado tanto no logout manual quanto no automático
 // (401), nunca deve travar o fluxo de saída do usuário se a chamada falhar (ex: sem internet
-// no momento do logout).
-export async function logoutRequest(automatico: boolean): Promise<void> {
+// no momento do logout). Recebe o token explicitamente (em vez de deixar o interceptor do
+// apiClient ler do armazenamento) porque quem chama essa função dispara em paralelo com
+// clearToken() — sem isso, é uma corrida: o token some do armazenamento antes do interceptor
+// conseguir anexá-lo, e o evento chega no backend sem usuario_id (bug observado em teste real
+// no device, 2026-08-26).
+export async function logoutRequest(automatico: boolean, token?: string | null): Promise<void> {
   try {
-    await apiClient.post('/auth/logout', { automatico });
+    await apiClient.post(
+      '/auth/logout',
+      { automatico },
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    );
   } catch {
     // silencioso — é só um registro de auditoria, não pode impedir o logout
   }

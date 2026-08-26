@@ -60,9 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // `automatico` default false cobre o caso de uso público (botão "Sair" chama `sair()` sem
   // argumento); o interceptor abaixo passa `true` explicitamente. Auditoria é best-effort e
-  // roda em paralelo, sem esperar resposta, pra nunca atrasar/travar o logout em si.
+  // roda em paralelo, sem esperar resposta, pra nunca atrasar/travar o logout em si — mas o
+  // token precisa ser lido *antes* de clearToken() e passado explícito, senão é uma corrida
+  // (clearToken apaga o token do armazenamento antes do interceptor do apiClient conseguir
+  // lê-lo, e o evento chega no backend sem usuario_id).
   const sair = useCallback(async (automatico = false) => {
-    logoutRequest(automatico);
+    const token = await getToken();
+    logoutRequest(automatico, token);
     await clearToken();
     setUsuario(null);
     setLogado(false);
