@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, type LucideIcon } from 'lucide-react-native';
+import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, type LucideIcon } from 'lucide-react-native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -105,6 +105,17 @@ export function MenuScreen({ navigation }: Props) {
             bg: cores.blue.fundo,
             cor: cores.blue.padrao,
             aoTocar: () => navigation.navigate('Relatorio', { safraId }),
+          } satisfies ItemMenu,
+          // Só quem paga a assinatura (o financiador titular) precisa disso — o meeiro
+          // nunca vê, já que a assinatura dele nunca é checada (spec 18).
+          {
+            chave: 'assinatura',
+            titulo: 'Minha assinatura',
+            subtitulo: 'Plano, vencimento e cancelamento',
+            Icone: CreditCard,
+            bg: cores.green[100],
+            cor: cores.green[800],
+            aoTocar: () => navigation.navigate('MinhaAssinatura'),
           } satisfies ItemMenu,
         ]
       : []),

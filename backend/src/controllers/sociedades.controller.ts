@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { PapelSocio } from '@prisma/client';
 import * as sociedadesService from '../services/sociedades.service';
+import * as assinaturaService from '../services/assinatura.service';
 
 const criarSociedadeSchema = z.object({
   nome: z.string().min(1),
@@ -37,6 +38,14 @@ export async function criar(req: Request, res: Response): Promise<void> {
   const parsed = criarSociedadeSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Nome da sociedade é obrigatório' });
+    return;
+  }
+
+  // Spec 18 — ainda não existe Sociedade aqui pra checar (o gate genérico de rota só
+  // cobre `:id` de uma já existente), então usa a assinatura do próprio usuário autenticado.
+  const liberado = await assinaturaService.acessoLiberadoParaTitular(req.usuarioId);
+  if (!liberado) {
+    res.status(402).json({ error: assinaturaService.mensagemAssinaturaVencida() });
     return;
   }
 

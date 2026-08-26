@@ -45,6 +45,19 @@ enum StatusUsuario {
   BLOQUEADO
 }
 
+// Spec 18 — assinatura e pagamento
+enum StatusAssinatura {
+  TRIAL
+  ATIVA
+  CANCELADA
+}
+
+enum MetodoPagamento {
+  GATEWAY_ASAAS
+  MANUAL_PIX
+  MANUAL_DINHEIRO
+}
+
 model Usuario {
   id         String        @id @default(uuid())
   nome       String
@@ -53,15 +66,92 @@ model Usuario {
   status     StatusUsuario @default(ATIVO)
   criado_em  DateTime      @default(now())
 
-  socioSociedades  SocioSociedade[]
-  despesas         Despesa[]
-  despesasPessoais DespesaPessoal[]
-  aportesTrabalho  AporteTrabalho[]
-  regrasComoSocio  RegraDespesaRecorrente[] @relation("RegraSocio")
-  regrasCriadas    RegraDespesaRecorrente[] @relation("RegraCriador")
-  eventosAuditoria EventoAuditoria[]
+  socioSociedades   SocioSociedade[]
+  despesas          Despesa[]
+  despesasPessoais  DespesaPessoal[]
+  aportesTrabalho   AporteTrabalho[]
+  regrasComoSocio   RegraDespesaRecorrente[] @relation("RegraSocio")
+  regrasCriadas     RegraDespesaRecorrente[] @relation("RegraCriador")
+  eventosAuditoria  EventoAuditoria[]
+  sociedadesCriadas Sociedade[]              @relation("SociedadeTitular")
+  assinatura        Assinatura?
 
   @@map("usuarios")
+}
+
+// Spec 18 — login do painel administrativo, totalmente separado do login de produtor
+// (Usuario): sem cadastro público, sem trial, sem tela de auto-registro. A única conta
+// é criada manualmente no banco pelo desenvolvedor (Prisma Studio ou script), o mesmo
+// padrão de "acesso administrativo ligado à mão" já usado na spec 16.
+model AdminUsuario {
+  id         String   @id @default(uuid())
+  nome       String
+  email      String   @unique
+  senha_hash String
+  criado_em  DateTime @default(now())
+
+  pagamentosRegistrados Pagamento[]
+
+  @@map("admin_usuarios")
+}
+
+// Spec 18 — 1:1 com o Usuario que criou a(s) Sociedade(s) (o "titular"). Todo
+// usuário ganha uma no registro, com trial de 14 dias; o plano só é atribuído
+// manualmente pelo admin depois (ver docs/specs/18-assinatura-e-pagamento.md).
+model Assinatura {
+  id                            String           @id @default(uuid())
+  usuario_id                    String           @unique
+  plano_id                      String?
+  status                        StatusAssinatura @default(TRIAL)
+  data_inicio                   DateTime         @default(now())
+  data_fim_acesso               DateTime
+  // Override pontual do limite de safras ativas do plano, só para este titular
+  // (negociação fora da régua padrão dos 3 planos) — null = usa o limite do plano.
+  limite_safras_ativas_override Int?
+  asaas_customer_id             String?
+  asaas_subscription_id         String?
+  criado_em                     DateTime         @default(now())
+  atualizado_em                 DateTime         @updatedAt
+
+  usuario    Usuario     @relation(fields: [usuario_id], references: [id])
+  plano      Plano?      @relation(fields: [plano_id], references: [id])
+  pagamentos Pagamento[]
+
+  @@map("assinaturas")
+}
+
+// Spec 18 — catálogo de planos (fixo em 3, mas valor/limite editáveis pelo admin
+// sem precisar de deploy).
+model Plano {
+  id                   String   @id @default(uuid())
+  nome                 String
+  valor_mensal         Decimal  @db.Decimal(10, 2)
+  limite_safras_ativas Int?
+  criado_em            DateTime @default(now())
+  atualizado_em        DateTime @updatedAt
+
+  assinaturas Assinatura[]
+
+  @@map("planos")
+}
+
+// Spec 18 — histórico de cada cobrança confirmada (gateway ou manual), usado
+// pelo painel admin pra ver "o que já foi pago, por qual meio".
+model Pagamento {
+  id                      String          @id @default(uuid())
+  assinatura_id           String
+  metodo                  MetodoPagamento
+  valor                   Decimal         @db.Decimal(10, 2)
+  periodo_inicio          DateTime
+  periodo_fim             DateTime
+  asaas_payment_id        String?
+  registrado_por_admin_id String?
+  criado_em               DateTime        @default(now())
+
+  assinatura    Assinatura    @relation(fields: [assinatura_id], references: [id])
+  registradoPor AdminUsuario? @relation(fields: [registrado_por_admin_id], references: [id])
+
+  @@map("pagamentos")
 }
 
 // Spec 17 — trilha de eventos de conta (cadastro, login, logout, bloqueio/desbloqueio),
@@ -82,11 +172,16 @@ model EventoAuditoria {
 }
 
 model Sociedade {
-  id             String   @id @default(uuid())
-  nome           String
-  codigo_convite String   @unique
-  criado_em      DateTime @default(now())
+  id                    String   @id @default(uuid())
+  nome                  String
+  codigo_convite        String   @unique
+  // Spec 18 — o titular cuja Assinatura/plano governam o acesso de todos que
+  // participam desta Sociedade (financiador ou meeiro). Gravado na criação,
+  // imutável depois.
+  criado_por_usuario_id String
+  criado_em             DateTime @default(now())
 
+  criadoPor         Usuario                  @relation("SociedadeTitular", fields: [criado_por_usuario_id], references: [id])
   socios            SocioSociedade[]
   safras            Safra[]
   regrasRecorrentes RegraDespesaRecorrente[]

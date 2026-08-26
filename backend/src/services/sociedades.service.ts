@@ -23,6 +23,9 @@ export async function criarSociedade(usuarioId: string, nome: string) {
     data: {
       nome,
       codigo_convite,
+      // Spec 18 — quem cria a Sociedade é o titular cuja Assinatura passa a governar o
+      // acesso de todos que participam dela (gravado uma vez, imutável depois).
+      criado_por_usuario_id: usuarioId,
       socios: {
         create: {
           usuario_id: usuarioId,

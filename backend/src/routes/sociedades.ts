@@ -4,6 +4,7 @@ import * as safrasController from '../controllers/safras.controller';
 import * as regrasController from '../controllers/regrasDespesaRecorrente.controller';
 import * as unidadesController from '../controllers/unidadesVenda.controller';
 import { authMiddleware } from '../middlewares/auth';
+import { criarGateAssinatura } from '../middlewares/assinaturaGate';
 
 const router = Router();
 
@@ -13,6 +14,12 @@ router.post('/', sociedadesController.criar);
 router.post('/entrar', sociedadesController.entrar);
 router.get('/convite/:codigo', sociedadesController.previewConvite);
 router.get('/', sociedadesController.listar);
+
+// Gate de assinatura (402) — montado com o path `/:id` (não `router.use(fn)` sem path) porque
+// só assim o Express popula `req.params.id` a tempo do middleware ler; as rotas acima (criar,
+// entrar, convite, listar) não passam por aqui, ficam fora desse prefixo.
+router.use('/:id', criarGateAssinatura('sociedade'));
+
 router.get('/:id/socios', sociedadesController.listarSocios);
 router.post('/:id/socios', sociedadesController.criarSocio);
 router.put('/:id/socios/percentuais', sociedadesController.atualizarPercentuais);

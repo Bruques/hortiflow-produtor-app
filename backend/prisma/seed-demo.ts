@@ -80,12 +80,27 @@ async function main() {
     },
   });
 
+  // Spec 18 — sem isso o financiador demo ficaria sem Assinatura e o gate bloquearia tudo
+  // (usuários criados via /auth/register já ganham uma automaticamente; este script usa
+  // upsert direto no banco, então precisa criar manualmente). Data de acesso bem no futuro,
+  // já que é só demonstração, não um teste real do fluxo de trial.
+  await prisma.assinatura.upsert({
+    where: { usuario_id: financiador.id },
+    update: {},
+    create: {
+      usuario_id: financiador.id,
+      status: 'ATIVA',
+      data_fim_acesso: diasAtras(-3650),
+    },
+  });
+
   const codigoConvite = await gerarCodigoConviteUnico();
 
   const sociedade = await prisma.sociedade.create({
     data: {
       nome: NOME_SOCIEDADE,
       codigo_convite: codigoConvite,
+      criado_por_usuario_id: financiador.id,
     },
   });
 

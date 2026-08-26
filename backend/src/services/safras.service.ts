@@ -1,9 +1,22 @@
 import { Safra, StatusSafra } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { ehSocio } from './sociedades.service';
+import * as assinaturaService from './assinatura.service';
 
-export async function abrirSafra(sociedadeId: string, nome: string, observacoes?: string): Promise<Safra> {
-  return prisma.safra.create({
+type AbrirSafraResultado = { erro: 'LIMITE_SAFRAS_ATIVAS' } | { safra: Safra };
+
+export async function abrirSafra(sociedadeId: string, nome: string, observacoes?: string): Promise<AbrirSafraResultado> {
+  const sociedade = await prisma.sociedade.findUnique({
+    where: { id: sociedadeId },
+    select: { criado_por_usuario_id: true },
+  });
+  // Spec 18 — safra sempre nasce EM_ANDAMENTO, então já entra na contagem do limite do
+  // plano do titular da sociedade (ver assinatura.service.ts).
+  if (sociedade && !(await assinaturaService.podeAtivarSafra(sociedade.criado_por_usuario_id))) {
+    return { erro: 'LIMITE_SAFRAS_ATIVAS' };
+  }
+
+  const safra = await prisma.safra.create({
     data: {
       sociedade_id: sociedadeId,
       nome,
@@ -12,6 +25,7 @@ export async function abrirSafra(sociedadeId: string, nome: string, observacoes?
       data_inicio: new Date(),
     },
   });
+  return { safra };
 }
 
 export async function listarSafras(sociedadeId: string): Promise<Safra[]> {

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from '@/components/PrivateRoute';
+import AdminRoute from '@/components/AdminRoute';
 import SafraLayout from '@/components/SafraLayout';
 import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
@@ -23,14 +24,24 @@ import AcertosPage from '@/pages/AcertosPage';
 import AcertoDetalhePage from '@/pages/AcertoDetalhePage';
 import NovoAcertoPage from '@/pages/NovoAcertoPage';
 import RelatorioPage from '@/pages/RelatorioPage';
+import AssinaturaBloqueadaPage from '@/pages/AssinaturaBloqueadaPage';
+import MinhaAssinaturaPage from '@/pages/MinhaAssinaturaPage';
+import AdminAssinaturasPage from '@/pages/admin/AdminAssinaturasPage';
+import AdminLoginPage from '@/pages/admin/AdminLoginPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/assinaturas" element={<AdminAssinaturasPage />} />
+        </Route>
         <Route element={<PrivateRoute />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/assinatura" element={<MinhaAssinaturaPage />} />
+          <Route path="/assinatura/bloqueio" element={<AssinaturaBloqueadaPage />} />
           <Route path="/despesas/compartilhada" element={<NovaDespesaCompartilhadaPage />} />
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />

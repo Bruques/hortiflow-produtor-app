@@ -25,6 +25,12 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
+    // Spec 18 — assinatura vencida (do titular da sociedade/safra acessada). Diferente do
+    // 401, não desloga: o usuário continua autenticado, só é redirecionado pra tela que
+    // explica o bloqueio e como regularizar.
+    if (error.response?.status === 402 && window.location.pathname !== '/assinatura/bloqueio') {
+      window.location.href = '/assinatura/bloqueio';
+    }
     return Promise.reject(error);
   }
 );

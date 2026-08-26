@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Sprout, AlertTriangle, Info } from 'lucide-react';
 import { abrirSafraRequest, listarSafrasRequest } from '@/services/safras';
+import { statusAssinaturaRequest } from '@/services/assinatura';
 import type { Safra } from '@/types/safra';
 
 function nomeSugerido(): string {
@@ -16,6 +17,7 @@ export default function NovaSafraPage() {
   const [nome, setNome] = useState(nomeSugerido());
   const [observacoes, setObservacoes] = useState('');
   const [safraEmAndamento, setSafraEmAndamento] = useState<Safra | null>(null);
+  const [limiteAtingido, setLimiteAtingido] = useState<{ safrasAtivas: number; limite: number } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -27,6 +29,18 @@ export default function NovaSafraPage() {
         setSafraEmAndamento(emAndamento ?? null);
       })
       .catch(() => {});
+
+    // Spec 18 — avisa e já desabilita o botão antes de tentar, em vez de só deixar o erro
+    // aparecer depois de clicar "Criar" (a checagem de verdade continua sendo feita no
+    // backend, isso aqui é só pra não surpreender o produtor sem explicação).
+    statusAssinaturaRequest()
+      .then((status) => {
+        const limite = status.plano?.limiteSafrasAtivas ?? null;
+        if (limite !== null && status.safrasAtivas >= limite) {
+          setLimiteAtingido({ safrasAtivas: status.safrasAtivas, limite });
+        }
+      })
+      .catch(() => {});
   }, [sociedadeId]);
 
   async function criar() {
@@ -36,8 +50,11 @@ export default function NovaSafraPage() {
     try {
       const { safra } = await abrirSafraRequest(sociedadeId, nome.trim(), observacoes.trim() || undefined);
       navigate(`/safras/${safra.id}`);
-    } catch {
-      setErro('Não foi possível criar a safra');
+    } catch (err) {
+      // Mostra a mensagem real do backend (ex: limite de safras ativas do plano, spec 18) —
+      // antes isso ficava sempre com um texto genérico, escondendo o motivo real do bloqueio.
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErro(data?.error ?? 'Não foi possível criar a safra');
       setSalvando(false);
     }
   }
@@ -61,6 +78,20 @@ export default function NovaSafraPage() {
 
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
+
+        {limiteAtingido && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-hf-red-bg px-3.5 py-3">
+            <AlertTriangle className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-red" strokeWidth={2} />
+            <div>
+              <p className="m-0 text-[12.5px] font-bold text-hf-red">
+                Limite de safras ativas do seu plano atingido ({limiteAtingido.safrasAtivas}/{limiteAtingido.limite})
+              </p>
+              <p className="m-0 mt-0.5 text-[11.5px] text-hf-red">
+                Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.
+              </p>
+            </div>
+          </div>
+        )}
 
         {safraEmAndamento && (
           <div className="flex items-start gap-2.5 rounded-xl bg-hf-amber-bg px-3.5 py-3">
@@ -121,7 +152,7 @@ export default function NovaSafraPage() {
         <button
           type="button"
           onClick={criar}
-          disabled={!nome.trim() || salvando}
+          disabled={!nome.trim() || salvando || !!limiteAtingido}
           className="w-full rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white disabled:opacity-50"
         >
           {salvando ? 'Criando...' : 'Criar e iniciar safra'}

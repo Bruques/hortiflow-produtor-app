@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { registrarEvento } from '../services/auditoria.service';
+import { criarAssinaturaTrial } from '../services/assinatura.service';
 
 const registerSchema = z.object({
   nome: z.string().min(1),
@@ -46,6 +47,7 @@ export async function register(req: Request, res: Response): Promise<void> {
   });
 
   await registrarEvento(usuario.id, 'CONTA_CRIADA');
+  await criarAssinaturaTrial(usuario.id);
 
   const token = gerarToken(usuario.id);
   res.status(201).json({

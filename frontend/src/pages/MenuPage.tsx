@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, type LucideIcon } from 'lucide-react';
+import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, type LucideIcon } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest, logoutRequest } from '@/services/auth';
@@ -98,6 +98,20 @@ export default function MenuPage() {
       bg: 'bg-hf-green-100',
       cor: 'text-hf-green-800',
     },
+    // Só quem paga a assinatura (o financiador titular) precisa disso — o meeiro nunca vê,
+    // já que a assinatura dele nunca é checada (spec 18).
+    ...(souFinanciador
+      ? [
+          {
+            href: '/assinatura',
+            titulo: 'Minha assinatura',
+            subtitulo: 'Plano, vencimento e cancelamento',
+            Icone: CreditCard,
+            bg: 'bg-hf-green-100',
+            cor: 'text-hf-green-800',
+          },
+        ]
+      : []),
     {
       href: `/sociedades/${sociedadeId}/safras`,
       titulo: 'Abrir nova safra',

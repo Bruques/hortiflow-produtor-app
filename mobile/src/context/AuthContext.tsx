@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { clearToken, getToken, getUsuarioSalvo, setToken, setUsuarioSalvo } from '../lib/tokenStorage';
 import { deveDeslogarPorErro } from '../lib/bootstrapSessao';
+import { deveMostrarBloqueioAssinatura } from '../lib/assinaturaGate';
+import { navigationRef } from '../lib/navigationRef';
 import { meRequest, logoutRequest } from '../services/auth';
 import apiClient from '../services/apiClient';
 import type { Usuario } from '../types/usuario';
@@ -75,12 +77,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sem isso, um 401 numa chamada qualquer feita depois do bootstrap (token expirado em uso,
   // não só ao abrir o app) deixava o usuário preso na tela com erro genérico de carregamento,
   // sem nunca ser levado de volta pro login — mesmo gap do apiClient do web.
+  //
+  // Spec 18 — mesmo interceptor também trata 402 (assinatura vencida): diferente do 401, não
+  // desloga (usuário continua autenticado), só navega pra tela de bloqueio. Usa navigationRef
+  // em vez de um `navigation` de tela porque esse interceptor roda fora de qualquer
+  // componente. A checagem de rota atual evita navegar em loop se a própria tela de bloqueio
+  // disparar uma chamada que também caia em 402.
   useEffect(() => {
     const id = apiClient.interceptors.response.use(
       (response) => response,
       (erro) => {
         if (deveDeslogarPorErro(erro)) {
           sair(true);
+        } else if (
+          deveMostrarBloqueioAssinatura(erro) &&
+          navigationRef.isReady() &&
+          navigationRef.getCurrentRoute()?.name !== 'AssinaturaBloqueio'
+        ) {
+          navigationRef.navigate('AssinaturaBloqueio');
         }
         return Promise.reject(erro);
       }

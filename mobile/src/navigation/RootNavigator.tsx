@@ -18,7 +18,10 @@ import { AcertosScreen } from '../screens/AcertosScreen';
 import { NovoAcertoScreen } from '../screens/NovoAcertoScreen';
 import { AcertoDetalheScreen } from '../screens/AcertoDetalheScreen';
 import { RelatorioScreen } from '../screens/RelatorioScreen';
+import { MinhaAssinaturaScreen } from '../screens/MinhaAssinaturaScreen';
+import { AssinaturaBloqueioScreen } from '../screens/AssinaturaBloqueioScreen';
 import { useAuth } from '../context/AuthContext';
+import { navigationRef } from '../lib/navigationRef';
 import type { DespesaLocal } from '../types/despesa';
 import type { VendaLocal } from '../types/venda';
 
@@ -45,6 +48,10 @@ export type RootStackParamList = {
   NovoAcerto: { safraId: string };
   AcertoDetalhe: { acertoId: string; safraId: string };
   Relatorio: { safraId: string };
+  MinhaAssinatura: undefined;
+  // Sem parâmetros de propósito — navegada pelo interceptor do apiClient (AuthContext.tsx),
+  // que não tem contexto nenhum sobre qual sociedade/safra disparou o 402.
+  AssinaturaBloqueio: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -76,11 +83,13 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={temaNavegacao}>
+    <NavigationContainer ref={navigationRef} theme={temaNavegacao}>
       <Stack.Navigator initialRouteName={logado ? 'Inicio' : 'Login'} screenOptions={{ headerShown: false }}>
         {logado ? (
           <>
             <Stack.Screen name="Inicio" component={InicioScreen} />
+            <Stack.Screen name="MinhaAssinatura" component={MinhaAssinaturaScreen} />
+            <Stack.Screen name="AssinaturaBloqueio" component={AssinaturaBloqueioScreen} />
             <Stack.Screen name="EntrarSociedade" component={EntrarSociedadeScreen} />
             <Stack.Screen name="Safra" component={SafraTabsScreen} />
             <Stack.Screen name="Safras" component={SafrasScreen} />

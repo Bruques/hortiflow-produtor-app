@@ -19,6 +19,9 @@ import despesasPessoaisRoutes from './routes/despesasPessoais';
 import regrasDespesaRecorrenteRoutes from './routes/regrasDespesaRecorrente';
 import unidadesVendaRoutes from './routes/unidadesVenda';
 import acertosRoutes from './routes/acertos';
+import assinaturaRoutes from './routes/assinatura';
+import adminRoutes from './routes/admin';
+import webhooksAsaasRoutes from './routes/webhooksAsaas';
 
 initSentry();
 
@@ -59,6 +62,9 @@ app.use('/api/despesas-pessoais', despesasPessoaisRoutes);
 app.use('/api/regras-recorrentes', regrasDespesaRecorrenteRoutes);
 app.use('/api/unidades-venda', unidadesVendaRoutes);
 app.use('/api/acertos', acertosRoutes);
+app.use('/api/assinatura', assinaturaRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/webhooks/asaas', webhooksAsaasRoutes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error({

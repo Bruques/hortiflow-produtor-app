@@ -32,8 +32,15 @@ export async function abrir(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const safra = await safrasService.abrirSafra(id, parsed.data.nome, parsed.data.observacoes);
-  res.status(201).json({ safra });
+  const resultado = await safrasService.abrirSafra(id, parsed.data.nome, parsed.data.observacoes);
+  if ('erro' in resultado) {
+    res.status(403).json({
+      error: 'Você atingiu o limite de safras ativas do seu plano. Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.',
+    });
+    return;
+  }
+
+  res.status(201).json({ safra: resultado.safra });
 }
 
 export async function listar(req: Request, res: Response): Promise<void> {

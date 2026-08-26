@@ -8,6 +8,7 @@ import * as simulacaoController from '../controllers/simulacao.controller';
 import * as acertosController from '../controllers/acertos.controller';
 import * as relatorioController from '../controllers/relatorio.controller';
 import { authMiddleware } from '../middlewares/auth';
+import { criarGateAssinatura } from '../middlewares/assinaturaGate';
 
 const router = Router();
 
@@ -15,6 +16,11 @@ router.use(authMiddleware);
 
 router.get('/', safrasController.listarMinhas);
 router.get('/resumo', simulacaoController.resumo);
+
+// Gate de assinatura (402) — montado com o path `/:id` (não `router.use(fn)` sem path) porque
+// só assim o Express popula `req.params.id` a tempo do middleware ler.
+router.use('/:id', criarGateAssinatura('safra'));
+
 router.get('/:id', safrasController.obter);
 router.patch('/:id/encerrar', safrasController.encerrar);
 router.patch('/:id/observacoes', safrasController.atualizarObservacoes);

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangle, ArrowLeft, Info, Sprout } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { abrirSafraRequest, listarSafrasRequest } from '../services/safras';
+import { statusAssinaturaRequest } from '../services/assinatura';
 import { mensagemErro } from '../lib/erroApi';
 import { useSafraAtiva } from '../context/SafraContext';
 import { TelaComTeclado } from '../components/TelaComTeclado';
@@ -26,6 +27,7 @@ export function NovaSafraScreen({ navigation }: Props) {
   const [nome, setNome] = useState(nomeSugerido());
   const [observacoes, setObservacoes] = useState('');
   const [safraEmAndamento, setSafraEmAndamento] = useState<Safra | null>(null);
+  const [limiteAtingido, setLimiteAtingido] = useState<{ safrasAtivas: number; limite: number } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -34,6 +36,17 @@ export function NovaSafraScreen({ navigation }: Props) {
     listarSafrasRequest(sociedadeId)
       .then((res) => {
         setSafraEmAndamento(res.safras.find((s) => s.status === 'EM_ANDAMENTO') ?? null);
+      })
+      .catch(() => {});
+
+    // Spec 18 — avisa e já desabilita o botão antes de tentar, em vez de só deixar o erro
+    // aparecer depois de tocar em "Criar" (a checagem de verdade continua no backend).
+    statusAssinaturaRequest()
+      .then((status) => {
+        const limite = status.plano?.limiteSafrasAtivas ?? null;
+        if (limite !== null && status.safrasAtivas >= limite) {
+          setLimiteAtingido({ safrasAtivas: status.safrasAtivas, limite });
+        }
       })
       .catch(() => {});
   }, [sociedadeId]);
@@ -65,6 +78,20 @@ export function NovaSafraScreen({ navigation }: Props) {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {erro && <Text style={styles.erro}>{erro}</Text>}
+
+        {limiteAtingido && (
+          <View style={styles.avisoLimite}>
+            <AlertTriangle size={17} color={cores.red.padrao} />
+            <View style={styles.avisoTextos}>
+              <Text style={styles.avisoLimiteTitulo}>
+                Limite de safras ativas do seu plano atingido ({limiteAtingido.safrasAtivas}/{limiteAtingido.limite})
+              </Text>
+              <Text style={styles.avisoLimiteTexto}>
+                Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {safraEmAndamento && (
           <View style={styles.aviso}>
@@ -119,9 +146,9 @@ export function NovaSafraScreen({ navigation }: Props) {
 
       <View style={styles.rodape}>
         <Pressable
-          style={[styles.botaoPrimario, (!nome.trim() || salvando) && styles.botaoDesabilitado]}
+          style={[styles.botaoPrimario, (!nome.trim() || salvando || !!limiteAtingido) && styles.botaoDesabilitado]}
           onPress={criar}
-          disabled={!nome.trim() || salvando}
+          disabled={!nome.trim() || salvando || !!limiteAtingido}
         >
           {salvando ? (
             <ActivityIndicator color="#FFFFFF" />
@@ -192,6 +219,23 @@ const styles = StyleSheet.create({
   avisoTexto: {
     fontSize: 11.5,
     color: cores.amber.padrao,
+    marginTop: 2,
+  },
+  avisoLimite: {
+    flexDirection: 'row',
+    gap: espacamento.sm,
+    backgroundColor: cores.red.fundo,
+    borderRadius: raio.md,
+    padding: espacamento.sm + 6,
+  },
+  avisoLimiteTitulo: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: cores.red.padrao,
+  },
+  avisoLimiteTexto: {
+    fontSize: 11.5,
+    color: cores.red.padrao,
     marginTop: 2,
   },
   label: {
