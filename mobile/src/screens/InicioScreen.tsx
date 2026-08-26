@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronRight, LogOut } from 'lucide-react-native';
@@ -34,6 +34,11 @@ export function InicioScreen({ navigation }: Props) {
   const [nomeSafra, setNomeSafra] = useState('');
   const [criando, setCriando] = useState(false);
   const [erroCriacao, setErroCriacao] = useState<string | null>(null);
+  // Guarda além do estado `criando`: um duplo toque rápido dispara os dois onPress antes do
+  // primeiro re-render desabilitar o botão (state não é síncrono), o que criava uma sociedade
+  // duplicada por toque extra (bug relatado 2026-08-26). Uma ref muda no mesmo instante do
+  // clique, sem esperar re-render, então bloqueia a segunda chamada de verdade.
+  const criandoRef = useRef(false);
 
   const carregar = useCallback(async () => {
     const cache = await obterMinhasSafrasCache();
@@ -73,7 +78,8 @@ export function InicioScreen({ navigation }: Props) {
   }
 
   async function criarPrimeiraSafra() {
-    if (!nomePropriedade.trim() || !nomeSafra.trim()) return;
+    if (!nomePropriedade.trim() || !nomeSafra.trim() || criandoRef.current) return;
+    criandoRef.current = true;
     setErroCriacao(null);
     setCriando(true);
     try {
@@ -83,7 +89,7 @@ export function InicioScreen({ navigation }: Props) {
       navigation.replace('Safra');
     } catch (err) {
       setErroCriacao(mensagemErro(err, 'Não foi possível criar a safra'));
-    } finally {
+      criandoRef.current = false;
       setCriando(false);
     }
   }

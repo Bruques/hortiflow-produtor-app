@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,10 @@ export default function HomePage() {
   const [nomeSafra, setNomeSafra] = useState('');
   const [criando, setCriando] = useState(false);
   const [erroCriacao, setErroCriacao] = useState<string | null>(null);
+  // Guarda além do estado `criando`: um duplo clique rápido pode dispara os dois onClick antes
+  // do primeiro re-render desabilitar o botão, criando uma sociedade duplicada por clique
+  // extra (mesmo bug encontrado e corrigido no mobile, 2026-08-26).
+  const criandoRef = useRef(false);
 
   // Resumo consolidado ("quanto eu recebo somando todas as safras ativas") — só faz sentido
   // buscar quando há 2+ safras; com 1 só, o usuário já é redirecionado direto pra ela.
@@ -69,16 +73,18 @@ export default function HomePage() {
   }, [safras.length, periodoResumo]);
 
   async function criarPrimeiraSafra() {
-    if (!nomePropriedade.trim() || !nomeSafra.trim()) return;
+    if (!nomePropriedade.trim() || !nomeSafra.trim() || criandoRef.current) return;
+    criandoRef.current = true;
     setErroCriacao(null);
     setCriando(true);
     try {
       const { sociedade } = await criarSociedadeRequest(nomePropriedade.trim());
       const { safra } = await abrirSafraRequest(sociedade.id, nomeSafra.trim());
       navigate(`/safras/${safra.id}`, { replace: true });
-    } catch {
-      setErroCriacao('Não foi possível criar a safra');
-    } finally {
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErroCriacao(data?.error ?? 'Não foi possível criar a safra');
+      criandoRef.current = false;
       setCriando(false);
     }
   }

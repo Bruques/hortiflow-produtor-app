@@ -38,6 +38,7 @@ export default function NovaVendaPage() {
   const [comprador, setComprador] = useState('');
   const [pago, setPago] = useState(false);
   const [unidades, setUnidades] = useState<UnidadeVenda[]>([]);
+  const [carregandoUnidades, setCarregandoUnidades] = useState(true);
   const [unidadeId, setUnidadeId] = useState('');
   const [regrasPorVenda, setRegrasPorVenda] = useState<RegraDespesaRecorrente[]>([]);
   const [regrasMarcadas, setRegrasMarcadas] = useState<string[]>([]);
@@ -61,7 +62,8 @@ export default function NovaVendaPage() {
           setUnidadeId((atual) => atual || ativas[0].id);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCarregandoUnidades(false));
     listarRegrasRequest(sociedadeId)
       .then((res) => {
         setRegrasPorVenda(res.regras.filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo));
@@ -218,6 +220,25 @@ export default function NovaVendaPage() {
             <p className="m-0 text-[11.5px] text-hf-amber">
               Essa venda já faz parte de um acerto registrado, então não pode mais ser editada ou excluída.
             </p>
+          </div>
+        )}
+
+        {!carregandoUnidades && unidades.length === 0 && (
+          <div className="flex flex-col items-start gap-2.5 rounded-xl bg-hf-amber-bg px-3.5 py-3">
+            <div className="flex items-start gap-2.5">
+              <Store className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-amber" strokeWidth={2} />
+              <p className="m-0 text-[11.5px] text-hf-amber">
+                Essa sociedade ainda não tem nenhuma unidade de venda cadastrada (ex: Caixa, Kg) — crie uma antes de
+                lançar a venda.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(`/sociedades/${sociedadeId}/configuracoes/unidades-de-venda`)}
+              className="rounded-lg bg-hf-green-800 px-3 py-1.5 text-[12px] font-bold text-white"
+            >
+              Cadastrar unidade de venda
+            </button>
           </div>
         )}
 

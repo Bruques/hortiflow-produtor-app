@@ -227,13 +227,23 @@ export function NovaVendaScreen({ navigation, route }: Props) {
         {carregandoUnidades && unidades.length === 0 && <ActivityIndicator />}
 
         {semUnidadesEmCache && (
-          <View style={styles.aviso}>
-            <AlertTriangle size={16} color={cores.amber.padrao} />
-            <Text style={styles.avisoTexto}>
-              {conectado
-                ? 'Não foi possível carregar as unidades de venda.'
-                : 'Nenhuma unidade de venda salva neste aparelho ainda — conecte-se à internet pelo menos uma vez antes de lançar vendas.'}
-            </Text>
+          <View style={styles.avisoComBotao}>
+            <View style={styles.avisoLinha}>
+              <AlertTriangle size={16} color={cores.amber.padrao} />
+              <Text style={styles.avisoTexto}>
+                {conectado
+                  ? 'Essa sociedade ainda não tem nenhuma unidade de venda cadastrada (ex: Caixa, Kg) — crie uma antes de lançar a venda.'
+                  : 'Nenhuma unidade de venda salva neste aparelho ainda — conecte-se à internet pelo menos uma vez antes de lançar vendas.'}
+              </Text>
+            </View>
+            {conectado && (
+              <Pressable
+                style={styles.botaoCadastrarUnidade}
+                onPress={() => navigation.navigate('UnidadesVenda', { sociedadeId })}
+              >
+                <Text style={styles.textoBotaoCadastrarUnidade}>Cadastrar unidade de venda</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -448,6 +458,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: cores.amber.padrao,
     lineHeight: 17,
+  },
+  avisoComBotao: {
+    gap: espacamento.sm,
+    backgroundColor: cores.amber.fundo,
+    borderRadius: raio.lg,
+    padding: espacamento.md,
+  },
+  avisoLinha: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espacamento.sm,
+  },
+  botaoCadastrarUnidade: {
+    alignSelf: 'flex-start',
+    borderRadius: raio.md,
+    paddingVertical: espacamento.sm,
+    paddingHorizontal: espacamento.md,
+    backgroundColor: cores.green[800],
+  },
+  textoBotaoCadastrarUnidade: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   avisoRegras: {
     fontSize: 11.5,
