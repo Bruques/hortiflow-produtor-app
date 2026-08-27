@@ -27,6 +27,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EXPO_PUBLIC_API_URL": "https://backend-production-663fe.up.railway.app/api",
         "EXPO_PUBLIC_SENTRY_DSN": "https://1d215554d7dd46dcd023f2dfba6914f2@o4511973569724416.ingest.us.sentry.io/4511973681070080"
       }
