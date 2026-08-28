@@ -27,6 +27,7 @@ router.patch('/:id/observacoes', safrasController.atualizarObservacoes);
 router.post('/:id/despesas', despesasController.criar);
 router.get('/:id/despesas', despesasController.listar);
 router.put('/:id/despesas/:despesaId', despesasController.atualizar);
+router.patch('/:id/despesas/:despesaId/pagar', despesasController.pagar);
 router.delete('/:id/despesas/:despesaId', despesasController.excluir);
 router.post('/:id/despesas-pessoais', despesasPessoaisController.criar);
 router.get('/:id/despesas-pessoais', despesasPessoaisController.listar);

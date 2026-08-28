@@ -14,6 +14,10 @@ export interface ItemRateio {
   percentual: number;
 }
 
+// docs/specs/19-despesa-pendente-e-parcelamento.md — não afeta calcularDivisao, só controle
+// visual de quanto já foi pago x ainda vai ser.
+export type StatusPagamento = 'PAGO' | 'PENDENTE';
+
 export interface Despesa {
   id: string;
   socio_id: string;
@@ -30,6 +34,9 @@ export interface Despesa {
   // vai receber 409 do backend (docs/specs/06-acerto.md), então a tela usa isso pra travar
   // a ação de antemão em vez de só reagir ao erro.
   coberta_por_acerto: boolean;
+  status_pagamento: StatusPagamento;
+  data_vencimento: string | null;
+  data_pagamento: string | null;
 }
 
 export interface DespesaPessoal {

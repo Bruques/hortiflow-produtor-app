@@ -72,7 +72,10 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           rateio TEXT,
           coberta_por_acerto INTEGER NOT NULL DEFAULT 0,
           pendente_operacao TEXT,
-          fila_id TEXT
+          fila_id TEXT,
+          status_pagamento TEXT NOT NULL DEFAULT 'PAGO',
+          data_vencimento TEXT,
+          data_pagamento TEXT
         );
 
         CREATE TABLE IF NOT EXISTS vendas_cache (
@@ -164,6 +167,25 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           atualizado_em TEXT NOT NULL
         );
       `);
+
+      // Migração pra quem já tinha o app instalado antes da spec 19 (despesa pendente de
+      // pagamento e parcelamento): `CREATE TABLE IF NOT EXISTS` acima não adiciona coluna em
+      // tabela já existente, então o `despesas_cache` de um aparelho antigo não tem essas 3
+      // colunas ainda. SQLite não suporta "ADD COLUMN IF NOT EXISTS" — cada ALTER roda isolado
+      // e ignora o erro de "coluna já existe" (instalação nova, onde o CREATE TABLE acima já
+      // criou tudo de uma vez).
+      for (const alter of [
+        "ALTER TABLE despesas_cache ADD COLUMN status_pagamento TEXT NOT NULL DEFAULT 'PAGO'",
+        'ALTER TABLE despesas_cache ADD COLUMN data_vencimento TEXT',
+        'ALTER TABLE despesas_cache ADD COLUMN data_pagamento TEXT',
+      ]) {
+        try {
+          await db.execAsync(alter);
+        } catch {
+          // coluna já existe — instalação nova ou migração já rodou antes.
+        }
+      }
+
       return db;
     });
   }

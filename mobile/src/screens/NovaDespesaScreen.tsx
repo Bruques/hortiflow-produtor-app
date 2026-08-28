@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { AlertTriangle, ArrowLeft, Camera, Check, Percent, SlidersHorizontal, Trash2, User, X } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Camera, Check, Clock, Percent, SlidersHorizontal, Trash2, User, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { obterSociosCache } from '../lib/sociedadesCache';
@@ -21,20 +21,51 @@ import { useConectividade } from '../lib/useConectividade';
 import { criarDespesa, editarDespesa, excluirDespesa } from '../lib/despesasQueue';
 import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '../lib/iconesTipoDespesa';
-import { iniciais } from '../lib/formatacao';
+import { formatarMoeda, iniciais } from '../lib/formatacao';
 import { hojeISO } from '../lib/data';
 import { TelaComTeclado } from '../components/TelaComTeclado';
 import { DateSelectorChip } from '../components/DateSelectorChip';
 import { cores, espacamento, raio } from '../theme';
-import type { TipoDespesa } from '../types/despesa';
+import type { StatusPagamento, TipoDespesa } from '../types/despesa';
 import type { Socio } from '../types/sociedade';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NovaDespesa'>;
 
 type ModoRateio = 'padrao' | 'exclusivo' | 'personalizado';
+type SituacaoPagamento = 'pago' | 'pendente' | 'parcelado';
 
 const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
+
+// Soma `meses` a uma data ISO (YYYY-MM-DD) — mesma lógica de
+// frontend/src/pages/NovaDespesaPage.tsx (web), docs/specs/19-despesa-pendente-e-parcelamento.md.
+function adicionarMeses(dataISO: string, meses: number): string {
+  const [ano, mes, dia] = dataISO.split('-').map(Number);
+  const d = new Date(ano, mes - 1 + meses, dia);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Divide o valor total (em centavos) em `n` parcelas o mais iguais possível, com a última
+// absorvendo a diferença de arredondamento — mesma regra do web (docs/specs/19).
+function splitParcelas(totalCentavos: number, n: number): number[] {
+  const base = Math.round(totalCentavos / n);
+  const parcelas = Array(n - 1).fill(base);
+  parcelas.push(totalCentavos - base * (n - 1));
+  return parcelas;
+}
+
+// Divide 100% em `n` fatias, todas múltiplas de 5, o mais igual possível — ponto de partida
+// do rateio personalizado, pra fechar em 100% usando só os botões de +5/-5 (bug relatado
+// 2026-08-27, mesmo ajuste do web).
+function splitPercentuaisMultiplosDe5(n: number): number[] {
+  const totalFatias = 20; // 100% ÷ 5
+  const base = Math.floor(totalFatias / n);
+  const resto = totalFatias - base * n;
+  return Array.from({ length: n }, (_, i) => (base + (i < resto ? 1 : 0)) * 5);
+}
 
 // Máscara "estilo Pix": o produtor só digita números, o valor se monta da direita pra
 // esquerda — mesma lógica de frontend/src/pages/NovaDespesaPage.tsx (web).
@@ -81,6 +112,13 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
   const [data, setData] = useState(despesa?.data.slice(0, 10) ?? hojeISO());
   const [foto, setFoto] = useState<string | null>(despesa?.foto_comprovante ?? null);
 
+  // docs/specs/19-despesa-pendente-e-parcelamento.md
+  const [situacao, setSituacao] = useState<SituacaoPagamento>(
+    despesa?.status_pagamento === 'PENDENTE' ? 'pendente' : 'pago'
+  );
+  const [dataVencimento, setDataVencimento] = useState(despesa?.data_vencimento?.slice(0, 10) ?? hojeISO());
+  const [numParcelas, setNumParcelas] = useState(2);
+
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
@@ -126,11 +164,8 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
   function selecionarPersonalizado() {
     setModoRateio('personalizado');
     if (Object.keys(rateioPercentuais).length === 0 && socios.length > 0) {
-      const base = Math.floor(100 / socios.length);
-      const resto = 100 - base * socios.length;
-      setRateioPercentuais(
-        Object.fromEntries(socios.map((s, i) => [s.id, String(base + (i === 0 ? resto : 0))]))
-      );
+      const fatias = splitPercentuaisMultiplosDe5(socios.length);
+      setRateioPercentuais(Object.fromEntries(socios.map((s, i) => [s.id, String(fatias[i])])));
     }
   }
 
@@ -189,6 +224,14 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
     setSalvando(true);
     try {
       const socioNome = sociosComConta.find((s) => s.usuario_id === socioId)?.nome ?? '';
+      const todosSocios = socios.map((s) => ({ id: s.id, nome: s.nome }));
+
+      if (situacao === 'parcelado' && !emEdicao) {
+        await salvarParcelado(socioNome, todosSocios);
+        navigation.goBack();
+        return;
+      }
+
       const input = {
         socio_id: socioId,
         tipo,
@@ -197,8 +240,9 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
         foto_comprovante: foto ?? undefined,
         descricao: descricao.trim() || undefined,
         rateio: rateioParaEnviar(),
+        status_pagamento: (situacao === 'pendente' ? 'PENDENTE' : 'PAGO') as StatusPagamento,
+        data_vencimento: situacao === 'pendente' ? dataVencimento : undefined,
       };
-      const todosSocios = socios.map((s) => ({ id: s.id, nome: s.nome }));
 
       if (emEdicao && despesa) {
         await editarDespesa(safraId, despesa, input, socioNome, todosSocios);
@@ -211,6 +255,37 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
     } finally {
       salvandoRef.current = false;
       setSalvando(false);
+    }
+  }
+
+  // Cria N despesas independentes, uma por parcela (mesma decisão do web: sem endpoint novo
+  // no backend, docs/specs/19). Diferente do web, `criarDespesa` (fila offline-first) nunca
+  // lança por falha de rede — grava local na hora e só tenta enviar se houver conexão — então
+  // não precisa da lógica de retry parcial que o formulário web tem.
+  async function salvarParcelado(socioNome: string, todosSocios: { id: string; nome: string }[]) {
+    const totalCentavos = Number(valorCentavos);
+    const valoresCentavos = splitParcelas(totalCentavos, numParcelas);
+    const totalFormatado = formatarMoeda(valorNumero);
+
+    for (let i = 0; i < numParcelas; i++) {
+      const descricaoParcela = `${descricao.trim() ? `${descricao.trim()} — ` : ''}parcela ${i + 1}/${numParcelas} de ${totalFormatado}`;
+      const dataDaParcela = adicionarMeses(dataVencimento, i);
+      await criarDespesa(
+        safraId,
+        {
+          socio_id: socioId,
+          tipo,
+          valor: valoresCentavos[i] / 100,
+          data: dataDaParcela,
+          foto_comprovante: foto ?? undefined,
+          descricao: descricaoParcela,
+          rateio: rateioParaEnviar(),
+          status_pagamento: 'PENDENTE',
+          data_vencimento: dataDaParcela,
+        },
+        socioNome,
+        todosSocios
+      );
     }
   }
 
@@ -287,10 +362,12 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
 
         {!semSociosEmCache && !travadaPorAcerto && (
           <>
-            <View>
-              <Text style={styles.label}>Data</Text>
-              <DateSelectorChip value={data} onChange={setData} />
-            </View>
+            {situacao !== 'parcelado' && (
+              <View>
+                <Text style={styles.label}>Data</Text>
+                <DateSelectorChip value={data} onChange={setData} />
+              </View>
+            )}
 
             <View>
               <Text style={styles.label}>Quem bancou?</Text>
@@ -482,6 +559,80 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
             </View>
 
             <View>
+              <Text style={styles.label}>Situação do pagamento</Text>
+              <View style={{ flexDirection: 'row', gap: espacamento.sm }}>
+                {(
+                  [
+                    { valor: 'pago' as const, titulo: 'Pago' },
+                    { valor: 'pendente' as const, titulo: 'Pendente' },
+                    ...(emEdicao ? [] : [{ valor: 'parcelado' as const, titulo: 'Parcelado' }]),
+                  ]
+                ).map(({ valor, titulo }) => {
+                  const ativo = situacao === valor;
+                  return (
+                    <Pressable
+                      key={valor}
+                      style={[styles.situacaoChip, ativo && styles.situacaoChipAtiva]}
+                      onPress={() => setSituacao(valor)}
+                    >
+                      <Text style={[styles.situacaoChipTexto, ativo && styles.situacaoChipTextoAtiva]}>{titulo}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {situacao !== 'pago' && (
+                <View style={styles.blocoSituacao}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: espacamento.sm }}>
+                    <Clock size={15} color={cores.amber.padrao} style={{ marginTop: 1 }} />
+                    <Text style={styles.blocoSituacaoAviso}>
+                      {situacao === 'pendente'
+                        ? 'Essa despesa continua contando no cálculo de hoje, só ganha um selo "pendente" até você marcar como paga.'
+                        : `A compra vira ${numParcelas} despesas separadas, cada uma marcada como pendente na sua data de vencimento.`}
+                    </Text>
+                  </View>
+
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={[styles.blocoRateioLabel, { textAlign: 'center' }]}>
+                      {situacao === 'pendente' ? 'Vence em' : 'Vencimento da 1ª parcela'}
+                    </Text>
+                    <DateSelectorChip value={dataVencimento} onChange={setDataVencimento} />
+                  </View>
+
+                  {situacao === 'parcelado' && (
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={[styles.blocoRateioLabel, { textAlign: 'center' }]}>Número de parcelas</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: espacamento.md }}>
+                        <Pressable
+                          style={styles.parcelasBotao}
+                          onPress={() => setNumParcelas((n) => Math.max(2, n - 1))}
+                          hitSlop={6}
+                          accessibilityLabel="Diminuir número de parcelas"
+                        >
+                          <Text style={styles.stepperSinal}>−</Text>
+                        </Pressable>
+                        <Text style={styles.parcelasValor}>{numParcelas}x</Text>
+                        <Pressable
+                          style={styles.parcelasBotao}
+                          onPress={() => setNumParcelas((n) => Math.min(24, n + 1))}
+                          hitSlop={6}
+                          accessibilityLabel="Aumentar número de parcelas"
+                        >
+                          <Text style={styles.stepperSinal}>+</Text>
+                        </Pressable>
+                      </View>
+                      {valorNumero > 0 && (
+                        <Text style={styles.parcelasLegenda}>
+                          de {formatarMoeda(splitParcelas(Number(valorCentavos), numParcelas)[0] / 100)} cada
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+
+            <View>
               <Text style={styles.label}>Comprovante (opcional)</Text>
               {!foto ? (
                 <Pressable style={styles.fotoVazia} onPress={tirarFoto}>
@@ -515,7 +666,9 @@ export function NovaDespesaScreen({ navigation, route }: Props) {
             {salvando ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.textoBotaoPrimario}>Salvar despesa</Text>
+              <Text style={styles.textoBotaoPrimario}>
+                {situacao === 'parcelado' && !emEdicao ? `Criar ${numParcelas} parcelas` : 'Salvar despesa'}
+              </Text>
             )}
           </Pressable>
         </View>
@@ -691,6 +844,64 @@ const styles = StyleSheet.create({
     borderColor: cores.green[100],
     borderRadius: raio.lg,
     padding: espacamento.md,
+  },
+  situacaoChip: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.sm + 2,
+    backgroundColor: '#FFFFFF',
+  },
+  situacaoChipAtiva: {
+    borderColor: cores.green[800],
+    backgroundColor: cores.green[800],
+  },
+  situacaoChipTexto: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: cores.stone[700],
+  },
+  situacaoChipTextoAtiva: {
+    color: '#FFFFFF',
+  },
+  blocoSituacao: {
+    marginTop: espacamento.sm + 2,
+    gap: espacamento.md - 2,
+    borderWidth: 1.5,
+    borderColor: cores.amber.fundo,
+    backgroundColor: '#fffaf1',
+    borderRadius: raio.lg,
+    padding: espacamento.md,
+  },
+  blocoSituacaoAviso: {
+    flex: 1,
+    fontSize: 11.3,
+    lineHeight: 16,
+    color: cores.amber.padrao,
+  },
+  parcelasBotao: {
+    width: 34,
+    height: 34,
+    borderRadius: raio.pill,
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  parcelasValor: {
+    minWidth: 32,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '800',
+    color: cores.stone[900],
+  },
+  parcelasLegenda: {
+    marginTop: espacamento.xs + 2,
+    fontSize: 12,
+    color: cores.stone[600],
   },
   blocoRateioLabel: {
     fontSize: 11,

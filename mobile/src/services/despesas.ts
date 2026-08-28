@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { Despesa, TipoDespesa } from '../types/despesa';
+import type { Despesa, StatusPagamento, TipoDespesa } from '../types/despesa';
 
 // Contrato idêntico ao já validado no web (frontend/src/services/despesas.ts, pós
 // docs/specs/13-rateio-de-despesas.md) — nenhum endpoint novo (docs/specs/mobile/
@@ -21,6 +21,10 @@ export interface CriarDespesaInput {
   // localId da fila de sync offline, ecoado como chave de idempotência — mesmo propósito de
   // `idempotency_key` em services/vendas.ts (ver comentário lá).
   idempotency_key?: string;
+  // docs/specs/19 — ausente = PAGO (comportamento anterior). data_vencimento obrigatória
+  // quando status_pagamento = 'PENDENTE'.
+  status_pagamento?: StatusPagamento;
+  data_vencimento?: string;
 }
 
 export async function criarDespesaRequest(
@@ -54,4 +58,12 @@ export async function atualizarDespesaRequest(
 
 export async function excluirDespesaRequest(safraId: string, despesaId: string): Promise<void> {
   await apiClient.delete(`/safras/${safraId}/despesas/${despesaId}`);
+}
+
+export async function marcarDespesaComoPagaRequest(
+  safraId: string,
+  despesaId: string
+): Promise<{ despesa: Despesa }> {
+  const { data } = await apiClient.patch(`/safras/${safraId}/despesas/${despesaId}/pagar`, {});
+  return data;
 }

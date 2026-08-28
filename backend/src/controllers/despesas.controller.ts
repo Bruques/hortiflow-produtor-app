@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { TipoDespesa, StatusSafra } from '@prisma/client';
+import { TipoDespesa, StatusSafra, StatusPagamento } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
 import * as despesasService from '../services/despesas.service';
 import * as acertosService from '../services/acertos.service';
@@ -8,21 +8,44 @@ import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
 const rateioSchema = z.array(z.object({ socio_id: z.string().min(1), percentual: z.number().positive() }));
 
-const criarSchema = z.object({
-  socio_id: z.string().min(1),
-  tipo: z.nativeEnum(TipoDespesa),
-  valor: z.number().positive(),
-  data: z.coerce.date(),
-  foto_comprovante: z.string().optional(),
-  descricao: z.string().optional(),
-  rateio: rateioSchema.optional(),
-  idempotency_key: z.string().min(1).optional(),
-});
+const criarSchema = z
+  .object({
+    socio_id: z.string().min(1),
+    tipo: z.nativeEnum(TipoDespesa),
+    valor: z.number().positive(),
+    data: z.coerce.date(),
+    foto_comprovante: z.string().optional(),
+    descricao: z.string().optional(),
+    rateio: rateioSchema.optional(),
+    idempotency_key: z.string().min(1).optional(),
+    status_pagamento: z.nativeEnum(StatusPagamento).optional(),
+    data_vencimento: z.coerce.date().optional(),
+  })
+  // data_vencimento só é obrigatória quando a despesa nasce pendente (docs/specs/19).
+  .refine((data) => data.status_pagamento !== StatusPagamento.PENDENTE || data.data_vencimento, {
+    message: 'data_vencimento é obrigatória quando status_pagamento é PENDENTE',
+    path: ['data_vencimento'],
+  });
 
-const atualizarSchema = criarSchema.partial().extend({
-  // null explícito remove o rateio customizado (volta ao padrão); omitido não mexe no rateio atual.
-  rateio: rateioSchema.nullable().optional(),
-});
+const atualizarSchema = z
+  .object({
+    socio_id: z.string().min(1),
+    tipo: z.nativeEnum(TipoDespesa),
+    valor: z.number().positive(),
+    data: z.coerce.date(),
+    foto_comprovante: z.string().optional(),
+    descricao: z.string().optional(),
+    idempotency_key: z.string().min(1).optional(),
+    status_pagamento: z.nativeEnum(StatusPagamento).optional(),
+    data_vencimento: z.coerce.date().optional(),
+    // null explícito remove o rateio customizado (volta ao padrão); omitido não mexe no rateio atual.
+    rateio: rateioSchema.nullable().optional(),
+  })
+  .partial()
+  .refine((data) => data.status_pagamento !== StatusPagamento.PENDENTE || data.data_vencimento, {
+    message: 'data_vencimento é obrigatória quando status_pagamento é PENDENTE',
+    path: ['data_vencimento'],
+  });
 
 const compartilhadaSchema = z.object({
   safra_ids: z.array(z.string().min(1)).min(2, 'Informe pelo menos 2 safras'),
@@ -213,6 +236,30 @@ export async function atualizar(req: Request, res: Response): Promise<void> {
   }
 
   const atualizada = await despesasService.atualizarDespesa(despesaId, parsed.data);
+  res.json({ despesa: atualizada });
+}
+
+export async function pagar(req: Request, res: Response): Promise<void> {
+  const { despesaId } = req.params;
+
+  const despesa = await despesasService.buscarDespesa(despesaId);
+  if (!despesa) {
+    res.status(404).json({ error: 'Despesa não encontrada' });
+    return;
+  }
+
+  const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, despesa.safra_id);
+  if (!safra || !autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  if (despesa.status_pagamento === StatusPagamento.PAGO) {
+    res.status(409).json({ error: 'Essa despesa já está paga' });
+    return;
+  }
+
+  const atualizada = await despesasService.marcarComoPaga(despesaId);
   res.json({ despesa: atualizada });
 }
 

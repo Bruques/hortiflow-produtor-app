@@ -72,6 +72,9 @@ export async function confirmarSugestao(safraId: string, sugestao: SugestaoDespe
     pendenteOperacao: 'criar',
     filaId: null,
     erroSincronizacao: null,
+    status_pagamento: 'PAGO',
+    data_vencimento: null,
+    data_pagamento: hojeISO(),
   };
   await inserirDespesaLocalPendente(safraId, despesaOtimista);
 

@@ -70,6 +70,7 @@ jest.mock('../despesasCache', () => ({
   inserirDespesaLocalPendente: jest.fn(),
   substituirDespesaLocalPorServidor: jest.fn(),
   atualizarDespesaCache: jest.fn(),
+  atualizarStatusPagamentoCache: jest.fn(),
   confirmarEdicaoDespesa: jest.fn(),
   removerDespesaCache: jest.fn(),
 }));
@@ -78,6 +79,7 @@ jest.mock('../../services/despesas', () => ({
   criarDespesaRequest: jest.fn(),
   atualizarDespesaRequest: jest.fn(),
   excluirDespesaRequest: jest.fn(),
+  marcarDespesaComoPagaRequest: jest.fn(),
 }));
 
 beforeEach(() => {
@@ -97,6 +99,9 @@ const despesaServidor: Despesa = {
   descricao: 'Adubo pro talhão 2',
   rateio: null,
   coberta_por_acerto: false,
+  status_pagamento: 'PAGO',
+  data_vencimento: null,
+  data_pagamento: '2026-08-02',
 };
 
 describe('despesasQueue', () => {

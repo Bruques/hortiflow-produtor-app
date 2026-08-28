@@ -3,8 +3,10 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Clock, Check } from 'lucide-react-native';
 import { listarDespesasRequest } from '../services/despesas';
 import { obterDespesasCache, salvarDespesasCache } from '../lib/despesasCache';
+import { marcarDespesaComoPaga } from '../lib/despesasQueue';
 import { assinarSincronizacaoConcluida } from '../lib/syncQueue';
 import { useSafraAtiva } from '../context/SafraContext';
 import { ROTULO_TIPO_DESPESA } from '../lib/rotulos';
@@ -45,6 +47,8 @@ export function DespesasScreen({ navigation }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro | null>('dia');
   const [personalizado, setPersonalizado] = useState<PeriodoPersonalizado | null>(null);
+  const [somentePendentes, setSomentePendentes] = useState(false);
+  const [pagando, setPagando] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (!safraId) return;
@@ -96,15 +100,27 @@ export function DespesasScreen({ navigation }: Props) {
   }
 
   const intervalo = useMemo(() => calcularIntervaloPeriodo(periodo, personalizado), [periodo, personalizado]);
-  const despesasDoPeriodo = useMemo(
-    () =>
-      intervalo
-        ? despesas.filter((d) => d.data.slice(0, 10) >= intervalo.dataInicio && d.data.slice(0, 10) <= intervalo.dataFim)
-        : despesas,
-    [despesas, intervalo]
-  );
+  const despesasDoPeriodo = useMemo(() => {
+    const base = intervalo
+      ? despesas.filter((d) => d.data.slice(0, 10) >= intervalo.dataInicio && d.data.slice(0, 10) <= intervalo.dataFim)
+      : despesas;
+    return somentePendentes ? base.filter((d) => d.status_pagamento === 'PENDENTE') : base;
+  }, [despesas, intervalo, somentePendentes]);
 
   const totalDespesas = despesasDoPeriodo.reduce((acc, d) => acc + Number(d.valor), 0);
+
+  async function marcarComoPago(d: DespesaLocal) {
+    setErro(null);
+    setPagando(d.id);
+    try {
+      await marcarDespesaComoPaga(safraId, d);
+      setDespesas(await obterDespesasCache(safraId));
+    } catch {
+      setErro('Não foi possível marcar a despesa como paga');
+    } finally {
+      setPagando(null);
+    }
+  }
 
   if (!safraAtiva) return null;
 
@@ -123,6 +139,16 @@ export function DespesasScreen({ navigation }: Props) {
           onAplicarPersonalizado={selecionarPersonalizado}
         />
       </View>
+
+      <Pressable
+        style={[styles.filtroPendentes, somentePendentes && styles.filtroPendentesAtivo]}
+        onPress={() => setSomentePendentes((atual) => !atual)}
+      >
+        <Clock size={13} color={somentePendentes ? cores.amber.padrao : cores.stone[600]} strokeWidth={2.3} />
+        <Text style={[styles.filtroPendentesTexto, somentePendentes && styles.filtroPendentesTextoAtivo]}>
+          Só pendentes
+        </Text>
+      </Pressable>
 
       <View style={styles.resumo}>
         <View>
@@ -174,6 +200,27 @@ export function DespesasScreen({ navigation }: Props) {
                   )}
                   {d.erroSincronizacao && <Text style={styles.badgeErro}>Erro ao sincronizar</Text>}
                 </View>
+                {d.status_pagamento === 'PENDENTE' && (
+                  <View style={styles.linhaPagamento}>
+                    <View style={styles.badgePagamentoPendente}>
+                      <Clock size={10} color={cores.amber.padrao} strokeWidth={2.6} />
+                      <Text style={styles.badgePagamentoPendenteTexto}>
+                        Pendente{d.data_vencimento ? ` · vence ${formatarData(d.data_vencimento)}` : ''}
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={styles.botaoMarcarPago}
+                      onPress={() => marcarComoPago(d)}
+                      disabled={pagando === d.id}
+                      hitSlop={4}
+                    >
+                      <Check size={10} color="#FFFFFF" strokeWidth={2.6} />
+                      <Text style={styles.botaoMarcarPagoTexto}>
+                        {pagando === d.id ? 'Marcando...' : 'Marcar como pago'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
               <View style={styles.itemValorArea}>
                 <Text style={styles.itemValor}>{formatarMoeda(Number(d.valor))}</Text>
@@ -327,6 +374,67 @@ const styles = StyleSheet.create({
     borderRadius: raio.pill,
     paddingHorizontal: espacamento.sm - 2,
     paddingVertical: 2,
+  },
+  filtroPendentes: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    gap: espacamento.xs + 2,
+    marginHorizontal: espacamento.xl,
+    marginTop: espacamento.sm,
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    borderRadius: raio.pill,
+    paddingHorizontal: espacamento.md,
+    paddingVertical: espacamento.xs + 2,
+    backgroundColor: '#FFFFFF',
+  },
+  filtroPendentesAtivo: {
+    borderColor: cores.amber.padrao,
+    backgroundColor: cores.amber.fundo,
+  },
+  filtroPendentesTexto: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: cores.stone[600],
+  },
+  filtroPendentesTextoAtivo: {
+    color: cores.amber.padrao,
+  },
+  linhaPagamento: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: espacamento.xs + 2,
+    marginTop: espacamento.xs + 2,
+  },
+  badgePagamentoPendente: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: cores.amber.fundo,
+    borderRadius: raio.pill,
+    paddingHorizontal: espacamento.sm - 2,
+    paddingVertical: 2,
+  },
+  badgePagamentoPendenteTexto: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: cores.amber.padrao,
+  },
+  botaoMarcarPago: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: cores.green[800],
+    borderRadius: raio.pill,
+    paddingHorizontal: espacamento.sm - 2,
+    paddingVertical: 2,
+  },
+  botaoMarcarPagoTexto: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   itemValorArea: {
     alignItems: 'flex-end',

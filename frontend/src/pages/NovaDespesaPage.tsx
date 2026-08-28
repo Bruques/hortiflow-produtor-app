@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { AlertTriangle, ArrowLeft, Camera, Check, Percent, SlidersHorizontal, Trash2, User, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Camera, Check, Clock, Percent, SlidersHorizontal, Trash2, User, X } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { criarDespesaRequest, atualizarDespesaRequest, excluirDespesaRequest, listarDespesasRequest } from '@/services/despesas';
 import { listarSociosRequest } from '@/services/sociedades';
 import { meRequest } from '@/services/auth';
 import { DateSelectorChip } from '@/components/ui/date-selector-chip';
-import { cn, iniciais } from '@/lib/utils';
+import { cn, iniciais, formatarMoeda } from '@/lib/utils';
 import { ROTULO_TIPO_DESPESA } from '@/lib/rotulos';
 import { ICONE_TIPO_DESPESA } from '@/lib/iconesTipoDespesa';
 import type { ItemRateio, TipoDespesa } from '@/types/despesa';
@@ -54,6 +54,39 @@ function formatarValorMascara(digitos: string): string {
   return `${inteiroComPontos},${decimal}`;
 }
 
+// Soma `meses` a uma data ISO (YYYY-MM-DD) usando o próprio Date pra normalizar
+// virada de ano/dia inexistente (ex: 31/jan + 1 mês vira 2 ou 3/mar, comportamento
+// aceito nesta rodada — sem calendário de dia útil).
+function adicionarMeses(dataISO: string, meses: number): string {
+  const [ano, mes, dia] = dataISO.split('-').map(Number);
+  const d = new Date(ano, mes - 1 + meses, dia);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Divide o valor total (em centavos) em `n` parcelas o mais iguais possível, com a
+// última absorvendo a diferença de arredondamento (docs/specs/19, ex: 500000/3 vira
+// 166667+166667+166666, ou seja R$1.666,67 + R$1.666,67 + R$1.666,66).
+function splitParcelas(totalCentavos: number, n: number): number[] {
+  const base = Math.round(totalCentavos / n);
+  const parcelas = Array(n - 1).fill(base);
+  parcelas.push(totalCentavos - base * (n - 1));
+  return parcelas;
+}
+
+// Divide 100% em `n` fatias, todas múltiplas de 5, o mais igual possível — usado como ponto
+// de partida do rateio personalizado. Sem isso, a divisão igualitária "crua" (ex: 3 sócios =
+// 33/34/33) nunca fecha em 100% usando só os botões de +5/-5 (bug relatado 2026-08-27: "nunca
+// consigo manter a divisão corretamente").
+function splitPercentuaisMultiplosDe5(n: number): number[] {
+  const totalFatias = 20; // 100% ÷ 5
+  const base = Math.floor(totalFatias / n);
+  const resto = totalFatias - base * n;
+  return Array.from({ length: n }, (_, i) => (base + (i < resto ? 1 : 0)) * 5);
+}
+
 function lerArquivoComoBase64(arquivo: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const leitor = new FileReader();
@@ -87,6 +120,13 @@ export default function NovaDespesaPage() {
   const [excluindo, setExcluindo] = useState(false);
   const [carregandoDespesa, setCarregandoDespesa] = useState(emEdicao);
   const [travadaPorAcerto, setTravadaPorAcerto] = useState(false);
+
+  // docs/specs/19-despesa-pendente-e-parcelamento.md
+  type SituacaoPagamento = 'pago' | 'pendente' | 'parcelado';
+  const [situacao, setSituacao] = useState<SituacaoPagamento>('pago');
+  const [dataVencimento, setDataVencimento] = useState(hojeISO());
+  const [numParcelas, setNumParcelas] = useState(2);
+  const [parcelaAtual, setParcelaAtual] = useState(0); // progresso ao salvar parcelado
 
   useEffect(() => {
     meRequest().then((res) => setMeuId(res.usuario.id)).catch(() => {});
@@ -125,6 +165,8 @@ export default function NovaDespesaPage() {
         setData(encontrada.data.slice(0, 10));
         setFoto(encontrada.foto_comprovante ?? null);
         setTravadaPorAcerto(encontrada.coberta_por_acerto);
+        setSituacao(encontrada.status_pagamento === 'PENDENTE' ? 'pendente' : 'pago');
+        if (encontrada.data_vencimento) setDataVencimento(encontrada.data_vencimento.slice(0, 10));
         setModoRateio(modoRateioDe(encontrada.rateio));
         if (encontrada.rateio && encontrada.rateio.length === 1) {
           setRateioExclusivoId(encontrada.rateio[0].socio_id);
@@ -161,11 +203,8 @@ export default function NovaDespesaPage() {
   function selecionarPersonalizado() {
     setModoRateio('personalizado');
     if (Object.keys(rateioPercentuais).length === 0 && todosSocios.length > 0) {
-      const base = Math.floor(100 / todosSocios.length);
-      const resto = 100 - base * todosSocios.length;
-      setRateioPercentuais(
-        Object.fromEntries(todosSocios.map((s, i) => [s.id, String(base + (i === 0 ? resto : 0))]))
-      );
+      const fatias = splitPercentuaisMultiplosDe5(todosSocios.length);
+      setRateioPercentuais(Object.fromEntries(todosSocios.map((s, i) => [s.id, String(fatias[i])])));
     }
   }
 
@@ -201,6 +240,12 @@ export default function NovaDespesaPage() {
     setSalvando(true);
     try {
       const rateio = rateioParaEnviar();
+
+      if (situacao === 'parcelado' && !emEdicao) {
+        await salvarParcelado(rateio);
+        return;
+      }
+
       if (emEdicao && despesaId) {
         await atualizarDespesaRequest(safraId, despesaId, {
           socio_id: socioId,
@@ -210,6 +255,8 @@ export default function NovaDespesaPage() {
           foto_comprovante: foto ?? undefined,
           descricao: descricao.trim() || undefined,
           rateio: rateio ?? null,
+          status_pagamento: situacao === 'pendente' ? 'PENDENTE' : 'PAGO',
+          data_vencimento: situacao === 'pendente' ? dataVencimento : undefined,
         });
       } else {
         await criarDespesaRequest(safraId, {
@@ -220,11 +267,55 @@ export default function NovaDespesaPage() {
           foto_comprovante: foto ?? undefined,
           descricao: descricao.trim() || undefined,
           rateio,
+          status_pagamento: situacao === 'pendente' ? 'PENDENTE' : 'PAGO',
+          data_vencimento: situacao === 'pendente' ? dataVencimento : undefined,
         });
       }
       navigate(`/safras/${safraId}/despesas`);
     } catch (e) {
       setErro(mensagemErro(e, 'Não foi possível salvar a despesa'));
+      setSalvando(false);
+    }
+  }
+
+  // Cria N despesas independentes (uma chamada por parcela, sem endpoint novo no backend —
+  // decisão registrada em docs/specs/19). Se uma falhar no meio, para ali: `parcelaAtual`
+  // guarda quantas já foram criadas com sucesso, então clicar em "Salvar" de novo retoma
+  // dali em vez de duplicar as que já existem.
+  async function salvarParcelado(rateio: ReturnType<typeof rateioParaEnviar>) {
+    const totalCentavos = Number(valorCentavos);
+    const valoresCentavos = splitParcelas(totalCentavos, numParcelas);
+    const totalFormatado = formatarMoeda(valorNumero);
+
+    try {
+      for (let i = parcelaAtual; i < numParcelas; i++) {
+        const descricaoParcela = `${descricao.trim() ? `${descricao.trim()} — ` : ''}parcela ${i + 1}/${numParcelas} de ${totalFormatado}`;
+        // A `data` de cada parcela (lançamento/competência, o campo que o extrato e o
+        // cálculo usam pra decidir em que dia ela aparece) é a própria data de vencimento
+        // dessa parcela — não a data da compra original. Do contrário as 3 caem todas no
+        // dia de hoje, que foi o bug relatado pelo dev em 2026-08-27.
+        const dataDaParcela = adicionarMeses(dataVencimento, i);
+        await criarDespesaRequest(safraId, {
+          socio_id: socioId,
+          tipo,
+          valor: valoresCentavos[i] / 100,
+          data: dataDaParcela,
+          foto_comprovante: foto ?? undefined,
+          descricao: descricaoParcela,
+          rateio,
+          status_pagamento: 'PENDENTE',
+          data_vencimento: dataDaParcela,
+        });
+        setParcelaAtual(i + 1);
+      }
+      navigate(`/safras/${safraId}/despesas`);
+    } catch (e) {
+      setErro(
+        mensagemErro(
+          e,
+          `Não foi possível criar a parcela ${parcelaAtual + 1}/${numParcelas}. As parcelas já criadas foram salvas — toque em "Salvar" de novo pra tentar criar o restante.`
+        )
+      );
       setSalvando(false);
     }
   }
@@ -294,10 +385,12 @@ export default function NovaDespesaPage() {
           <p className="text-center text-sm text-hf-stone-600">Carregando...</p>
         ) : (
           <>
-        <div>
-          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Data</label>
-          <DateSelectorChip value={data} onChange={setData} />
-        </div>
+        {situacao !== 'parcelado' && (
+          <div>
+            <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Data</label>
+            <DateSelectorChip value={data} onChange={setData} />
+          </div>
+        )}
 
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Quem bancou?</label>
@@ -546,6 +639,88 @@ export default function NovaDespesaPage() {
         </div>
 
         <div>
+          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Situação do pagamento</label>
+          <div className="flex gap-2">
+            {(
+              [
+                { valor: 'pago', titulo: 'Pago' },
+                { valor: 'pendente', titulo: 'Pendente' },
+                ...(emEdicao ? [] : [{ valor: 'parcelado' as const, titulo: 'Parcelado' }]),
+              ] as { valor: SituacaoPagamento; titulo: string }[]
+            ).map(({ valor, titulo }) => {
+              const ativo = situacao === valor;
+              return (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setSituacao(valor)}
+                  className={cn(
+                    'flex-1 rounded-2xl border-[1.5px] px-3 py-2.5 text-center text-[12.5px] font-bold transition-colors',
+                    ativo ? 'border-hf-green-800 bg-hf-green-800 text-white' : 'border-hf-line bg-white text-hf-stone-700'
+                  )}
+                >
+                  {titulo}
+                </button>
+              );
+            })}
+          </div>
+
+          {situacao !== 'pago' && (
+            <div className="mt-2.5 flex flex-col gap-3 rounded-2xl border-[1.5px] border-hf-amber-bg bg-[#fffaf1] p-3.5">
+              <div className="flex items-start gap-2">
+                <Clock className="mt-0.5 h-[15px] w-[15px] shrink-0 text-hf-amber" strokeWidth={2.2} />
+                <p className="m-0 text-[11.3px] leading-tight text-hf-amber">
+                  {situacao === 'pendente'
+                    ? 'Essa despesa continua contando no cálculo de hoje, só ganha um selo "pendente" até você marcar como paga.'
+                    : `A compra vira ${numParcelas} despesas separadas, cada uma marcada como pendente na sua data de vencimento.`}
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-center text-[11.5px] font-bold text-hf-stone-700">
+                  {situacao === 'pendente' ? 'Vence em' : 'Vencimento da 1ª parcela'}
+                </label>
+                <div className="flex justify-center">
+                  <DateSelectorChip value={dataVencimento} onChange={setDataVencimento} />
+                </div>
+              </div>
+
+              {situacao === 'parcelado' && (
+                <div>
+                  <label className="mb-1.5 block text-center text-[11.5px] font-bold text-hf-stone-700">Número de parcelas</label>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      aria-label="Diminuir número de parcelas"
+                      onClick={() => setNumParcelas((n) => Math.max(2, n - 1))}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border-[1.5px] border-hf-line bg-white text-hf-green-800"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[36px] text-center text-[17px] font-extrabold tabular-nums text-hf-stone-900">
+                      {numParcelas}x
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Aumentar número de parcelas"
+                      onClick={() => setNumParcelas((n) => Math.min(24, n + 1))}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border-[1.5px] border-hf-line bg-white text-hf-green-800"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {valorNumero > 0 && (
+                    <p className="mt-1.5 text-center text-[12px] text-hf-stone-600">
+                      de {formatarMoeda(splitParcelas(Number(valorCentavos), numParcelas)[0] / 100)} cada
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Comprovante (opcional)</label>
           {!foto ? (
             <label className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-hf-line px-4 py-6 text-center text-hf-stone-600">
@@ -593,7 +768,15 @@ export default function NovaDespesaPage() {
           disabled={!formValido || salvando || carregandoDespesa || travadaPorAcerto}
           className="w-full rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white disabled:opacity-50"
         >
-          {salvando ? 'Salvando...' : 'Salvar despesa'}
+          {salvando
+            ? situacao === 'parcelado'
+              ? `Criando parcela ${parcelaAtual + 1}/${numParcelas}...`
+              : 'Salvando...'
+            : parcelaAtual > 0
+              ? `Continuar (${parcelaAtual}/${numParcelas} já criadas)`
+              : situacao === 'parcelado'
+                ? `Criar ${numParcelas} parcelas`
+                : 'Salvar despesa'}
         </button>
       </div>
     </div>

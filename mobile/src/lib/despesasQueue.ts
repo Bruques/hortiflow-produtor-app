@@ -7,6 +7,7 @@ import {
 } from './syncQueue';
 import {
   atualizarDespesaCache,
+  atualizarStatusPagamentoCache,
   confirmarEdicaoDespesa,
   inserirDespesaLocalPendente,
   obterDespesaCachePorId,
@@ -17,6 +18,7 @@ import {
   atualizarDespesaRequest,
   criarDespesaRequest,
   excluirDespesaRequest,
+  marcarDespesaComoPagaRequest,
   type AtualizarDespesaInput,
   type CriarDespesaInput,
 } from '../services/despesas';
@@ -48,6 +50,15 @@ interface PayloadEditarDespesa {
 interface PayloadExcluirDespesa {
   safraId: string;
   despesaId: string;
+}
+
+interface PayloadPagarDespesa {
+  safraId: string;
+  despesaId: string;
+}
+
+function hojeISO(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 // Registra como cada operação de despesa é enviada ao backend quando a fila processa —
@@ -96,6 +107,37 @@ export function registrarProcessadoresDespesas(): void {
     }
   });
 
+  registrarProcessador('despesa.pagar', async (payloadRaw) => {
+    const { safraId, despesaId } = payloadRaw as PayloadPagarDespesa;
+    try {
+      const { despesa } = await marcarDespesaComoPagaRequest(safraId, despesaId);
+      await atualizarStatusPagamentoCache(despesaId, {
+        statusPagamento: despesa.status_pagamento,
+        dataPagamento: despesa.data_pagamento,
+        pendenteOperacao: null,
+        filaId: null,
+      });
+    } catch (erro) {
+      if (despesaNaoEncontradaNoServidor(erro)) {
+        console.warn(`[despesasQueue] despesa ${despesaId} não existe mais no servidor — descartando "marcar como pago" pendente`);
+        await removerDespesaCache(despesaId).catch(() => {});
+        return;
+      }
+      // 409 = já estava paga no servidor (ex: outro sócio marcou primeiro) — mesmo resultado
+      // final que essa operação queria, só falta limpar a pendência local.
+      if (erro instanceof AxiosError && erro.response?.status === 409) {
+        await atualizarStatusPagamentoCache(despesaId, {
+          statusPagamento: 'PAGO',
+          dataPagamento: hojeISO(),
+          pendenteOperacao: null,
+          filaId: null,
+        }).catch(() => {});
+        return;
+      }
+      throw erro;
+    }
+  });
+
   registrarProcessador('despesa.excluir', async (payloadRaw) => {
     const { safraId, despesaId } = payloadRaw as PayloadExcluirDespesa;
     try {
@@ -134,6 +176,7 @@ export async function criarDespesa(
   const localId = gerarIdLocal();
   const filaId = await enfileirar('despesa.criar', { localId, safraId, ...input });
 
+  const statusPagamento = input.status_pagamento ?? 'PAGO';
   const despesaOtimista: DespesaLocal = {
     id: localId,
     socio_id: input.socio_id,
@@ -148,6 +191,9 @@ export async function criarDespesa(
     pendenteOperacao: 'criar',
     filaId,
     erroSincronizacao: null,
+    status_pagamento: statusPagamento,
+    data_vencimento: statusPagamento === 'PENDENTE' ? input.data_vencimento ?? null : null,
+    data_pagamento: statusPagamento === 'PAGO' ? input.data : null,
   };
   await inserirDespesaLocalPendente(safraId, despesaOtimista);
 
@@ -168,6 +214,8 @@ export async function editarDespesa(
   // ter mudado por baixo (ex: acabou de sincronizar) entre o toque no item e o "Salvar".
   const despesaAtual = (await obterDespesaCachePorId(despesaNaTela.id)) ?? despesaNaTela;
   const rateioOtimista = montarRateioOtimista(input, todosSocios);
+  const statusPagamento = input.status_pagamento ?? 'PAGO';
+  const dataVencimento = statusPagamento === 'PENDENTE' ? input.data_vencimento ?? null : null;
 
   if (despesaAtual.pendenteOperacao === 'criar' && despesaAtual.filaId) {
     // Nunca chegou ao servidor: só reescreve o que vai ser enviado quando a fila processar,
@@ -188,6 +236,8 @@ export async function editarDespesa(
       rateio: rateioOtimista,
       pendenteOperacao: 'criar',
       filaId: despesaAtual.filaId,
+      status_pagamento: statusPagamento,
+      data_vencimento: dataVencimento,
     });
     await sincronizarTudo();
     return;
@@ -208,6 +258,49 @@ export async function editarDespesa(
     foto_comprovante: input.foto_comprovante ?? null,
     descricao: input.descricao ?? null,
     rateio: rateioOtimista,
+    pendenteOperacao: 'editar',
+    filaId,
+    status_pagamento: statusPagamento,
+    data_vencimento: dataVencimento,
+  });
+  await sincronizarTudo();
+}
+
+// Marca uma despesa como paga (docs/specs/19-despesa-pendente-e-parcelamento.md). Segue o
+// mesmo raciocínio de editarDespesa: se a despesa ainda nem chegou ao servidor, só reescreve
+// o que vai ser enviado quando a fila processar (já nasce paga); se já está confirmada,
+// enfileira a chamada de verdade e atualiza o cache local otimisticamente.
+export async function marcarDespesaComoPaga(safraId: string, despesaNaTela: DespesaLocal): Promise<void> {
+  const despesaAtual = (await obterDespesaCachePorId(despesaNaTela.id)) ?? despesaNaTela;
+  const hoje = hojeISO();
+
+  if (despesaAtual.pendenteOperacao === 'criar' && despesaAtual.filaId) {
+    await atualizarPayload(despesaAtual.filaId, {
+      localId: despesaAtual.id,
+      safraId,
+      socio_id: despesaAtual.socio_id,
+      tipo: despesaAtual.tipo,
+      valor: Number(despesaAtual.valor),
+      data: despesaAtual.data,
+      foto_comprovante: despesaAtual.foto_comprovante ?? undefined,
+      descricao: despesaAtual.descricao ?? undefined,
+      rateio: despesaAtual.rateio?.map((r) => ({ socio_id: r.socio_id, percentual: r.percentual })),
+      status_pagamento: 'PAGO',
+    } satisfies PayloadCriarDespesa);
+    await atualizarStatusPagamentoCache(despesaAtual.id, {
+      statusPagamento: 'PAGO',
+      dataPagamento: hoje,
+      pendenteOperacao: 'criar',
+      filaId: despesaAtual.filaId,
+    });
+    await sincronizarTudo();
+    return;
+  }
+
+  const filaId = await enfileirar('despesa.pagar', { safraId, despesaId: despesaAtual.id });
+  await atualizarStatusPagamentoCache(despesaAtual.id, {
+    statusPagamento: 'PAGO',
+    dataPagamento: hoje,
     pendenteOperacao: 'editar',
     filaId,
   });

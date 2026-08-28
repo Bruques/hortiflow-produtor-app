@@ -45,6 +45,12 @@ enum StatusUsuario {
   BLOQUEADO
 }
 
+// Spec 19 — despesa pendente de pagamento e parcelamento
+enum StatusPagamento {
+  PAGO
+  PENDENTE
+}
+
 // Spec 18 — assinatura e pagamento
 enum StatusAssinatura {
   TRIAL
@@ -240,6 +246,13 @@ model Despesa {
   descricao        String?
   regra_origem_id  String?
   venda_origem_id  String?
+  // Spec 19 — despesa pendente de pagamento e parcelamento. `data_vencimento` só é
+  // obrigatória quando status_pagamento = PENDENTE; `data_pagamento` é preenchida
+  // automaticamente (= `data`) quando já criada como PAGO, ou ao marcar como paga depois.
+  // Nenhum dos dois entra em calcularDivisao — são só informativos.
+  status_pagamento StatusPagamento @default(PAGO)
+  data_vencimento  DateTime?
+  data_pagamento   DateTime?
   // Chave de idempotência opcional enviada pelo cliente (o `localId` gerado pela fila de sync
   // offline do mobile) — permite que um retry de POST após timeout de rede reconheça que a
   // despesa já foi criada em vez de duplicar (ver docs/specs/mobile/00-setup-e-infra.md).

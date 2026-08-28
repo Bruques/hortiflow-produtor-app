@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Receipt } from 'lucide-react';
+import { X, Receipt, Clock, Check } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { PeriodToggle } from '@/components/PeriodToggle';
 import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '@/components/PeriodoAvancadoButton';
 import { useSafraAtiva } from '@/lib/SafraContext';
-import { listarDespesasRequest, type FiltroDespesas } from '@/services/despesas';
+import { listarDespesasRequest, marcarDespesaComoPagaRequest, type FiltroDespesas } from '@/services/despesas';
 import { confirmarSugestaoRequest, listarSugestoesRequest } from '@/services/regrasDespesaRecorrente';
 import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
 import { rotuloDia } from '@/lib/periodo';
@@ -37,6 +37,8 @@ export default function DespesasPage() {
 
   const [sugestoes, setSugestoes] = useState<SugestaoDespesaRecorrente[]>([]);
   const [sugestoesDispensadas, setSugestoesDispensadas] = useState<Set<string>>(new Set());
+  const [somentePendentes, setSomentePendentes] = useState(false);
+  const [pagando, setPagando] = useState<string | null>(null);
 
   // Filtro enviado pro backend já resolver a query no banco (where: { data: { gte, lte } })
   // em vez de trazer a safra inteira e filtrar em memória — evita o custo de memória/rede
@@ -63,7 +65,25 @@ export default function DespesasPage() {
       .catch(() => setErro('Não foi possível carregar as sugestões do dia'));
   }, [safraId]);
 
-  const despesasDoPeriodo = despesas;
+  // Filtro client-side sobre a lista já carregada — mesmo padrão do filtro de período
+  // personalizado (docs/specs/03, adendo 2026-07-20); não muda o contrato de
+  // GET /safras/:id/despesas.
+  const despesasDoPeriodo = somentePendentes
+    ? despesas.filter((d) => d.status_pagamento === 'PENDENTE')
+    : despesas;
+
+  async function marcarComoPago(despesaId: string) {
+    setErro(null);
+    setPagando(despesaId);
+    try {
+      const { despesa } = await marcarDespesaComoPagaRequest(safraId, despesaId);
+      setDespesas((atual) => atual.map((d) => (d.id === despesaId ? despesa : d)));
+    } catch {
+      setErro('Não foi possível marcar a despesa como paga');
+    } finally {
+      setPagando(null);
+    }
+  }
 
   const totalPeriodo = despesasDoPeriodo.reduce((acc, d) => acc + Number(d.valor), 0);
 
@@ -119,6 +139,19 @@ export default function DespesasPage() {
             onSelecionarPeriodoPersonalizado={selecionarPeriodoPersonalizado}
           />
         </div>
+
+        <button
+          type="button"
+          onClick={() => setSomentePendentes((atual) => !atual)}
+          className={`flex w-fit items-center gap-1.5 rounded-full border-[1.5px] px-3 py-1.5 text-[12px] font-bold transition-colors ${
+            somentePendentes
+              ? 'border-hf-amber bg-hf-amber-bg text-hf-amber'
+              : 'border-hf-line bg-white text-hf-stone-600'
+          }`}
+        >
+          <Clock className="h-[13px] w-[13px]" strokeWidth={2.3} />
+          Só pendentes
+        </button>
 
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 
@@ -176,12 +209,17 @@ export default function DespesasPage() {
             <div>
               {itens.map((d) => {
                 const Icone = ICONE_TIPO_DESPESA[d.tipo];
+                const pendente = d.status_pagamento === 'PENDENTE';
                 return (
-                  <button
+                  <div
                     key={d.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/safras/${safraId}/despesas/${d.id}/editar`)}
-                    className="flex w-full items-center gap-3 border-b border-hf-cream-100 py-3 text-left last:border-b-0"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') navigate(`/safras/${safraId}/despesas/${d.id}/editar`);
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-3 border-b border-hf-cream-100 py-3 text-left last:border-b-0"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hf-red-bg">
                       <Icone className="h-[18px] w-[18px] text-hf-red" strokeWidth={2} />
@@ -202,6 +240,26 @@ export default function DespesasPage() {
                           </span>
                         )}
                       </div>
+                      {pendente && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="flex items-center gap-1 rounded-full bg-hf-amber-bg px-2 py-0.5 text-[10px] font-bold text-hf-amber">
+                            <Clock className="h-2.5 w-2.5" strokeWidth={2.6} />
+                            Pendente{d.data_vencimento ? ` · vence ${formatarData(d.data_vencimento)}` : ''}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              marcarComoPago(d.id);
+                            }}
+                            disabled={pagando === d.id}
+                            className="flex items-center gap-1 rounded-full bg-hf-green-800 px-2 py-0.5 text-[10px] font-bold text-white disabled:opacity-50"
+                          >
+                            <Check className="h-2.5 w-2.5" strokeWidth={2.6} />
+                            {pagando === d.id ? 'Marcando...' : 'Marcar como pago'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-[14.5px] font-extrabold tabular-nums text-hf-red">
@@ -211,7 +269,7 @@ export default function DespesasPage() {
                         <div className="mt-0.5 text-[10.5px] text-hf-stone-400">comprovante</div>
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

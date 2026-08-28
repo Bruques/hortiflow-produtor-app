@@ -1,5 +1,5 @@
 import { getDatabase } from './database';
-import type { Despesa, DespesaLocal, ItemRateio, TipoDespesa } from '../types/despesa';
+import type { Despesa, DespesaLocal, ItemRateio, StatusPagamento, TipoDespesa } from '../types/despesa';
 
 interface DespesaRow {
   id: string;
@@ -17,6 +17,9 @@ interface DespesaRow {
   fila_id: string | null;
   fila_status: 'pendente' | 'sincronizado' | 'erro' | null;
   fila_erro: string | null;
+  status_pagamento: StatusPagamento;
+  data_vencimento: string | null;
+  data_pagamento: string | null;
 }
 
 function converterLinha(row: DespesaRow): DespesaLocal {
@@ -34,6 +37,9 @@ function converterLinha(row: DespesaRow): DespesaLocal {
     pendenteOperacao: row.pendente_operacao,
     filaId: row.fila_id,
     erroSincronizacao: row.pendente_operacao && row.fila_status === 'erro' ? row.fila_erro : null,
+    status_pagamento: row.status_pagamento,
+    data_vencimento: row.data_vencimento,
+    data_pagamento: row.data_pagamento,
   };
 }
 
@@ -79,8 +85,8 @@ export async function salvarDespesasCache(safraId: string, despesas: Despesa[]):
     for (const d of despesas) {
       await db.runAsync(
         `INSERT INTO despesas_cache
-          (id, safra_id, socio_id, socio_nome, tipo, valor, data, foto_comprovante, descricao, rateio, coberta_por_acerto, pendente_operacao, fila_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
+          (id, safra_id, socio_id, socio_nome, tipo, valor, data, foto_comprovante, descricao, rateio, coberta_por_acerto, pendente_operacao, fila_id, status_pagamento, data_vencimento, data_pagamento)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
         [
           d.id,
           safraId,
@@ -93,6 +99,13 @@ export async function salvarDespesasCache(safraId: string, despesas: Despesa[]):
           d.descricao,
           d.rateio ? JSON.stringify(d.rateio) : null,
           d.coberta_por_acerto ? 1 : 0,
+          // `?? null`: um backend momentaneamente desatualizado (ex: staging antes de um
+          // deploy) pode responder sem esses 3 campos (spec 19) — expo-sqlite rejeita bind de
+          // `undefined`, então sem isso a transação inteira falhava e apagava o cache local
+          // sem repor nada (bug relatado 2026-08-27).
+          d.status_pagamento ?? 'PAGO',
+          d.data_vencimento ?? null,
+          d.data_pagamento ?? null,
         ]
       );
     }
@@ -105,8 +118,8 @@ export async function inserirDespesaLocalPendente(safraId: string, despesa: Desp
   const db = await getDatabase();
   await db.runAsync(
     `INSERT INTO despesas_cache
-      (id, safra_id, socio_id, socio_nome, tipo, valor, data, foto_comprovante, descricao, rateio, coberta_por_acerto, pendente_operacao, fila_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      (id, safra_id, socio_id, socio_nome, tipo, valor, data, foto_comprovante, descricao, rateio, coberta_por_acerto, pendente_operacao, fila_id, status_pagamento, data_vencimento, data_pagamento)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
     [
       despesa.id,
       safraId,
@@ -120,6 +133,9 @@ export async function inserirDespesaLocalPendente(safraId: string, despesa: Desp
       despesa.rateio ? JSON.stringify(despesa.rateio) : null,
       despesa.pendenteOperacao,
       despesa.filaId,
+      despesa.status_pagamento,
+      despesa.data_vencimento,
+      despesa.data_pagamento,
     ]
   );
 }
@@ -129,7 +145,10 @@ export async function inserirDespesaLocalPendente(safraId: string, despesa: Desp
 // ainda `pendenteOperacao: 'criar'` (edição de item nunca sincronizado, critério de aceite 9).
 export async function atualizarDespesaCache(
   id: string,
-  campos: Pick<DespesaLocal, 'socio_id' | 'socio_nome' | 'tipo' | 'valor' | 'data' | 'foto_comprovante' | 'descricao' | 'rateio'> & {
+  campos: Pick<
+    DespesaLocal,
+    'socio_id' | 'socio_nome' | 'tipo' | 'valor' | 'data' | 'foto_comprovante' | 'descricao' | 'rateio' | 'status_pagamento' | 'data_vencimento'
+  > & {
     pendenteOperacao: 'criar' | 'editar' | null;
     filaId: string | null;
   }
@@ -137,7 +156,7 @@ export async function atualizarDespesaCache(
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE despesas_cache
-     SET socio_id = ?, socio_nome = ?, tipo = ?, valor = ?, data = ?, foto_comprovante = ?, descricao = ?, rateio = ?, pendente_operacao = ?, fila_id = ?
+     SET socio_id = ?, socio_nome = ?, tipo = ?, valor = ?, data = ?, foto_comprovante = ?, descricao = ?, rateio = ?, pendente_operacao = ?, fila_id = ?, status_pagamento = ?, data_vencimento = ?
      WHERE id = ?`,
     [
       campos.socio_id,
@@ -150,8 +169,29 @@ export async function atualizarDespesaCache(
       campos.rateio ? JSON.stringify(campos.rateio) : null,
       campos.pendenteOperacao,
       campos.filaId,
+      campos.status_pagamento,
+      campos.data_vencimento,
       id,
     ]
+  );
+}
+
+// Aplica só a transição de pagamento (status_pagamento/data_pagamento) sem tocar nos demais
+// campos — usado tanto pelo "marcar como pago" otimista quanto pela confirmação vinda do
+// servidor depois que a fila processa (docs/specs/19-despesa-pendente-e-parcelamento.md).
+export async function atualizarStatusPagamentoCache(
+  id: string,
+  campos: {
+    statusPagamento: StatusPagamento;
+    dataPagamento: string | null;
+    pendenteOperacao: 'criar' | 'editar' | null;
+    filaId: string | null;
+  }
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    'UPDATE despesas_cache SET status_pagamento = ?, data_pagamento = ?, pendente_operacao = ?, fila_id = ? WHERE id = ?',
+    [campos.statusPagamento, campos.dataPagamento, campos.pendenteOperacao, campos.filaId, id]
   );
 }
 
@@ -167,8 +207,8 @@ export async function substituirDespesaLocalPorServidor(
     await db.runAsync('DELETE FROM despesas_cache WHERE id = ?', [idLocal]);
     await db.runAsync(
       `INSERT INTO despesas_cache
-        (id, safra_id, socio_id, socio_nome, tipo, valor, data, foto_comprovante, descricao, rateio, coberta_por_acerto, pendente_operacao, fila_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`,
+        (id, safra_id, socio_id, socio_nome, tipo, valor, data, foto_comprovante, descricao, rateio, coberta_por_acerto, pendente_operacao, fila_id, status_pagamento, data_vencimento, data_pagamento)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
       [
         despesa.id,
         safraId,
@@ -181,6 +221,10 @@ export async function substituirDespesaLocalPorServidor(
         despesa.descricao,
         despesa.rateio ? JSON.stringify(despesa.rateio) : null,
         despesa.coberta_por_acerto ? 1 : 0,
+        // `?? null` — mesmo motivo do comentário em salvarDespesasCache acima.
+        despesa.status_pagamento ?? 'PAGO',
+        despesa.data_vencimento ?? null,
+        despesa.data_pagamento ?? null,
       ]
     );
   });
@@ -191,7 +235,7 @@ export async function confirmarEdicaoDespesa(despesa: Despesa): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE despesas_cache
-     SET socio_id = ?, socio_nome = ?, tipo = ?, valor = ?, data = ?, foto_comprovante = ?, descricao = ?, rateio = ?, coberta_por_acerto = ?, pendente_operacao = NULL, fila_id = NULL
+     SET socio_id = ?, socio_nome = ?, tipo = ?, valor = ?, data = ?, foto_comprovante = ?, descricao = ?, rateio = ?, coberta_por_acerto = ?, pendente_operacao = NULL, fila_id = NULL, status_pagamento = ?, data_vencimento = ?
      WHERE id = ?`,
     [
       despesa.socio_id,
@@ -203,6 +247,9 @@ export async function confirmarEdicaoDespesa(despesa: Despesa): Promise<void> {
       despesa.descricao,
       despesa.rateio ? JSON.stringify(despesa.rateio) : null,
       despesa.coberta_por_acerto ? 1 : 0,
+      // `?? null` — mesmo motivo do comentário em salvarDespesasCache acima.
+      despesa.status_pagamento ?? 'PAGO',
+      despesa.data_vencimento ?? null,
       despesa.id,
     ]
   );

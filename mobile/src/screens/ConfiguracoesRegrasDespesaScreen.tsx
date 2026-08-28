@@ -32,6 +32,16 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 type Props = NativeStackScreenProps<RootStackParamList, 'RegrasDespesa'>;
 
 type ModoRateio = 'padrao' | 'exclusivo' | 'personalizado';
+
+// Divide 100% em `n` fatias, todas múltiplas de 5, o mais igual possível — ponto de partida
+// do rateio personalizado, pra fechar em 100% usando só os botões de +5/-5 (bug relatado
+// 2026-08-27, mesmo ajuste do web e de NovaDespesaScreen.tsx).
+function splitPercentuaisMultiplosDe5(n: number): number[] {
+  const totalFatias = 20; // 100% ÷ 5
+  const base = Math.floor(totalFatias / n);
+  const resto = totalFatias - base * n;
+  return Array.from({ length: n }, (_, i) => (base + (i < resto ? 1 : 0)) * 5);
+}
 const TIPOS_DESPESA = Object.keys(ROTULO_TIPO_DESPESA) as TipoDespesa[];
 
 function formatarValorMascara(digitos: string): string {
@@ -154,9 +164,8 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
   function selecionarPersonalizado() {
     setModoRateio('personalizado');
     if (Object.keys(rateioPercentuais).length === 0 && socios.length > 0) {
-      const base = Math.floor(100 / socios.length);
-      const resto = 100 - base * socios.length;
-      setRateioPercentuais(Object.fromEntries(socios.map((s, i) => [s.id, String(base + (i === 0 ? resto : 0))])));
+      const fatias = splitPercentuaisMultiplosDe5(socios.length);
+      setRateioPercentuais(Object.fromEntries(socios.map((s, i) => [s.id, String(fatias[i])])));
     }
   }
 

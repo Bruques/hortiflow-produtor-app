@@ -1,4 +1,4 @@
-import { Prisma, TipoDespesa, RateioDespesa, SocioSociedade, Usuario } from '@prisma/client';
+import { Prisma, TipoDespesa, StatusPagamento, RateioDespesa, SocioSociedade, Usuario } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as acertosService from './acertos.service';
 
@@ -32,6 +32,9 @@ interface CriarDespesaInput {
   // Chave opcional gerada pelo cliente (localId da fila de sync offline do mobile) — mesmo
   // propósito de `idempotency_key` em vendas.service.ts (ver comentário lá).
   idempotency_key?: string;
+  // Spec 19 — default PAGO quando ausente (mesmo comportamento de antes desta task).
+  status_pagamento?: StatusPagamento;
+  data_vencimento?: Date;
 }
 
 // Não é Partial<CriarDespesaInput> porque `rateio` aqui distingue 3 estados: ausente (não
@@ -65,6 +68,7 @@ const includeCriarDespesa = {
 } as const;
 
 export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
+  const statusPagamento = input.status_pagamento ?? StatusPagamento.PAGO;
   let despesa;
   try {
     despesa = await prisma.despesa.create({
@@ -77,6 +81,11 @@ export async function criarDespesa(safraId: string, input: CriarDespesaInput) {
         foto_comprovante: input.foto_comprovante,
         descricao: input.descricao,
         idempotency_key: input.idempotency_key,
+        status_pagamento: statusPagamento,
+        data_vencimento: statusPagamento === StatusPagamento.PENDENTE ? input.data_vencimento : null,
+        // Nasce PAGO = considera-se quitada na hora do lançamento (comportamento anterior a
+        // esta task); PENDENTE só ganha data_pagamento quando marcada como paga depois.
+        data_pagamento: statusPagamento === StatusPagamento.PAGO ? input.data : null,
         ...(input.rateio && {
           rateios: {
             create: input.rateio.map((r) => ({ socio_sociedade_id: r.socio_id, percentual: r.percentual })),
@@ -143,6 +152,13 @@ export async function atualizarDespesa(id: string, input: AtualizarDespesaInput)
         data: input.data,
         foto_comprovante: input.foto_comprovante,
         descricao: input.descricao,
+        status_pagamento: input.status_pagamento,
+        data_vencimento:
+          input.status_pagamento === undefined
+            ? undefined
+            : input.status_pagamento === StatusPagamento.PENDENTE
+              ? input.data_vencimento
+              : null,
       },
       // Mesmo ajuste de criarDespesa: `socio: true` é o que dá o `socio_nome` na resposta.
       include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
@@ -153,6 +169,16 @@ export async function atualizarDespesa(id: string, input: AtualizarDespesaInput)
     // atualizarVenda em vendas.service.ts).
     return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios), coberta_por_acerto: false };
   });
+}
+
+export async function marcarComoPaga(id: string) {
+  const despesa = await prisma.despesa.update({
+    where: { id },
+    data: { status_pagamento: StatusPagamento.PAGO, data_pagamento: new Date() },
+    include: { socio: true, rateios: { include: { socioSociedade: { include: { usuario: true } } } } },
+  });
+  const { rateios, socio, ...resto } = despesa;
+  return { ...resto, socio_nome: socio.nome, rateio: mapearRateio(rateios) };
 }
 
 export async function excluirDespesa(id: string): Promise<void> {
@@ -273,6 +299,9 @@ export async function listarDespesas(safraId: string, filtroData?: { gte?: Date;
     data: d.data,
     foto_comprovante: d.foto_comprovante,
     descricao: d.descricao,
+    status_pagamento: d.status_pagamento,
+    data_vencimento: d.data_vencimento,
+    data_pagamento: d.data_pagamento,
     rateio: mapearRateio(d.rateios),
     // Antecipa pro frontend a mesma trava que excluir/atualizar aplicam (ver acertos.service),
     // pra desabilitar o botão antes do clique em vez de só reagir ao 409.

@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { Despesa, TipoDespesa } from '@/types/despesa';
+import type { Despesa, StatusPagamento, TipoDespesa } from '@/types/despesa';
 import type { PeriodoFiltro } from '@/types/simulacao';
 
 export interface FiltroDespesas {
@@ -22,6 +22,10 @@ export interface CriarDespesaInput {
   descricao?: string;
   // Ausente = rateio padrão (segue o percentual de lucro)
   rateio?: RateioInput[];
+  // docs/specs/19 — ausente = PAGO (comportamento anterior). data_vencimento obrigatória
+  // quando status_pagamento = 'PENDENTE'.
+  status_pagamento?: StatusPagamento;
+  data_vencimento?: string;
 }
 
 export async function criarDespesaRequest(
@@ -55,6 +59,14 @@ export async function atualizarDespesaRequest(
 
 export async function excluirDespesaRequest(safraId: string, despesaId: string): Promise<void> {
   await apiClient.delete(`/safras/${safraId}/despesas/${despesaId}`);
+}
+
+export async function marcarDespesaComoPagaRequest(
+  safraId: string,
+  despesaId: string
+): Promise<{ despesa: Despesa }> {
+  const { data } = await apiClient.patch(`/safras/${safraId}/despesas/${despesaId}/pagar`, {});
+  return data;
 }
 
 export type RateioCompartilhado =

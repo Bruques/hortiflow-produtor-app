@@ -16,6 +16,10 @@ export interface ItemRateio {
   percentual: number;
 }
 
+// docs/specs/19-despesa-pendente-e-parcelamento.md — não afeta calcularDivisao, só controle
+// visual de quanto já foi pago x ainda vai ser (mesmo comportamento do web).
+export type StatusPagamento = 'PAGO' | 'PENDENTE';
+
 export interface Despesa {
   id: string;
   socio_id: string;
@@ -31,6 +35,9 @@ export interface Despesa {
   // true quando a despesa já está coberta por um Acerto — editar/excluir vai receber 409 do
   // backend, então a tela trava a ação de antemão (docs/specs/mobile/04-despesas-da-sociedade.md)
   coberta_por_acerto: boolean;
+  status_pagamento: StatusPagamento;
+  data_vencimento: string | null;
+  data_pagamento: string | null;
 }
 
 // Estado de sincronização de um item que existe no cache local (mobile/src/lib/despesasCache.ts).
