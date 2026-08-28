@@ -43,6 +43,10 @@ enum TipoGatilhoRegra {
 enum StatusUsuario {
   ATIVO
   BLOQUEADO
+  // Spec 20 — anonimização de conta: usado só quando o usuário ainda tem despesas/vendas
+  // como sócio não-titular em sociedade de outra pessoa, e por isso a linha `Usuario` não
+  // pode ser excluída fisicamente (ver docs/specs/20-exclusao-de-conta.md).
+  EXCLUIDO
 }
 
 // Spec 19 — despesa pendente de pagamento e parcelamento
@@ -106,7 +110,10 @@ model AdminUsuario {
 // manualmente pelo admin depois (ver docs/specs/18-assinatura-e-pagamento.md).
 model Assinatura {
   id                            String           @id @default(uuid())
-  usuario_id                    String           @unique
+  // Spec 20 — nullable pra permitir excluir fisicamente um `Usuario` titular mantendo o
+  // histórico de `Pagamento` (registro financeiro do desenvolvedor, não dado pessoal do
+  // usuário) em vez de apagá-lo junto.
+  usuario_id                    String?          @unique
   plano_id                      String?
   status                        StatusAssinatura @default(TRIAL)
   data_inicio                   DateTime         @default(now())
@@ -119,7 +126,7 @@ model Assinatura {
   criado_em                     DateTime         @default(now())
   atualizado_em                 DateTime         @updatedAt
 
-  usuario    Usuario     @relation(fields: [usuario_id], references: [id])
+  usuario    Usuario?    @relation(fields: [usuario_id], references: [id])
   plano      Plano?      @relation(fields: [plano_id], references: [id])
   pagamentos Pagamento[]
 
@@ -236,11 +243,11 @@ model Safra {
 }
 
 model Despesa {
-  id               String      @id @default(uuid())
+  id               String          @id @default(uuid())
   safra_id         String
   socio_id         String
   tipo             TipoDespesa
-  valor            Decimal     @db.Decimal(10, 2)
+  valor            Decimal         @db.Decimal(10, 2)
   data             DateTime
   foto_comprovante String?
   descricao        String?
@@ -256,8 +263,8 @@ model Despesa {
   // Chave de idempotência opcional enviada pelo cliente (o `localId` gerado pela fila de sync
   // offline do mobile) — permite que um retry de POST após timeout de rede reconheça que a
   // despesa já foi criada em vez de duplicar (ver docs/specs/mobile/00-setup-e-infra.md).
-  idempotency_key  String?     @unique
-  criado_em        DateTime    @default(now())
+  idempotency_key  String?         @unique
+  criado_em        DateTime        @default(now())
 
   safra       Safra                   @relation(fields: [safra_id], references: [id])
   socio       Usuario                 @relation(fields: [socio_id], references: [id])

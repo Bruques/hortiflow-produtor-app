@@ -237,7 +237,9 @@ export async function gerarCheckoutLink(usuarioId: string, callbackUrl: string):
     where: { usuario_id: usuarioId },
     include: { plano: true, usuario: true },
   });
-  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+  // `assinatura.usuario` só é null pra assinatura de uma conta já excluída (spec 20), o que
+  // não deveria conseguir chegar aqui (usuarioId vem de uma sessão autenticada em uso).
+  if (!assinatura || !assinatura.usuario) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
   if (!assinatura.plano) return { erro: 'PLANO_NAO_ATRIBUIDO' };
 
   let customerId = assinatura.asaas_customer_id;

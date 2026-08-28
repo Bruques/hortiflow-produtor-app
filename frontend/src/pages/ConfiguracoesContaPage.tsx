@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
-import { trocarSenhaRequest } from '@/services/auth';
+import { excluirContaRequest, trocarSenhaRequest } from '@/services/auth';
 
 export default function ConfiguracoesContaPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
@@ -22,6 +22,27 @@ export default function ConfiguracoesContaPage() {
   const [erroSenha, setErroSenha] = useState<string | null>(null);
   const [sucessoSenha, setSucessoSenha] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [senhaExclusao, setSenhaExclusao] = useState('');
+  const [confirmacaoExclusao, setConfirmacaoExclusao] = useState('');
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+
+  async function excluirConta() {
+    setErroExclusao(null);
+    setExcluindo(true);
+    try {
+      await excluirContaRequest(senhaExclusao);
+      localStorage.removeItem('token');
+      navigate('/login');
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErroExclusao(data?.error ?? 'Não foi possível excluir a conta');
+    } finally {
+      setExcluindo(false);
+    }
+  }
 
   async function trocarSenha() {
     setErroSenha(null);
@@ -126,6 +147,74 @@ export default function ConfiguracoesContaPage() {
               {salvandoSenha ? 'Salvando...' : 'Trocar senha'}
             </button>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-3.5">
+          <div>
+            <h3 className="m-0 text-[15px] font-extrabold text-hf-red">Excluir conta</h3>
+            <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">
+              Ação definitiva e imediata. Se você é o titular de uma sociedade, ela é apagada por completo — safras,
+              despesas, vendas e acertos, inclusive despesas pessoais de outros sócios lançadas nela.
+            </p>
+          </div>
+
+          {!confirmandoExclusao ? (
+            <button
+              type="button"
+              onClick={() => setConfirmandoExclusao(true)}
+              className="w-full rounded-xl border border-hf-red py-2.5 text-[13px] font-bold text-hf-red"
+            >
+              Excluir minha conta
+            </button>
+          ) : (
+            <div className="flex flex-col gap-3 rounded-2xl border border-hf-red p-3.5">
+              <div>
+                <label className="mb-1.5 block text-[12px] font-bold text-hf-red">Sua senha</label>
+                <input
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => setSenhaExclusao(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-red"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-bold text-hf-red">
+                  Digite EXCLUIR para confirmar
+                </label>
+                <input
+                  type="text"
+                  value={confirmacaoExclusao}
+                  onChange={(e) => setConfirmacaoExclusao(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-red"
+                />
+              </div>
+
+              {erroExclusao && <p className="m-0 text-center text-sm font-medium text-hf-red">{erroExclusao}</p>}
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmandoExclusao(false);
+                    setSenhaExclusao('');
+                    setConfirmacaoExclusao('');
+                    setErroExclusao(null);
+                  }}
+                  className="flex-1 rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-900"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={excluirConta}
+                  disabled={excluindo || !senhaExclusao || confirmacaoExclusao !== 'EXCLUIR'}
+                  className="flex-1 rounded-xl bg-hf-red py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
+                >
+                  {excluindo ? 'Excluindo...' : 'Excluir para sempre'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

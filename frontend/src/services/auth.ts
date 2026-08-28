@@ -29,6 +29,12 @@ export async function trocarSenhaRequest(senha_atual: string, senha_nova: string
   await apiClient.put('/auth/senha', { senha_atual, senha_nova });
 }
 
+// Spec 20 — exclusão de conta. Exige a senha atual mesmo com token válido, já que o efeito é
+// irreversível (se titular, apaga a(s) sociedade(s) inteiras junto).
+export async function excluirContaRequest(senha: string): Promise<void> {
+  await apiClient.delete('/auth/me', { data: { senha } });
+}
+
 // Best-effort de propósito (spec 17): usado tanto no logout manual quanto no automático
 // (401), nunca deve travar o fluxo de saída do usuário se a chamada falhar.
 export async function logoutRequest(automatico: boolean): Promise<void> {

@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react-native';
 import { AxiosError } from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { trocarSenhaRequest } from '../services/auth';
+import { excluirContaRequest, trocarSenhaRequest } from '../services/auth';
 import { TelaComTeclado } from '../components/TelaComTeclado';
+import { useAuth } from '../context/AuthContext';
 import { cores, espacamento, raio } from '../theme';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -15,6 +16,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TrocaSenha'>;
 // spec 09 do web) — exige senha atual correta, nova senha mínima de 6 caracteres, diferente da
 // atual. Sem tratamento de offline: troca de senha exige conexão (docs/specs/mobile/01-auth.md).
 export function TrocaSenhaScreen({ navigation }: Props) {
+  const { sairAposExclusaoDeConta } = useAuth();
+
   const [senhaAtual, setSenhaAtual] = useState('');
   const [senhaNova, setSenhaNova] = useState('');
   const [senhaNovaConfirmacao, setSenhaNovaConfirmacao] = useState('');
@@ -22,6 +25,26 @@ export function TrocaSenhaScreen({ navigation }: Props) {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
+
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [senhaExclusao, setSenhaExclusao] = useState('');
+  const [confirmacaoExclusao, setConfirmacaoExclusao] = useState('');
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+
+  async function handleExcluirConta() {
+    setErroExclusao(null);
+    setExcluindo(true);
+    try {
+      await excluirContaRequest(senhaExclusao);
+      await sairAposExclusaoDeConta();
+    } catch (err) {
+      const mensagem =
+        err instanceof AxiosError ? (err.response?.data as { error?: string } | undefined)?.error : undefined;
+      setErroExclusao(mensagem ?? 'Não foi possível excluir a conta');
+      setExcluindo(false);
+    }
+  }
 
   async function handleTrocarSenha() {
     setErro(null);
@@ -137,6 +160,81 @@ export function TrocaSenhaScreen({ navigation }: Props) {
             )}
           </Pressable>
         </View>
+
+        <View>
+          <Text style={styles.tituloPerigo}>Excluir conta</Text>
+          <Text style={styles.subtitulo}>
+            Ação definitiva e imediata. Se você é o titular de uma sociedade, ela é apagada por completo — safras,
+            despesas, vendas e acertos, inclusive despesas pessoais de outros sócios lançadas nela.
+          </Text>
+        </View>
+
+        {!confirmandoExclusao ? (
+          <Pressable
+            style={({ pressed }) => [styles.botaoPerigoSecundario, pressed && styles.botaoPerigoPressionado]}
+            onPress={() => setConfirmandoExclusao(true)}
+          >
+            <Text style={styles.textoBotaoPerigoSecundario}>Excluir minha conta</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.cartaoPerigo}>
+            <View>
+              <Text style={styles.labelPerigo}>Sua senha</Text>
+              <View style={styles.campo}>
+                <Lock size={18} color={cores.red.padrao} />
+                <TextInput
+                  style={styles.input}
+                  secureTextEntry
+                  value={senhaExclusao}
+                  onChangeText={setSenhaExclusao}
+                />
+              </View>
+            </View>
+
+            <View>
+              <Text style={styles.labelPerigo}>Digite EXCLUIR para confirmar</Text>
+              <View style={styles.campo}>
+                <TextInput
+                  style={styles.input}
+                  autoCapitalize="characters"
+                  value={confirmacaoExclusao}
+                  onChangeText={setConfirmacaoExclusao}
+                />
+              </View>
+            </View>
+
+            {erroExclusao && <Text style={styles.erro}>{erroExclusao}</Text>}
+
+            <View style={styles.linhaBotoes}>
+              <Pressable
+                style={({ pressed }) => [styles.botaoSecundario, pressed && styles.botaoPressionado]}
+                onPress={() => {
+                  setConfirmandoExclusao(false);
+                  setSenhaExclusao('');
+                  setConfirmacaoExclusao('');
+                  setErroExclusao(null);
+                }}
+              >
+                <Text style={styles.textoBotaoSecundario}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.botaoPerigo,
+                  (excluindo || !senhaExclusao || confirmacaoExclusao !== 'EXCLUIR') && styles.botaoDesabilitado,
+                  pressed && styles.botaoPerigoPressionado,
+                ]}
+                onPress={handleExcluirConta}
+                disabled={excluindo || !senhaExclusao || confirmacaoExclusao !== 'EXCLUIR'}
+              >
+                {excluindo ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.textoBotaoPrimario}>Excluir para sempre</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        )}
       </ScrollView>
       </TelaComTeclado>
     </SafeAreaView>
@@ -240,6 +338,63 @@ const styles = StyleSheet.create({
   },
   textoBotaoPrimario: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  tituloPerigo: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: cores.red.padrao,
+  },
+  cartaoPerigo: {
+    gap: espacamento.md,
+    borderWidth: 1,
+    borderColor: cores.red.padrao,
+    borderRadius: raio.lg,
+    padding: espacamento.md + 2,
+  },
+  labelPerigo: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: cores.red.padrao,
+    marginBottom: espacamento.xs + 2,
+  },
+  linhaBotoes: {
+    flexDirection: 'row',
+    gap: espacamento.sm + 2,
+  },
+  botaoSecundario: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    borderRadius: raio.md,
+    paddingVertical: espacamento.sm + 4,
+    alignItems: 'center',
+  },
+  textoBotaoSecundario: {
+    color: cores.stone[900],
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  botaoPerigo: {
+    flex: 1,
+    borderRadius: raio.md,
+    paddingVertical: espacamento.sm + 4,
+    alignItems: 'center',
+    backgroundColor: cores.red.padrao,
+  },
+  botaoPerigoSecundario: {
+    borderWidth: 1.5,
+    borderColor: cores.red.padrao,
+    borderRadius: raio.md,
+    paddingVertical: espacamento.sm + 4,
+    alignItems: 'center',
+  },
+  botaoPerigoPressionado: {
+    opacity: 0.85,
+  },
+  textoBotaoPerigoSecundario: {
+    color: cores.red.padrao,
     fontSize: 14,
     fontWeight: '700',
   },

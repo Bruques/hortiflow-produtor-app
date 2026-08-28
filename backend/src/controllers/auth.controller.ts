@@ -5,6 +5,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { registrarEvento } from '../services/auditoria.service';
 import { criarAssinaturaTrial } from '../services/assinatura.service';
+import { excluirConta } from '../services/excluirConta.service';
 
 const registerSchema = z.object({
   nome: z.string().min(1),
@@ -20,6 +21,10 @@ const loginSchema = z.object({
 const trocarSenhaSchema = z.object({
   senha_atual: z.string().min(1),
   senha_nova: z.string().min(6),
+});
+
+const excluirContaSchema = z.object({
+  senha: z.string().min(1),
 });
 
 function gerarToken(usuarioId: string): string {
@@ -152,4 +157,32 @@ export async function trocarSenha(req: Request, res: Response): Promise<void> {
   await prisma.usuario.update({ where: { id: usuario.id }, data: { senha_hash } });
 
   res.json({ ok: true });
+}
+
+// Spec 20 — exige a senha atual mesmo com token válido, mesma cautela da troca de senha,
+// mas aqui o efeito é irreversível. O evento de auditoria é gravado antes da exclusão em si
+// (a linha `Usuario` pode deixar de existir ou ser anonimizada logo em seguida).
+export async function excluirContaController(req: Request, res: Response): Promise<void> {
+  const parsed = excluirContaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Senha é obrigatória' });
+    return;
+  }
+
+  const usuario = await prisma.usuario.findUnique({ where: { id: req.usuarioId } });
+  if (!usuario) {
+    res.status(404).json({ error: 'Usuário não encontrado' });
+    return;
+  }
+
+  const senhaValida = await bcrypt.compare(parsed.data.senha, usuario.senha_hash);
+  if (!senhaValida) {
+    res.status(401).json({ error: 'Senha incorreta' });
+    return;
+  }
+
+  await registrarEvento(usuario.id, 'EXCLUSAO_CONTA');
+  await excluirConta(usuario.id);
+
+  res.json({ mensagem: 'Conta excluída com sucesso.' });
 }

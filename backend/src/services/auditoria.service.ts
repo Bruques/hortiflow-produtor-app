@@ -7,7 +7,8 @@ export type TipoEventoAuditoria =
   | 'LOGIN'
   | 'LOGOUT'
   | 'CONTA_BLOQUEADA'
-  | 'CONTA_DESBLOQUEADA';
+  | 'CONTA_DESBLOQUEADA'
+  | 'EXCLUSAO_CONTA';
 
 // Best-effort de propósito (spec 17): gravar o evento nunca pode derrubar a ação principal
 // (cadastro/login/logout) que o chamou. Se a gravação falhar, o erro vai pro Sentry, não

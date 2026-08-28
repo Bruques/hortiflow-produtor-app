@@ -34,7 +34,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   // 401 (não 403): é o único status que o interceptor de logout automático do web e do
   // mobile já reage sem precisar de nenhuma mudança nesses apps (ver bootstrapSessao.ts).
-  if (!usuario || usuario.status === 'BLOQUEADO') {
+  // `!usuario` cobre tanto "nunca existiu" quanto o caso comum de exclusão física de conta
+  // (spec 20); `EXCLUIDO` cobre o caso raro de conta anonimizada (linha ainda existe).
+  if (!usuario || usuario.status === 'BLOQUEADO' || usuario.status === 'EXCLUIDO') {
     res.status(401).json({ error: 'Conta suspensa. Entre em contato para reativar.' });
     return;
   }

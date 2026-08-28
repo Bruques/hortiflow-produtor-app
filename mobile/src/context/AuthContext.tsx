@@ -13,6 +13,7 @@ interface AuthContextValue {
   carregando: boolean;
   entrar: (token: string, usuario: Usuario) => Promise<void>;
   sair: () => Promise<void>;
+  sairAposExclusaoDeConta: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -74,6 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLogado(false);
   }, []);
 
+  // Spec 20 — depois de excluir a conta a linha `Usuario` pode não existir mais (ou já foi
+  // anonimizada), então não faz sentido registrar mais um evento de LOGOUT: o backend já
+  // gravou EXCLUSAO_CONTA antes da exclusão em si, e /auth/logout com um usuario_id apontando
+  // pra uma conta apagada só geraria um erro de FK silencioso no Sentry à toa.
+  const sairAposExclusaoDeConta = useCallback(async () => {
+    await clearToken();
+    setUsuario(null);
+    setLogado(false);
+  }, []);
+
   // Sem isso, um 401 numa chamada qualquer feita depois do bootstrap (token expirado em uso,
   // não só ao abrir o app) deixava o usuário preso na tela com erro genérico de carregamento,
   // sem nunca ser levado de volta pro login — mesmo gap do apiClient do web.
@@ -103,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [sair]);
 
   return (
-    <AuthContext.Provider value={{ usuario, logado, carregando, entrar, sair }}>
+    <AuthContext.Provider value={{ usuario, logado, carregando, entrar, sair, sairAposExclusaoDeConta }}>
       {children}
     </AuthContext.Provider>
   );
