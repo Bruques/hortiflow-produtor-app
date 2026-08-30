@@ -33,8 +33,21 @@ const PORT = process.env.PORT || 3001;
 // (todo mundo cai no mesmo "balde", inclusive risco de travar um revisor da Apple sem querer).
 app.set('trust proxy', 1);
 
+// FRONTEND_URL aceita uma lista separada por vírgula — necessário desde a migração do domínio
+// de produção (2026-08-30), que manteve links antigos (.vercel.app) em uso por usuários que
+// ainda não migraram pro domínio próprio (hortiflow-produtor.com.br).
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim());
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 // Limite maior que o padrão (100kb) porque a foto de comprovante de despesa vai como base64 no

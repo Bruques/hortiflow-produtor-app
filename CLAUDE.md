@@ -50,7 +50,7 @@ Existem dois ambientes, cada um com seu próprio frontend (Vercel), backend (Rai
 
 | | Branch | Frontend | Backend | Banco |
 |---|---|---|---|---|
-| **Produção** | `main` | `hortiflow-produtor-frontend.vercel.app` (projeto `hortiflow-produtor`) | ambiente `production` no Railway | branch `main`/produção do Neon |
+| **Produção** | `main` | `www.hortiflow-produtor.com.br` (domínio próprio, projeto `hortiflow-produtor` na Vercel) | ambiente `production` no Railway | branch `main`/produção do Neon |
 | **Staging** | `develop` | `hortiflow-produtor-develop.vercel.app` (projeto `hortiflow-produtor-develop`) | ambiente `develop` no Railway | branch `develop` do Neon (isolada, criada a partir da produção) |
 
 **Fluxo de trabalho, sempre nessa ordem:**
@@ -60,6 +60,8 @@ Existem dois ambientes, cada um com seu próprio frontend (Vercel), backend (Rai
 3. Só depois de validado em staging, faz-se merge (ou PR) de `develop` → `main`, o que dispara o deploy real de produção
 
 O projeto de staging na Vercel foi criado com a proteção de SSO desativada (`ssoProtection: null` via API) porque o plano Hobby não permite desligar isso pela tela de "Deployment Protection" — só assim a URL fica acessível sem exigir login na conta Vercel.
+
+**Atenção ao trocar o domínio do frontend de produção**: o backend usa CORS de origem única (`FRONTEND_URL` em `backend/src/app.ts`), então qualquer troca de domínio do frontend (ex: domínio próprio novo) exige atualizar essa variável no ambiente `production` do Railway (`railway variables --environment production --service backend --set FRONTEND_URL=...`) — senão login e toda chamada autenticada quebram por CORS, mesmo com credenciais corretas. Isso já aconteceu em 2026-08-30 ao trocar de `hortiflow-produtor.vercel.app` para `www.hortiflow-produtor.com.br`.
 
 ---
 
