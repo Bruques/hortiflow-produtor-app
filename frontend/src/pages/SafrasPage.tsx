@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, Plus, Sprout, Pencil } from 'lucide-react';
-import { atualizarObservacoesRequest, encerrarSafraRequest, listarSafrasRequest } from '@/services/safras';
+import {
+  atualizarNomeRequest,
+  atualizarObservacoesRequest,
+  encerrarSafraRequest,
+  listarSafrasRequest,
+} from '@/services/safras';
 import { listarSociedadesRequest } from '@/services/sociedades';
 import { ROTULO_STATUS_SAFRA } from '@/lib/rotulos';
 import { cn, formatarData } from '@/lib/utils';
@@ -29,8 +34,9 @@ export default function SafrasPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [encerrandoId, setEncerrandoId] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [textoEdicao, setTextoEdicao] = useState('');
-  const [salvandoObsId, setSalvandoObsId] = useState<string | null>(null);
+  const [textoNomeEdicao, setTextoNomeEdicao] = useState('');
+  const [textoObsEdicao, setTextoObsEdicao] = useState('');
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
 
   function carregar() {
     if (!sociedadeId) return;
@@ -53,21 +59,31 @@ export default function SafrasPage() {
       .catch(() => {});
   }, [sociedadeId]);
 
-  function abrirEdicaoObs(safra: Safra) {
+  function abrirEdicao(safra: Safra) {
     setEditandoId(safra.id);
-    setTextoEdicao(safra.observacoes ?? '');
+    setTextoNomeEdicao(safra.nome);
+    setTextoObsEdicao(safra.observacoes ?? '');
   }
 
-  async function salvarObs(safraId: string) {
-    setSalvandoObsId(safraId);
+  async function salvarEdicao(safra: Safra) {
+    const nome = textoNomeEdicao.trim();
+    if (!nome) {
+      setErro('O nome da safra não pode ficar vazio');
+      return;
+    }
+    setSalvandoId(safra.id);
     try {
-      await atualizarObservacoesRequest(safraId, textoEdicao.trim() || null);
+      const chamadas: Promise<unknown>[] = [];
+      if (nome !== safra.nome) chamadas.push(atualizarNomeRequest(safra.id, nome));
+      const obs = textoObsEdicao.trim() || null;
+      if (obs !== (safra.observacoes ?? null)) chamadas.push(atualizarObservacoesRequest(safra.id, obs));
+      await Promise.all(chamadas);
       setEditandoId(null);
       carregar();
     } catch {
-      setErro('Não foi possível salvar as observações');
+      setErro('Não foi possível salvar as alterações');
     } finally {
-      setSalvandoObsId(null);
+      setSalvandoId(null);
     }
   }
 
@@ -159,15 +175,24 @@ export default function SafrasPage() {
 
                 {editandoId === s.id ? (
                   <div className="mt-2 flex flex-col gap-2 rounded-2xl border border-hf-line bg-white p-3">
-                    <textarea
+                    <label className="text-[11px] font-bold uppercase tracking-wide text-hf-stone-400">Nome</label>
+                    <input
                       autoFocus
-                      value={textoEdicao}
-                      onChange={(e) => setTextoEdicao(e.target.value)}
+                      value={textoNomeEdicao}
+                      onChange={(e) => setTextoNomeEdicao(e.target.value)}
+                      className="w-full rounded-xl border border-hf-line px-3 py-2 text-[13px] text-hf-stone-900 outline-none focus:border-hf-green-500"
+                    />
+                    <label className="mt-1 text-[11px] font-bold uppercase tracking-wide text-hf-stone-400">
+                      Observações
+                    </label>
+                    <textarea
+                      value={textoObsEdicao}
+                      onChange={(e) => setTextoObsEdicao(e.target.value)}
                       maxLength={500}
                       rows={2}
                       className="w-full resize-none rounded-xl border border-hf-line px-3 py-2 text-[13px] text-hf-stone-900 outline-none focus:border-hf-green-500"
                     />
-                    <div className="flex gap-2">
+                    <div className="mt-1 flex gap-2">
                       <button
                         type="button"
                         onClick={() => setEditandoId(null)}
@@ -177,23 +202,23 @@ export default function SafrasPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => salvarObs(s.id)}
-                        disabled={salvandoObsId === s.id}
+                        onClick={() => salvarEdicao(s)}
+                        disabled={salvandoId === s.id}
                         className="flex-1 rounded-xl bg-hf-green-800 py-2 text-[12.5px] font-bold text-white disabled:opacity-50"
                       >
-                        {salvandoObsId === s.id ? 'Salvando...' : 'Salvar'}
+                        {salvandoId === s.id ? 'Salvando...' : 'Salvar'}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-2 flex items-center gap-3">
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => abrirEdicaoObs(s)}
+                      onClick={() => abrirEdicao(s)}
                       className="flex items-center gap-1 text-[12px] font-bold text-hf-stone-600 underline underline-offset-2"
                     >
                       <Pencil className="h-3 w-3" strokeWidth={2.4} />
-                      Editar observações
+                      Editar
                     </button>
                     {s.status === 'EM_ANDAMENTO' && (
                       <button

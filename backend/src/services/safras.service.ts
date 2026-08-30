@@ -84,6 +84,16 @@ export async function atualizarObservacoes(
   });
 }
 
+export async function atualizarNome(safraId: string, nome: string): Promise<Safra | null> {
+  const safra = await prisma.safra.findUnique({ where: { id: safraId } });
+  if (!safra) return null;
+
+  return prisma.safra.update({
+    where: { id: safraId },
+    data: { nome },
+  });
+}
+
 type EncerrarResultado =
   | { erro: 'NAO_ENCONTRADA' }
   | { erro: 'JA_ENCERRADA' }

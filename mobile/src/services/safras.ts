@@ -39,3 +39,8 @@ export async function atualizarObservacoesRequest(
   const { data } = await apiClient.patch(`/safras/${safraId}/observacoes`, { observacoes });
   return data;
 }
+
+export async function atualizarNomeRequest(safraId: string, nome: string): Promise<{ safra: Safra }> {
+  const { data } = await apiClient.patch(`/safras/${safraId}/nome`, { nome });
+  return data;
+}

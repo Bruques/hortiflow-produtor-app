@@ -24,6 +24,7 @@ router.use('/:id', criarGateAssinatura('safra'));
 router.get('/:id', safrasController.obter);
 router.patch('/:id/encerrar', safrasController.encerrar);
 router.patch('/:id/observacoes', safrasController.atualizarObservacoes);
+router.patch('/:id/nome', safrasController.atualizarNome);
 router.post('/:id/despesas', despesasController.criar);
 router.get('/:id/despesas', despesasController.listar);
 router.put('/:id/despesas/:despesaId', despesasController.atualizar);

@@ -12,6 +12,10 @@ const observacoesSchema = z.object({
   observacoes: z.string().max(500).nullable(),
 });
 
+const nomeSchema = z.object({
+  nome: z.string().min(1),
+});
+
 export async function listarMinhas(req: Request, res: Response): Promise<void> {
   const safras = await safrasService.listarSafrasDoUsuario(req.usuarioId);
   res.json({ safras });
@@ -92,6 +96,29 @@ export async function atualizarObservacoes(req: Request, res: Response): Promise
   }
 
   const atualizada = await safrasService.atualizarObservacoes(id, parsed.data.observacoes);
+  res.json({ safra: atualizada });
+}
+
+export async function atualizarNome(req: Request, res: Response): Promise<void> {
+  const { id } = req.params; // safra id
+
+  const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
+  if (!safra) {
+    res.status(404).json({ error: 'Safra não encontrada' });
+    return;
+  }
+  if (!autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  const parsed = nomeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Nome da safra é obrigatório' });
+    return;
+  }
+
+  const atualizada = await safrasService.atualizarNome(id, parsed.data.nome);
   res.json({ safra: atualizada });
 }
 

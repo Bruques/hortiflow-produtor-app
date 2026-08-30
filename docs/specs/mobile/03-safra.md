@@ -11,6 +11,7 @@ Levar pro app mobile a gestão de Safra dentro de uma Sociedade: abrir, encerrar
 - Listar Safras de uma Sociedade — `GET /sociedades/:id/safras`
 - Encerrar Safra — `PATCH /safras/:id/encerrar`
 - Editar observações, a qualquer momento incluindo safra encerrada — `PATCH /safras/:id/observacoes`
+- Editar o nome, mesmas condições — `PATCH /safras/:id/nome` (adicionado depois, ver [spec 22](../22-editar-nome-da-safra.md))
 - `SafraContext` (React Context), equivalente ao `SafraContext.tsx` do frontend web: guarda a safra selecionada (`safraId`, `sociedadeId`, `safra`) e é consumido pelas telas de despesas, vendas, painel e acerto nas specs seguintes
 - Cache local (leitura) das safras já carregadas, seguindo o padrão offline-first geral (spec `00`)
 
@@ -18,7 +19,6 @@ Levar pro app mobile a gestão de Safra dentro de uma Sociedade: abrir, encerrar
 - Despesas, Despesas Pessoais, Vendas — specs `04`/`06`
 - Painel de simulação e Acerto — spec `05`
 - Múltiplas Safras `EM_ANDAMENTO` simultâneas na mesma Sociedade — mesma lacuna já registrada no web, não é escopo aqui resolver
-- Edição do nome da Safra depois de criada (só `observações` é editável, mesmo comportamento do web)
 
 ## Regras de negócio
 

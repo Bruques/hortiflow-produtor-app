@@ -3,7 +3,12 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight, Pencil, Plus, Sprout } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { atualizarObservacoesRequest, encerrarSafraRequest, listarSafrasRequest } from '../services/safras';
+import {
+  atualizarNomeRequest,
+  atualizarObservacoesRequest,
+  encerrarSafraRequest,
+  listarSafrasRequest,
+} from '../services/safras';
 import { obterSafrasCache, salvarSafrasCache } from '../lib/safrasCache';
 import { mensagemErro } from '../lib/erroApi';
 import { useSafraAtiva } from '../context/SafraContext';
@@ -28,8 +33,9 @@ export function SafrasScreen({ navigation }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [encerrandoId, setEncerrandoId] = useState<string | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [textoEdicao, setTextoEdicao] = useState('');
-  const [salvandoObsId, setSalvandoObsId] = useState<string | null>(null);
+  const [textoNomeEdicao, setTextoNomeEdicao] = useState('');
+  const [textoObsEdicao, setTextoObsEdicao] = useState('');
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (!sociedadeId) return;
@@ -57,21 +63,31 @@ export function SafrasScreen({ navigation }: Props) {
     carregar();
   }, [carregar]);
 
-  function abrirEdicaoObs(safra: Safra) {
+  function abrirEdicao(safra: Safra) {
     setEditandoId(safra.id);
-    setTextoEdicao(safra.observacoes ?? '');
+    setTextoNomeEdicao(safra.nome);
+    setTextoObsEdicao(safra.observacoes ?? '');
   }
 
-  async function salvarObs(safraId: string) {
-    setSalvandoObsId(safraId);
+  async function salvarEdicao(safra: Safra) {
+    const nome = textoNomeEdicao.trim();
+    if (!nome) {
+      setErro('O nome da safra não pode ficar vazio');
+      return;
+    }
+    setSalvandoId(safra.id);
     try {
-      await atualizarObservacoesRequest(safraId, textoEdicao.trim() || null);
+      const chamadas: Promise<unknown>[] = [];
+      if (nome !== safra.nome) chamadas.push(atualizarNomeRequest(safra.id, nome));
+      const obs = textoObsEdicao.trim() || null;
+      if (obs !== (safra.observacoes ?? null)) chamadas.push(atualizarObservacoesRequest(safra.id, obs));
+      await Promise.all(chamadas);
       setEditandoId(null);
       await carregar();
     } catch (err) {
-      setErro(mensagemErro(err, 'Não foi possível salvar as observações'));
+      setErro(mensagemErro(err, 'Não foi possível salvar as alterações'));
     } finally {
-      setSalvandoObsId(null);
+      setSalvandoId(null);
     }
   }
 
@@ -154,10 +170,13 @@ export function SafrasScreen({ navigation }: Props) {
 
                 {editandoId === s.id ? (
                   <View style={styles.cartaoEdicao}>
+                    <Text style={styles.rotuloCampo}>Nome</Text>
+                    <TextInput style={styles.inputObs} value={textoNomeEdicao} onChangeText={setTextoNomeEdicao} />
+                    <Text style={styles.rotuloCampo}>Observações</Text>
                     <TextInput
                       style={styles.inputObs}
-                      value={textoEdicao}
-                      onChangeText={setTextoEdicao}
+                      value={textoObsEdicao}
+                      onChangeText={setTextoObsEdicao}
                       maxLength={500}
                       multiline
                       numberOfLines={2}
@@ -168,10 +187,10 @@ export function SafrasScreen({ navigation }: Props) {
                       </Pressable>
                       <Pressable
                         style={styles.botaoConfirmar}
-                        onPress={() => salvarObs(s.id)}
-                        disabled={salvandoObsId === s.id}
+                        onPress={() => salvarEdicao(s)}
+                        disabled={salvandoId === s.id}
                       >
-                        {salvandoObsId === s.id ? (
+                        {salvandoId === s.id ? (
                           <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
                           <Text style={styles.textoBotaoConfirmar}>Salvar</Text>
@@ -181,9 +200,9 @@ export function SafrasScreen({ navigation }: Props) {
                   </View>
                 ) : (
                   <View style={styles.acoesLinha}>
-                    <Pressable onPress={() => abrirEdicaoObs(s)} style={styles.acaoTexto}>
+                    <Pressable onPress={() => abrirEdicao(s)} style={styles.acaoTexto}>
                       <Pencil size={12} color={cores.stone[600]} />
-                      <Text style={styles.acaoTextoLabel}>Editar observações</Text>
+                      <Text style={styles.acaoTextoLabel}>Editar</Text>
                     </Pressable>
                     {s.status === 'EM_ANDAMENTO' && (
                       <Pressable onPress={() => encerrar(s.id)} disabled={encerrandoId === s.id}>
@@ -324,6 +343,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: espacamento.sm + 4,
   },
+  rotuloCampo: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    color: cores.stone[400],
+  },
   inputObs: {
     borderWidth: 1,
     borderColor: cores.linha,
@@ -365,6 +391,7 @@ const styles = StyleSheet.create({
   },
   acoesLinha: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: espacamento.md,
     marginTop: espacamento.xs + 2,
