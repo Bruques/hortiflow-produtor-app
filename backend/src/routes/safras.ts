@@ -7,6 +7,7 @@ import * as regrasController from '../controllers/regrasDespesaRecorrente.contro
 import * as simulacaoController from '../controllers/simulacao.controller';
 import * as acertosController from '../controllers/acertos.controller';
 import * as relatorioController from '../controllers/relatorio.controller';
+import * as relatorioCompletoController from '../controllers/relatorioCompleto.controller';
 import { authMiddleware } from '../middlewares/auth';
 import { criarGateAssinatura } from '../middlewares/assinaturaGate';
 
@@ -42,5 +43,6 @@ router.get('/:id/simulacao', simulacaoController.simular);
 router.post('/:id/acertos', acertosController.criar);
 router.get('/:id/acertos', acertosController.listar);
 router.get('/:id/relatorio', relatorioController.gerar);
+router.get('/:id/relatorio-completo', relatorioCompletoController.gerar);
 
 export default router;

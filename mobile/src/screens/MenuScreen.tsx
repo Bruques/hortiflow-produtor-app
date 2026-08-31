@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, type LucideIcon } from 'lucide-react-native';
+import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, BarChart3, type LucideIcon } from 'lucide-react-native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -85,6 +85,15 @@ export function MenuScreen({ navigation }: Props) {
       bg: cores.green[100],
       cor: cores.green[800],
       aoTocar: () => navigation.navigate('RegrasDespesa', { sociedadeId, safraId }),
+    },
+    {
+      chave: 'relatorio-completo',
+      titulo: 'Relatório completo',
+      subtitulo: 'Receita, despesas e mais',
+      Icone: BarChart3,
+      bg: cores.blue.fundo,
+      cor: cores.blue.padrao,
+      aoTocar: () => navigation.navigate('RelatorioCompleto', { safraId }),
     },
     ...(souFinanciador
       ? [

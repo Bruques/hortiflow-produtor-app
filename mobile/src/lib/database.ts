@@ -139,6 +139,21 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           atualizado_em TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS relatorio_completo_cache (
+          chave TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          data_inicio TEXT,
+          data_fim TEXT,
+          receita TEXT NOT NULL,
+          despesas TEXT NOT NULL,
+          lucro_liquido TEXT NOT NULL,
+          divisao TEXT NOT NULL,
+          quantidade_por_unidade TEXT NOT NULL,
+          media_preco_por_unidade TEXT NOT NULL,
+          despesas_por_categoria TEXT NOT NULL,
+          atualizado_em TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS acertos_cache (
           id TEXT PRIMARY KEY,
           safra_id TEXT NOT NULL,

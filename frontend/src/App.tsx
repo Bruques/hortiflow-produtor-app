@@ -24,6 +24,7 @@ import AcertosPage from '@/pages/AcertosPage';
 import AcertoDetalhePage from '@/pages/AcertoDetalhePage';
 import NovoAcertoPage from '@/pages/NovoAcertoPage';
 import RelatorioPage from '@/pages/RelatorioPage';
+import RelatorioCompletoPage from '@/pages/RelatorioCompletoPage';
 import AssinaturaBloqueadaPage from '@/pages/AssinaturaBloqueadaPage';
 import MinhaAssinaturaPage from '@/pages/MinhaAssinaturaPage';
 import AdminAssinaturasPage from '@/pages/admin/AdminAssinaturasPage';
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="acertos" element={<AcertosPage />} />
             <Route path="acertos/novo" element={<NovoAcertoPage />} />
             <Route path="relatorio" element={<RelatorioPage />} />
+            <Route path="relatorio-completo" element={<RelatorioCompletoPage />} />
             <Route path="menu" element={<MenuPage />} />
           </Route>
         </Route>

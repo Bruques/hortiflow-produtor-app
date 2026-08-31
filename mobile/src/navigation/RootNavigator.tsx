@@ -18,6 +18,7 @@ import { AcertosScreen } from '../screens/AcertosScreen';
 import { NovoAcertoScreen } from '../screens/NovoAcertoScreen';
 import { AcertoDetalheScreen } from '../screens/AcertoDetalheScreen';
 import { RelatorioScreen } from '../screens/RelatorioScreen';
+import { RelatorioCompletoScreen } from '../screens/RelatorioCompletoScreen';
 import { MinhaAssinaturaScreen } from '../screens/MinhaAssinaturaScreen';
 import { AssinaturaBloqueioScreen } from '../screens/AssinaturaBloqueioScreen';
 import { useAuth } from '../context/AuthContext';
@@ -48,6 +49,7 @@ export type RootStackParamList = {
   NovoAcerto: { safraId: string };
   AcertoDetalhe: { acertoId: string; safraId: string };
   Relatorio: { safraId: string };
+  RelatorioCompleto: { safraId: string };
   MinhaAssinatura: undefined;
   // Sem parâmetros de propósito — navegada pelo interceptor do apiClient (AuthContext.tsx),
   // que não tem contexto nenhum sobre qual sociedade/safra disparou o 402.
@@ -104,6 +106,7 @@ export function RootNavigator() {
             <Stack.Screen name="NovoAcerto" component={NovoAcertoScreen} />
             <Stack.Screen name="AcertoDetalhe" component={AcertoDetalheScreen} />
             <Stack.Screen name="Relatorio" component={RelatorioScreen} />
+            <Stack.Screen name="RelatorioCompleto" component={RelatorioCompletoScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

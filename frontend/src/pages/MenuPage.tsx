@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, type LucideIcon } from 'lucide-react';
+import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, BarChart3, type LucideIcon } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest, logoutRequest } from '@/services/auth';
@@ -69,6 +69,14 @@ export default function MenuPage() {
       Icone: Repeat,
       bg: 'bg-hf-green-100',
       cor: 'text-hf-green-800',
+    },
+    {
+      href: `/safras/${safraId}/relatorio-completo`,
+      titulo: 'Relatório completo',
+      subtitulo: 'Receita, despesas e mais',
+      Icone: BarChart3,
+      bg: 'bg-hf-blue-bg',
+      cor: 'text-hf-blue',
     },
     ...(souFinanciador
       ? [
