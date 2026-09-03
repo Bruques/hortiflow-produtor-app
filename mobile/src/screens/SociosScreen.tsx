@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AlertTriangle, ArrowLeft, Check, Minus, Pencil, Plus, Trash2, X } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Check, Info, Minus, Pencil, Plus, Trash2, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   atualizarPercentuaisRequest,
@@ -209,6 +209,16 @@ export function SociosScreen({ navigation, route }: Props) {
         <View>
           <Text style={styles.titulo}>Percentual de lucro</Text>
           <Text style={styles.legenda}>A soma precisa fechar em 100%</Text>
+        </View>
+
+        {/* Task 23 — cada safra tem seu próprio percentual desde a criação; o valor aqui
+            é só o padrão sugerido do cadastro da sociedade, não muda nenhuma safra já criada. */}
+        <View style={styles.avisoPercentual}>
+          <Info size={15} color={cores.stone[600]} />
+          <Text style={styles.avisoPercentualTexto}>
+            Isso aqui é só o percentual padrão sugerido ao adicionar sócios. Cada safra tem os próprios
+            sócios e percentual, definidos na criação dela — mudar aqui não altera nenhuma safra já criada.
+          </Text>
         </View>
 
         {carregando && socios.length === 0 && <ActivityIndicator />}
@@ -477,6 +487,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: cores.stone[400],
     marginTop: 2,
+  },
+  avisoPercentual: {
+    flexDirection: 'row',
+    gap: espacamento.sm,
+    backgroundColor: cores.cream[100],
+    borderRadius: raio.md,
+    padding: espacamento.sm + 6,
+  },
+  avisoPercentualTexto: {
+    flex: 1,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: cores.stone[600],
   },
   subtitulo: {
     fontSize: 14,

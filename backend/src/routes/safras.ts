@@ -23,6 +23,7 @@ router.get('/resumo', simulacaoController.resumo);
 router.use('/:id', criarGateAssinatura('safra'));
 
 router.get('/:id', safrasController.obter);
+router.get('/:id/socios', safrasController.listarSocios);
 router.patch('/:id/encerrar', safrasController.encerrar);
 router.patch('/:id/observacoes', safrasController.atualizarObservacoes);
 router.patch('/:id/nome', safrasController.atualizarNome);

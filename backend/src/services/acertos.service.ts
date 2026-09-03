@@ -1,6 +1,6 @@
 import { StatusSafra, TipoAcerto } from '@prisma/client';
 import prisma from '../lib/prisma';
-import * as sociedadesService from './sociedades.service';
+import * as safrasService from './safras.service';
 import { calcularDivisao, mapearRateioParaDivisao } from './divisao.service';
 
 export interface AcertoSocioDetalhe {
@@ -83,7 +83,7 @@ export async function criarAcerto(
   const [despesas, vendas, socios] = await Promise.all([
     prisma.despesa.findMany({ where: { safra_id: safraId, data: filtroData }, include: { rateios: true } }),
     prisma.venda.findMany({ where: { safra_id: safraId, data: filtroData } }),
-    sociedadesService.listarSocios(safra.sociedade_id),
+    safrasService.listarSociosDaSafra(safraId),
   ]);
 
   const resultado = calcularDivisao(
@@ -201,7 +201,7 @@ export async function listarAcertos(safraId: string): Promise<AcertoResumo[]> {
 
 export async function buscarAcertoDetalhado(
   acertoId: string
-): Promise<{ acerto: AcertoDetalhado; sociedadeId: string } | null> {
+): Promise<{ acerto: AcertoDetalhado; safraId: string } | null> {
   const registro = await prisma.acerto.findUnique({
     where: { id: acertoId },
     include: { socios: true, safra: true },
@@ -210,8 +210,8 @@ export async function buscarAcertoDetalhado(
     return null;
   }
 
-  const sociosSociedade = await sociedadesService.listarSocios(registro.safra.sociedade_id);
-  const nomesPorSocio = new Map(sociosSociedade.map((s) => [s.id, s.nome]));
+  const sociosSafra = await safrasService.listarSociosDaSafra(registro.safra_id);
+  const nomesPorSocio = new Map(sociosSafra.map((s) => [s.id, s.nome]));
 
   const sociosDetalhe: AcertoSocioDetalhe[] = registro.socios.map((as) => ({
     socio_id: as.socio_id,
@@ -222,7 +222,7 @@ export async function buscarAcertoDetalhado(
   }));
 
   return {
-    sociedadeId: registro.safra.sociedade_id,
+    safraId: registro.safra_id,
     acerto: {
       id: registro.id,
       safra_id: registro.safra_id,

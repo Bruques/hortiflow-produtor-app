@@ -1,17 +1,33 @@
 import apiClient from './apiClient';
 import type { MinhaSafra, Safra } from '@/types/safra';
+import type { PapelSocio, Socio } from '@/types/sociedade';
 
 export async function listarMinhasSafrasRequest(): Promise<{ safras: MinhaSafra[] }> {
   const { data } = await apiClient.get('/safras');
   return data;
 }
 
+// Task 23 — sócios/percentuais passaram a ser por Safra, não mais herdados da Sociedade.
+// `socios` ausente ou vazio: a safra nasce só com quem está criando, 100%.
+export interface SocioSafraInput {
+  socio_sociedade_id?: string;
+  nome?: string;
+  papel?: PapelSocio;
+  percentual_lucro: number;
+}
+
 export async function abrirSafraRequest(
   sociedadeId: string,
   nome: string,
-  observacoes?: string
-): Promise<{ safra: Safra }> {
-  const { data } = await apiClient.post(`/sociedades/${sociedadeId}/safras`, { nome, observacoes });
+  observacoes?: string,
+  socios?: SocioSafraInput[]
+): Promise<{ safra: Safra; socios: Socio[] }> {
+  const { data } = await apiClient.post(`/sociedades/${sociedadeId}/safras`, { nome, observacoes, socios });
+  return data;
+}
+
+export async function listarSociosDaSafraRequest(safraId: string): Promise<{ socios: Socio[] }> {
+  const { data } = await apiClient.get(`/safras/${safraId}/socios`);
   return data;
 }
 

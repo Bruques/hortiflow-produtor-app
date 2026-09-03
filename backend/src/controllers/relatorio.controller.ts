@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import * as safrasService from '../services/safras.service';
-import * as sociedadesService from '../services/sociedades.service';
 import { podeConfigurarRegra } from '../services/regrasDespesaRecorrente.service';
 import { calcularDivisao, mapearRateioParaDivisao } from '../services/divisao.service';
 import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
@@ -48,7 +47,7 @@ export async function gerar(req: Request, res: Response): Promise<void> {
       include: { unidade: true },
       orderBy: { data: 'asc' },
     }),
-    sociedadesService.listarSocios(safra.sociedade_id),
+    safrasService.listarSociosDaSafra(id),
     prisma.sociedade.findUnique({ where: { id: safra.sociedade_id } }),
   ]);
 

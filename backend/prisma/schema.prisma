@@ -217,9 +217,29 @@ model SocioSociedade {
   acertoSocios   AcertoSocio[]
   rateiosDespesa RateioDespesa[]
   rateiosRegra   RateioRegra[]
+  sociosSafra    SocioSafra[]
 
   @@unique([usuario_id, sociedade_id])
   @@map("socio_sociedades")
+}
+
+// Task 23 — participação de um SocioSociedade numa Safra específica: quem participa da
+// divisão daquela safra e com qual percentual. O cadastro da pessoa (nome, papel, conta
+// vinculada) continua em SocioSociedade; só o percentual e a participação passam a ser
+// por safra, pra que lavouras diferentes da mesma Sociedade tenham sócios/percentuais
+// independentes (docs/specs/23-socios-por-safra.md).
+model SocioSafra {
+  id                 String   @id @default(uuid())
+  safra_id           String
+  socio_sociedade_id String
+  percentual_lucro   Decimal  @db.Decimal(5, 2)
+  criado_em          DateTime @default(now())
+
+  safra          Safra          @relation(fields: [safra_id], references: [id])
+  socioSociedade SocioSociedade @relation(fields: [socio_sociedade_id], references: [id])
+
+  @@unique([safra_id, socio_sociedade_id])
+  @@map("socios_safra")
 }
 
 model Safra {
@@ -237,6 +257,7 @@ model Safra {
   despesasPessoais DespesaPessoal[]
   vendas           Venda[]
   acertos          Acerto[]
+  sociosSafra      SocioSafra[]
   aportesTrabalho  AporteTrabalho[]
 
   @@map("safras")

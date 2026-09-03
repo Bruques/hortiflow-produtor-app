@@ -6,7 +6,6 @@ import { Request, Response } from 'express';
 import { TipoDespesa } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as safrasService from '../services/safras.service';
-import * as sociedadesService from '../services/sociedades.service';
 import { calcularDivisao, mapearRateioParaDivisao } from '../services/divisao.service';
 import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
@@ -40,7 +39,7 @@ export async function gerar(req: Request, res: Response): Promise<void> {
       where: { safra_id: id, ...(Object.keys(filtroData).length > 0 && { data: filtroData }) },
       include: { unidade: true },
     }),
-    sociedadesService.listarSocios(safra.sociedade_id),
+    safrasService.listarSociosDaSafra(id),
   ]);
 
   const resultado = calcularDivisao(

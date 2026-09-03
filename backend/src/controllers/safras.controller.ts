@@ -1,11 +1,22 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { PapelSocio } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
 import * as sociedadesService from '../services/sociedades.service';
 
 const abrirSchema = z.object({
   nome: z.string().min(1),
   observacoes: z.string().max(500).optional(),
+  socios: z
+    .array(
+      z.object({
+        socio_sociedade_id: z.string().min(1).optional(),
+        nome: z.string().min(1).optional(),
+        papel: z.nativeEnum(PapelSocio).optional(),
+        percentual_lucro: z.number().min(0).max(100),
+      })
+    )
+    .optional(),
 });
 
 const observacoesSchema = z.object({
@@ -36,15 +47,31 @@ export async function abrir(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const resultado = await safrasService.abrirSafra(id, parsed.data.nome, parsed.data.observacoes);
+  const resultado = await safrasService.abrirSafra(
+    id,
+    req.usuarioId,
+    parsed.data.nome,
+    parsed.data.observacoes,
+    parsed.data.socios
+  );
   if ('erro' in resultado) {
-    res.status(403).json({
-      error: 'Você atingiu o limite de safras ativas do seu plano. Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.',
-    });
+    if (resultado.erro === 'LIMITE_SAFRAS_ATIVAS') {
+      res.status(403).json({
+        error: 'Você atingiu o limite de safras ativas do seu plano. Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.',
+      });
+      return;
+    }
+    if (resultado.erro === 'SOMA_INVALIDA') {
+      res.status(422).json({
+        error: `A soma dos percentuais dos sócios precisa ser 100%. Soma recebida: ${resultado.soma}%`,
+      });
+      return;
+    }
+    res.status(404).json({ error: 'Um dos sócios informados não pertence a essa sociedade' });
     return;
   }
 
-  res.status(201).json({ safra: resultado.safra });
+  res.status(201).json({ safra: resultado.safra, socios: resultado.socios });
 }
 
 export async function listar(req: Request, res: Response): Promise<void> {
@@ -74,6 +101,23 @@ export async function obter(req: Request, res: Response): Promise<void> {
   }
 
   res.json({ safra });
+}
+
+export async function listarSocios(req: Request, res: Response): Promise<void> {
+  const { id } = req.params; // safra id
+
+  const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
+  if (!safra) {
+    res.status(404).json({ error: 'Safra não encontrada' });
+    return;
+  }
+  if (!autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa safra' });
+    return;
+  }
+
+  const socios = await safrasService.listarSociosDaSafra(id);
+  res.json({ socios });
 }
 
 export async function atualizarObservacoes(req: Request, res: Response): Promise<void> {

@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { TipoAcerto } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
-import * as sociedadesService from '../services/sociedades.service';
 import * as acertosService from '../services/acertos.service';
 
 const criarSchema = z.object({
@@ -83,7 +82,7 @@ export async function detalhar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const autorizado = await sociedadesService.ehSocio(req.usuarioId, resultado.sociedadeId);
+  const { autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, resultado.safraId);
   if (!autorizado) {
     res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
     return;

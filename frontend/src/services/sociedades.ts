@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { PapelSocio, Sociedade, Socio, SocioSemConta } from '@/types/sociedade';
+import type { PapelSocio, Sociedade, Socio, SocioSemConta, SocioCatalogo } from '@/types/sociedade';
 
 export async function criarSociedadeRequest(
   nome: string
@@ -30,6 +30,13 @@ export async function listarSociedadesRequest(): Promise<{ sociedades: Sociedade
 
 export async function listarSociosRequest(sociedadeId: string): Promise<{ socios: Socio[] }> {
   const { data } = await apiClient.get(`/sociedades/${sociedadeId}/socios`);
+  return data;
+}
+
+// Task 23 — versão enxuta (sem percentual, que agora é definido por safra) usada pra
+// montar o "reaproveitar sócio já cadastrado" na tela Nova Safra.
+export async function listarSociosCatalogoRequest(sociedadeId: string): Promise<{ socios: SocioCatalogo[] }> {
+  const { data } = await apiClient.get(`/sociedades/${sociedadeId}/socios/catalogo`);
   return data;
 }
 

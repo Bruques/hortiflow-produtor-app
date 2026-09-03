@@ -67,3 +67,18 @@ PATCH /safras/:id/observacoes          { observacoes: string | null } → 200 { 
 - **Tela "Safras" (listar/encerrar/editar observações de uma sociedade) e "Nova safra" implementadas seguindo 1:1 o comportamento das páginas equivalentes do web** (`SafrasPage`/`NovaSafraPage`), incluindo o aviso de "já existe uma safra em andamento" ao tentar abrir outra.
 - **Cache local de safras com a mesma estratégia "substitui tudo"** de `sociedadesCache.ts` (spec `02`) — duas tabelas novas (`minhas_safras_cache` para a lista cross-sociedade da tela de Início, `safras_cache` por sociedade para a tela "Safras").
 - **Teste do critério de aceite 7** (abrir/encerrar safra e editar observações offline não caem na fila) implementado no mesmo molde do teste equivalente da spec `02`: mocka `apiClient` pra rejeitar com erro de rede e verifica que `enfileirar` nunca é chamado.
+
+---
+
+## Incremento (2026-09-03): sócios independentes por safra
+
+Porta pro mobile a mesma mudança da [spec 23](../23-socios-por-safra.md) do web: sócios e percentuais deixam de pertencer à Sociedade e passam a ser definidos por Safra, na criação. Contrato de API idêntico ao já documentado na spec 23 (`POST /sociedades/:id/safras` aceita `socios` opcional, novos `GET /sociedades/:id/socios/catalogo` e `GET /safras/:id/socios`) — nenhuma decisão de negócio nova aqui, só o mesmo comportamento levado pra `NovaSafraScreen`.
+
+**Não entra na fila de sincronização offline**, pelo mesmo motivo já registrado acima para abrir/encerrar safra: é uma ação rara que depende de validação imediata do servidor (soma de percentuais, sócio pertence à sociedade) — sem internet, mostra a mensagem de erro normal, sem enfileirar.
+
+**Decisões da implementação:**
+- `NovaSafraScreen` ganhou a pergunta "Esta safra vai ter sócios ou meeiros?" e o editor de sócios/percentuais, 1:1 com `frontend/src/pages/NovaSafraPage.tsx` — reaproveitar sócio do catálogo da sociedade ou cadastrar um novo, com validação de soma 100% antes de habilitar "Criar e iniciar safra"
+- Quem está criando a safra é pré-adicionado automaticamente (100%) ao escolher "vai ter sócios" — ele precisou já ser sócio da sociedade pra chegar nessa tela, então pedir pra se adicionar manualmente pelo catálogo era um passo supérfluo (mesmo ajuste feito no web depois do primeiro teste)
+- Id de controle de lista dos sócios adicionados na hora (ainda sem `socio_sociedade_id`) usa o mesmo gerador `gerarIdLocal()` já usado em `despesasQueue.ts`/`vendasQueue.ts`, não `crypto.randomUUID()` — não confiável no runtime Hermes/React Native
+- `SociosScreen` (equivalente à `ConfiguracoesSociosPage` do web) ganhou o mesmo aviso: o percentual editado ali é só o padrão sugerido do cadastro, não altera nenhuma safra já criada
+- Fluxo de onboarding "0 safras" (`InicioScreen`, que cria sociedade+safra em sequência) não foi alterado — continua criando a primeira safra sozinha (100%), mesmo escopo do equivalente web (`HomePage`)

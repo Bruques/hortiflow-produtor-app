@@ -21,6 +21,7 @@ router.get('/', sociedadesController.listar);
 router.use('/:id', criarGateAssinatura('sociedade'));
 
 router.get('/:id/socios', sociedadesController.listarSocios);
+router.get('/:id/socios/catalogo', sociedadesController.listarSociosCatalogo);
 router.post('/:id/socios', sociedadesController.criarSocio);
 router.put('/:id/socios/percentuais', sociedadesController.atualizarPercentuais);
 router.patch('/:id/socios/:socioId', sociedadesController.editarNomeSocio);

@@ -196,6 +196,21 @@ export async function listarSocios(req: Request, res: Response): Promise<void> {
   res.json({ socios });
 }
 
+// Task 23 — versão enxuta (sem percentual, que agora é por safra) pra popular "reaproveitar
+// um sócio já cadastrado" na tela Nova Safra.
+export async function listarSociosCatalogo(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  const autorizado = await sociedadesService.ehSocio(req.usuarioId, id);
+  if (!autorizado) {
+    res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  const socios = await sociedadesService.listarSociosCatalogo(id);
+  res.json({ socios });
+}
+
 export async function atualizarPercentuais(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
 

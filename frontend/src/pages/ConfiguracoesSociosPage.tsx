@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy, Pencil, Trash2, X, Info } from 'lucide-react';
 import {
   atualizarPercentuaisRequest,
   criarSocioRequest,
@@ -201,6 +201,16 @@ export default function ConfiguracoesSociosPage() {
           <div>
             <h3 className="m-0 text-[15px] font-extrabold text-hf-stone-900">Percentual de lucro</h3>
             <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">A soma precisa fechar em 100%</p>
+          </div>
+
+          {/* Task 23 — cada safra tem seu próprio percentual desde a criação; o valor aqui
+              é só o padrão sugerido do cadastro da sociedade, não muda nenhuma safra já criada. */}
+          <div className="flex items-start gap-2.5 rounded-xl bg-hf-cream-100 px-3.5 py-3">
+            <Info className="mt-0.5 h-[15px] w-[15px] shrink-0 text-hf-stone-600" strokeWidth={2} />
+            <p className="m-0 text-[11.5px] leading-relaxed text-hf-stone-600">
+              Isso aqui é só o percentual padrão sugerido ao adicionar sócios. Cada safra tem os próprios
+              sócios e percentual, definidos na criação dela — mudar aqui não altera nenhuma safra já criada.
+            </p>
           </div>
 
           {carregandoSocios && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}

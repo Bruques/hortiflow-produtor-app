@@ -167,6 +167,22 @@ export async function listarSociedadesDoUsuario(usuarioId: string) {
   }));
 }
 
+// Versão enxuta de listarSocios (sem percentual — que agora é por safra, não por
+// sociedade) usada pra popular "reaproveitar um sócio já cadastrado" na tela Nova Safra.
+export async function listarSociosCatalogo(sociedadeId: string) {
+  const vinculos = await prisma.socioSociedade.findMany({
+    where: { sociedade_id: sociedadeId },
+    include: { usuario: true },
+  });
+
+  return vinculos.map((v) => ({
+    id: v.id,
+    usuario_id: v.usuario_id,
+    nome: v.usuario?.nome ?? v.nome ?? '',
+    papel: v.papel,
+  }));
+}
+
 export async function listarSocios(sociedadeId: string) {
   const vinculos = await prisma.socioSociedade.findMany({
     where: { sociedade_id: sociedadeId },

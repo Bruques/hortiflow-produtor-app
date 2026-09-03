@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { StatusSafra } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as safrasService from '../services/safras.service';
-import * as sociedadesService from '../services/sociedades.service';
 import { calcularDivisao, mapearRateioParaDivisao } from '../services/divisao.service';
 import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
@@ -36,7 +35,7 @@ export async function simular(req: Request, res: Response): Promise<void> {
       where: { safra_id: id, ...(Object.keys(filtroData).length > 0 && { data: filtroData }) },
       include: { unidade: true },
     }),
-    sociedadesService.listarSocios(safra.sociedade_id),
+    safrasService.listarSociosDaSafra(id),
   ]);
 
   const resultado = calcularDivisao(
@@ -96,7 +95,7 @@ export async function resumo(req: Request, res: Response): Promise<void> {
         prisma.venda.findMany({
           where: { safra_id: safra.id, ...(Object.keys(filtroData).length > 0 && { data: filtroData }) },
         }),
-        sociedadesService.listarSocios(safra.sociedade_id),
+        safrasService.listarSociosDaSafra(safra.id),
       ]);
 
       const resultado = calcularDivisao(
