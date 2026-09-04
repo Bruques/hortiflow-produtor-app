@@ -39,7 +39,7 @@ export type RootStackParamList = {
   Safra: undefined;
   Safras: undefined;
   NovaSafra: undefined;
-  Socios: { sociedadeId: string };
+  Socios: { safraId: string };
   TrocaSenha: undefined;
   NovaDespesa: { safraId: string; sociedadeId: string; despesa?: DespesaLocal };
   NovaVenda: { safraId: string; sociedadeId: string; venda?: VendaLocal };

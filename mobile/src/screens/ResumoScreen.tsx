@@ -11,7 +11,7 @@ import { buscarSimulacaoPersonalizadaRequest, buscarSimulacaoRequest } from '../
 import { obterSimulacaoCache, salvarSimulacaoCache, type FiltroSimulacao } from '../lib/simulacaoCache';
 import { listarVendasRequest } from '../services/vendas';
 import { obterVendasCache, salvarVendasCache } from '../lib/vendasCache';
-import { listarSociosRequest } from '../services/sociedades';
+import { listarSociosDaSafraRequest } from '../services/safras';
 import { obterSociosCache, salvarSociosCache } from '../lib/sociedadesCache';
 import { calcularIntervaloPeriodo } from '../lib/periodoResumo';
 import { formatarData } from '../lib/data';
@@ -98,18 +98,20 @@ export function ResumoScreen({ navigation }: Props) {
   }, [safraAtiva?.safraId]);
 
   const carregarSocios = useCallback(async () => {
-    const sociedadeId = safraAtiva?.sociedadeId;
-    if (!sociedadeId) return;
-    const cache = await obterSociosCache(sociedadeId);
+    const safraId = safraAtiva?.safraId;
+    if (!safraId) return;
+    // Reaproveita a mesma tabela de cache de sempre, agora chaveada por safra_id em vez de
+    // sociedade_id (task 23, incremento) — sócios/percentuais passaram a ser por Safra.
+    const cache = await obterSociosCache(safraId);
     if (cache.length > 0) setSocios(cache);
     try {
-      const { socios: atualizados } = await listarSociosRequest(sociedadeId);
-      await salvarSociosCache(sociedadeId, atualizados);
+      const { socios: atualizados } = await listarSociosDaSafraRequest(safraId);
+      await salvarSociosCache(safraId, atualizados);
       setSocios(atualizados);
     } catch {
       // offline: segue com o que já tinha em cache (ou vazio, até a próxima sincronização)
     }
-  }, [safraAtiva?.sociedadeId]);
+  }, [safraAtiva?.safraId]);
 
   useEffect(() => {
     const desinscrever = navigation.addListener('focus', () => {
@@ -303,7 +305,7 @@ export function ResumoScreen({ navigation }: Props) {
           <View>
             <View style={styles.secaoCabecalho}>
               <Text style={styles.tituloSecao}>Divisão do lucro</Text>
-              <Pressable onPress={() => navigation.navigate('Socios', { sociedadeId: safraAtiva.sociedadeId })}>
+              <Pressable onPress={() => navigation.navigate('Socios', { safraId: safraAtiva.safraId })}>
                 <View style={styles.linkComIcone}>
                   <Text style={styles.linkVerTodas}>Ver sócios</Text>
                   <ChevronRight size={12} color={cores.green[700]} />

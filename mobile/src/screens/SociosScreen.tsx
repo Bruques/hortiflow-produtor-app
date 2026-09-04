@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AlertTriangle, ArrowLeft, Check, Info, Minus, Pencil, Plus, Trash2, X } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Check, Minus, Plus, Trash2, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
-  atualizarPercentuaisRequest,
-  criarSocioRequest,
-  editarNomeSocioRequest,
-  listarSociedadesRequest,
-  listarSociosRequest,
-  removerSocioRequest,
-} from '../services/sociedades';
+  atualizarPercentuaisSafraRequest,
+  criarSocioNaSafraRequest,
+  listarSociosDaSafraRequest,
+  obterSafraRequest,
+  removerSocioDaSafraRequest,
+} from '../services/safras';
+import { editarNomeSocioRequest, listarSociedadesRequest, listarSociosCatalogoRequest } from '../services/sociedades';
 import { obterSociosCache, salvarSociosCache } from '../lib/sociedadesCache';
 import { mensagemErro } from '../lib/erroApi';
 import { BannerSemConexao } from '../components/BannerSemConexao';
 import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
-import type { PapelSocio, Socio } from '../types/sociedade';
+import type { PapelSocio, Socio, SocioCatalogo } from '../types/sociedade';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Socios'>;
@@ -35,24 +35,28 @@ const ROTULO_PAPEL: Record<PapelSocio, string> = {
   MISTO: 'Misto',
 };
 
-// Edição de percentuais e cadastro de sócio sem conta, equivalente à
-// frontend/src/pages/ConfiguracoesSociosPage.tsx do web (alcançada lá via Menu → "Sócios e
-// Sociedade"). `sociedadeId` chega por parâmetro de rota (docs/specs/mobile/03-safra.md) —
-// nome e código de convite não vêm junto (a lista de sócios não devolve isso), então são
-// buscados à parte via `listarSociedadesRequest`, mesmo padrão do web.
+// Task 23, incremento — sócios/percentuais são por Safra, então esta tela (chegada a partir
+// do Menu de uma safra específica) passou de "sócios da sociedade inteira" pra "sócios desta
+// safra": mostra e edita só quem participa da safra selecionada, não mais o catálogo inteiro
+// da sociedade (docs/specs/23-socios-por-safra.md). Equivalente à
+// frontend/src/pages/ConfiguracoesSociosPage.tsx do web.
 export function SociosScreen({ navigation, route }: Props) {
-  const { sociedadeId } = route.params;
-  const [nomeSociedade, setNomeSociedade] = useState<string | null>(null);
+  const { safraId } = route.params;
+  const [sociedadeId, setSociedadeId] = useState<string | null>(null);
   const [codigoConvite, setCodigoConvite] = useState<string | null>(null);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregar, setErroCarregar] = useState<string | null>(null);
+
+  const [catalogo, setCatalogo] = useState<SocioCatalogo[]>([]);
 
   const [salvandoPct, setSalvandoPct] = useState(false);
   const [erroPct, setErroPct] = useState<string | null>(null);
   const [sucessoPct, setSucessoPct] = useState(false);
 
   const [novoSocioAberto, setNovoSocioAberto] = useState(false);
+  const [modoNovo, setModoNovo] = useState<'existente' | 'novo'>('novo');
+  const [socioExistenteId, setSocioExistenteId] = useState('');
   const [nomeNovoSocio, setNomeNovoSocio] = useState('');
   const [papelNovoSocio, setPapelNovoSocio] = useState<PapelSocio>('MEEIRO');
   const [salvandoNovoSocio, setSalvandoNovoSocio] = useState(false);
@@ -63,18 +67,20 @@ export function SociosScreen({ navigation, route }: Props) {
   const [removendoId, setRemovendoId] = useState<string | null>(null);
   const [erroAcaoSocio, setErroAcaoSocio] = useState<string | null>(null);
 
+  // Reaproveita a tabela de cache já existente (chave antes era sociedade_id, agora é
+  // safra_id — mesma tabela, uso exclusivo desta tela, sem outro consumidor pra confundir).
   const carregar = useCallback(async () => {
-    const cache = await obterSociosCache(sociedadeId);
+    const cache = await obterSociosCache(safraId);
     if (cache.length > 0) {
       setSocios(cache);
       setCarregando(false);
     }
 
     try {
-      const { socios: atualizados } = await listarSociosRequest(sociedadeId);
+      const { socios: atualizados } = await listarSociosDaSafraRequest(safraId);
       setSocios(atualizados);
       setErroCarregar(null);
-      await salvarSociosCache(sociedadeId, atualizados);
+      await salvarSociosCache(safraId, atualizados);
     } catch {
       if (cache.length === 0) {
         setErroCarregar('Não foi possível carregar os sócios');
@@ -82,19 +88,28 @@ export function SociosScreen({ navigation, route }: Props) {
     } finally {
       setCarregando(false);
     }
-  }, [sociedadeId]);
+  }, [safraId]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
 
   useEffect(() => {
+    obterSafraRequest(safraId)
+      .then((res) => setSociedadeId(res.safra.sociedade_id))
+      .catch(() => {});
+  }, [safraId]);
+
+  useEffect(() => {
+    if (!sociedadeId) return;
     listarSociedadesRequest()
       .then((res) => {
         const minha = res.sociedades.find((s) => s.id === sociedadeId);
-        setNomeSociedade(minha?.nome ?? null);
         setCodigoConvite(minha?.codigo_convite ?? null);
       })
+      .catch(() => {});
+    listarSociosCatalogoRequest(sociedadeId)
+      .then((res) => setCatalogo(res.socios))
       .catch(() => {});
   }, [sociedadeId]);
 
@@ -111,18 +126,19 @@ export function SociosScreen({ navigation, route }: Props) {
 
   const somaPct = socios.reduce((acc, s) => acc + Number(s.percentual_lucro), 0);
   const pctOk = Math.abs(somaPct - 100) < 0.01;
+  const catalogoDisponivel = catalogo.filter((c) => !socios.some((s) => s.id === c.id));
 
   async function salvarPercentuais() {
     setErroPct(null);
     setSucessoPct(false);
     setSalvandoPct(true);
     try {
-      const { socios: atualizados } = await atualizarPercentuaisRequest(
-        sociedadeId,
-        socios.map((s) => ({ id: s.id, percentual_lucro: Number(s.percentual_lucro), papel: s.papel }))
+      const { socios: atualizados } = await atualizarPercentuaisSafraRequest(
+        safraId,
+        socios.map((s) => ({ socio_sociedade_id: s.id, percentual_lucro: Number(s.percentual_lucro) }))
       );
       setSocios(atualizados);
-      await salvarSociosCache(sociedadeId, atualizados);
+      await salvarSociosCache(safraId, atualizados);
       setSucessoPct(true);
     } catch (err) {
       setErroPct(mensagemErro(err, 'Não foi possível salvar os percentuais'));
@@ -132,13 +148,21 @@ export function SociosScreen({ navigation, route }: Props) {
   }
 
   async function adicionarSocio() {
-    if (!nomeNovoSocio.trim()) return;
+    if (modoNovo === 'existente' && !socioExistenteId) return;
+    if (modoNovo === 'novo' && !nomeNovoSocio.trim()) return;
+
     setErroPct(null);
     setSalvandoNovoSocio(true);
     try {
-      await criarSocioRequest(sociedadeId, nomeNovoSocio.trim(), papelNovoSocio);
+      await criarSocioNaSafraRequest(
+        safraId,
+        modoNovo === 'existente'
+          ? { socio_sociedade_id: socioExistenteId }
+          : { nome: nomeNovoSocio.trim(), papel: papelNovoSocio }
+      );
       setNomeNovoSocio('');
       setPapelNovoSocio('MEEIRO');
+      setSocioExistenteId('');
       setNovoSocioAberto(false);
       await carregar();
     } catch (err) {
@@ -155,7 +179,7 @@ export function SociosScreen({ navigation, route }: Props) {
   }
 
   async function salvarNomeSocio(socioId: string) {
-    if (!nomeEmEdicao.trim()) return;
+    if (!sociedadeId || !nomeEmEdicao.trim()) return;
     setErroAcaoSocio(null);
     setSalvandoNome(true);
     try {
@@ -179,7 +203,7 @@ export function SociosScreen({ navigation, route }: Props) {
           setErroAcaoSocio(null);
           setRemovendoId(socio.id);
           try {
-            await removerSocioRequest(sociedadeId, socio.id);
+            await removerSocioDaSafraRequest(safraId, socio.id);
             await carregar();
           } catch (err) {
             setErroAcaoSocio(mensagemErro(err, 'Não foi possível remover o sócio'));
@@ -200,7 +224,7 @@ export function SociosScreen({ navigation, route }: Props) {
           <ArrowLeft size={18} color={cores.stone[900]} />
         </Pressable>
         <Text style={styles.tituloCabecalho} numberOfLines={1}>
-          {nomeSociedade ?? 'Sócios'}
+          Sócios da safra
         </Text>
         <View style={styles.botaoVoltar} />
       </View>
@@ -208,17 +232,7 @@ export function SociosScreen({ navigation, route }: Props) {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View>
           <Text style={styles.titulo}>Percentual de lucro</Text>
-          <Text style={styles.legenda}>A soma precisa fechar em 100%</Text>
-        </View>
-
-        {/* Task 23 — cada safra tem seu próprio percentual desde a criação; o valor aqui
-            é só o padrão sugerido do cadastro da sociedade, não muda nenhuma safra já criada. */}
-        <View style={styles.avisoPercentual}>
-          <Info size={15} color={cores.stone[600]} />
-          <Text style={styles.avisoPercentualTexto}>
-            Isso aqui é só o percentual padrão sugerido ao adicionar sócios. Cada safra tem os próprios
-            sócios e percentual, definidos na criação dela — mudar aqui não altera nenhuma safra já criada.
-          </Text>
+          <Text style={styles.legenda}>Vale só pra esta safra — a soma precisa fechar em 100%</Text>
         </View>
 
         {carregando && socios.length === 0 && <ActivityIndicator />}
@@ -322,7 +336,6 @@ export function SociosScreen({ navigation, route }: Props) {
                             onPress={() => iniciarEdicaoNome(s)}
                             accessibilityLabel={`Editar nome de ${s.nome}`}
                           >
-                            <Pencil size={12} color={cores.stone[600]} strokeWidth={2.4} />
                             <Text style={styles.textoBotaoAcaoSecundario}>Editar nome</Text>
                           </Pressable>
                         )}
@@ -357,37 +370,87 @@ export function SociosScreen({ navigation, route }: Props) {
 
         {novoSocioAberto && (
           <View style={styles.cartaoNovoSocio}>
-            <View>
-              <Text style={styles.label}>Nome do sócio</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ex: João"
-                placeholderTextColor={cores.stone[400]}
-                value={nomeNovoSocio}
-                onChangeText={setNomeNovoSocio}
-              />
+            <View style={styles.opcoesModo}>
+              <Pressable
+                style={[
+                  styles.opcaoModo,
+                  modoNovo === 'existente' && styles.opcaoModoSelecionada,
+                  catalogoDisponivel.length === 0 && styles.botaoDesabilitado,
+                ]}
+                onPress={() => setModoNovo('existente')}
+                disabled={catalogoDisponivel.length === 0}
+              >
+                <Text style={[styles.opcaoModoTexto, modoNovo === 'existente' && styles.opcaoModoTextoSelecionada]}>
+                  Sócio já cadastrado
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.opcaoModo, modoNovo === 'novo' && styles.opcaoModoSelecionada]}
+                onPress={() => setModoNovo('novo')}
+              >
+                <Text style={[styles.opcaoModoTexto, modoNovo === 'novo' && styles.opcaoModoTextoSelecionada]}>
+                  Sócio novo
+                </Text>
+              </Pressable>
             </View>
-            <View>
-              <Text style={styles.label}>Papel</Text>
-              <View style={styles.opcoesPapel}>
-                {(['MEEIRO', 'FINANCIADOR', 'MISTO'] as PapelSocio[]).map((papel) => (
-                  <Pressable
-                    key={papel}
-                    style={[styles.opcaoPapel, papelNovoSocio === papel && styles.opcaoPapelSelecionada]}
-                    onPress={() => setPapelNovoSocio(papel)}
-                  >
-                    <Text
-                      style={[
-                        styles.opcaoPapelTexto,
-                        papelNovoSocio === papel && styles.opcaoPapelTextoSelecionada,
-                      ]}
+
+            {modoNovo === 'existente' ? (
+              catalogoDisponivel.length === 0 ? (
+                <Text style={styles.legenda}>Nenhum outro sócio cadastrado nessa sociedade ainda — cadastre um novo.</Text>
+              ) : (
+                <View style={styles.opcoesPapel}>
+                  {catalogoDisponivel.map((c) => (
+                    <Pressable
+                      key={c.id}
+                      style={[styles.opcaoPapel, socioExistenteId === c.id && styles.opcaoPapelSelecionada]}
+                      onPress={() => setSocioExistenteId(c.id)}
                     >
-                      {ROTULO_PAPEL[papel]}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
+                      <Text
+                        style={[styles.opcaoPapelTexto, socioExistenteId === c.id && styles.opcaoPapelTextoSelecionada]}
+                        numberOfLines={1}
+                      >
+                        {c.nome}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )
+            ) : (
+              <>
+                <View>
+                  <Text style={styles.label}>Nome do sócio</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Ex: João"
+                    placeholderTextColor={cores.stone[400]}
+                    value={nomeNovoSocio}
+                    onChangeText={setNomeNovoSocio}
+                  />
+                </View>
+                <View>
+                  <Text style={styles.label}>Papel</Text>
+                  <View style={styles.opcoesPapel}>
+                    {(['MEEIRO', 'FINANCIADOR', 'MISTO'] as PapelSocio[]).map((papel) => (
+                      <Pressable
+                        key={papel}
+                        style={[styles.opcaoPapel, papelNovoSocio === papel && styles.opcaoPapelSelecionada]}
+                        onPress={() => setPapelNovoSocio(papel)}
+                      >
+                        <Text
+                          style={[
+                            styles.opcaoPapelTexto,
+                            papelNovoSocio === papel && styles.opcaoPapelTextoSelecionada,
+                          ]}
+                        >
+                          {ROTULO_PAPEL[papel]}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              </>
+            )}
+
             <Text style={styles.legenda}>Entra com 0% — ajuste o percentual de todos depois de adicionar.</Text>
             <View style={styles.acoesNovoSocio}>
               <Pressable
@@ -398,9 +461,13 @@ export function SociosScreen({ navigation, route }: Props) {
                 <Text style={styles.textoBotaoCancelar}>Cancelar</Text>
               </Pressable>
               <Pressable
-                style={[styles.botaoConfirmar, !nomeNovoSocio.trim() && styles.botaoDesabilitado]}
+                style={[
+                  styles.botaoConfirmar,
+                  (salvandoNovoSocio || (modoNovo === 'existente' ? !socioExistenteId : !nomeNovoSocio.trim())) &&
+                    styles.botaoDesabilitado,
+                ]}
                 onPress={adicionarSocio}
-                disabled={salvandoNovoSocio || !nomeNovoSocio.trim()}
+                disabled={salvandoNovoSocio || (modoNovo === 'existente' ? !socioExistenteId : !nomeNovoSocio.trim())}
               >
                 {salvandoNovoSocio ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
@@ -487,19 +554,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: cores.stone[400],
     marginTop: 2,
-  },
-  avisoPercentual: {
-    flexDirection: 'row',
-    gap: espacamento.sm,
-    backgroundColor: cores.cream[100],
-    borderRadius: raio.md,
-    padding: espacamento.sm + 6,
-  },
-  avisoPercentualTexto: {
-    flex: 1,
-    fontSize: 11.5,
-    lineHeight: 16,
-    color: cores.stone[600],
   },
   subtitulo: {
     fontSize: 14,
@@ -714,6 +768,30 @@ const styles = StyleSheet.create({
     borderRadius: raio.lg,
     padding: espacamento.md + 2,
   },
+  opcoesModo: {
+    flexDirection: 'row',
+    gap: espacamento.xs,
+  },
+  opcaoModo: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    borderRadius: raio.md,
+    paddingVertical: espacamento.sm,
+  },
+  opcaoModoSelecionada: {
+    borderColor: cores.green[500],
+    backgroundColor: cores.green[100],
+  },
+  opcaoModoTexto: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: cores.stone[600],
+  },
+  opcaoModoTextoSelecionada: {
+    color: cores.green[800],
+  },
   label: {
     fontSize: 12,
     fontWeight: '700',
@@ -731,14 +809,16 @@ const styles = StyleSheet.create({
   },
   opcoesPapel: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: espacamento.xs,
   },
   opcaoPapel: {
-    flex: 1,
+    flexGrow: 1,
     borderWidth: 1.5,
     borderColor: cores.linha,
     borderRadius: raio.md,
     paddingVertical: espacamento.sm,
+    paddingHorizontal: espacamento.sm,
     alignItems: 'center',
   },
   opcaoPapelSelecionada: {

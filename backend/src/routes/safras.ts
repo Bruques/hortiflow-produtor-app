@@ -24,6 +24,9 @@ router.use('/:id', criarGateAssinatura('safra'));
 
 router.get('/:id', safrasController.obter);
 router.get('/:id/socios', safrasController.listarSocios);
+router.post('/:id/socios', safrasController.criarSocio);
+router.put('/:id/socios/percentuais', safrasController.atualizarPercentuaisSocios);
+router.delete('/:id/socios/:socioId', safrasController.removerSocio);
 router.patch('/:id/encerrar', safrasController.encerrar);
 router.patch('/:id/observacoes', safrasController.atualizarObservacoes);
 router.patch('/:id/nome', safrasController.atualizarNome);

@@ -119,6 +119,160 @@ export async function listarSociosDaSafra(safraId: string) {
   }));
 }
 
+// Task 23, incremento — editar a lista de sócios de uma safra já em andamento (deixado de
+// fora do incremento original). Adiciona um sócio já existente no catálogo da Sociedade
+// (socio_sociedade_id) ou cria um sócio sem conta novo, entrando com 0% — mesmo padrão de
+// `POST /sociedades/:id/socios`, o ajuste de percentual é o passo seguinte.
+type CriarSocioNaSafraResultado =
+  | { erro: 'SOCIO_INVALIDO' }
+  | { erro: 'JA_NA_SAFRA' }
+  | { socios: Awaited<ReturnType<typeof listarSociosDaSafra>> };
+
+export async function criarSocioNaSafra(
+  safraId: string,
+  sociedadeId: string,
+  input: { socio_sociedade_id?: string; nome?: string; papel?: PapelSocio }
+): Promise<CriarSocioNaSafraResultado> {
+  let socioSociedadeId = input.socio_sociedade_id;
+
+  if (socioSociedadeId) {
+    const existente = await prisma.socioSociedade.findUnique({ where: { id: socioSociedadeId } });
+    if (!existente || existente.sociedade_id !== sociedadeId) {
+      return { erro: 'SOCIO_INVALIDO' };
+    }
+    const jaNaSafra = await prisma.socioSafra.findUnique({
+      where: { safra_id_socio_sociedade_id: { safra_id: safraId, socio_sociedade_id: socioSociedadeId } },
+    });
+    if (jaNaSafra) {
+      return { erro: 'JA_NA_SAFRA' };
+    }
+  } else {
+    const novo = await prisma.socioSociedade.create({
+      data: { sociedade_id: sociedadeId, nome: input.nome, percentual_lucro: 0, papel: input.papel ?? PapelSocio.MISTO },
+    });
+    socioSociedadeId = novo.id;
+  }
+
+  await prisma.socioSafra.create({
+    data: { safra_id: safraId, socio_sociedade_id: socioSociedadeId, percentual_lucro: 0 },
+  });
+
+  return { socios: await listarSociosDaSafra(safraId) };
+}
+
+type AtualizarPercentuaisSafraResultado =
+  | { erro: 'SOCIOS_FALTANDO' }
+  | { erro: 'SOMA_INVALIDA'; soma: number }
+  | { socios: Awaited<ReturnType<typeof listarSociosDaSafra>> };
+
+export async function atualizarPercentuaisDaSafra(
+  safraId: string,
+  entrada: { socio_sociedade_id: string; percentual_lucro: number }[]
+): Promise<AtualizarPercentuaisSafraResultado> {
+  const atuais = await prisma.socioSafra.findMany({ where: { safra_id: safraId } });
+  const idsAtuais = new Set(atuais.map((s) => s.socio_sociedade_id));
+  const idsEnviados = new Set(entrada.map((s) => s.socio_sociedade_id));
+
+  const cobreTodos =
+    idsAtuais.size === idsEnviados.size && [...idsAtuais].every((id) => idsEnviados.has(id));
+  if (!cobreTodos) {
+    return { erro: 'SOCIOS_FALTANDO' };
+  }
+
+  const soma = entrada.reduce((acc, s) => acc + s.percentual_lucro, 0);
+  if (Math.abs(soma - 100) > TOLERANCIA_SOMA_PERCENTUAL) {
+    return { erro: 'SOMA_INVALIDA', soma };
+  }
+
+  await prisma.$transaction(
+    entrada.map((s) =>
+      prisma.socioSafra.update({
+        where: { safra_id_socio_sociedade_id: { safra_id: safraId, socio_sociedade_id: s.socio_sociedade_id } },
+        data: { percentual_lucro: s.percentual_lucro },
+      })
+    )
+  );
+
+  return { socios: await listarSociosDaSafra(safraId) };
+}
+
+type RemoverSocioDaSafraResultado =
+  | { erro: 'NAO_ENCONTRADO' }
+  | { erro: 'UNICO_SOCIO' }
+  | { erro: 'AUTO_REMOCAO' }
+  | { erro: 'TEM_LANCAMENTOS' }
+  | { socios: Awaited<ReturnType<typeof listarSociosDaSafra>> };
+
+export async function removerSocioDaSafra(
+  safraId: string,
+  socioSociedadeId: string,
+  usuarioIdSolicitante: string
+): Promise<RemoverSocioDaSafraResultado> {
+  const vinculo = await prisma.socioSafra.findUnique({
+    where: { safra_id_socio_sociedade_id: { safra_id: safraId, socio_sociedade_id: socioSociedadeId } },
+    include: { socioSociedade: true },
+  });
+  if (!vinculo) {
+    return { erro: 'NAO_ENCONTRADO' };
+  }
+  if (vinculo.socioSociedade.usuario_id === usuarioIdSolicitante) {
+    return { erro: 'AUTO_REMOCAO' };
+  }
+
+  const outros = await prisma.socioSafra.findMany({
+    where: { safra_id: safraId, socio_sociedade_id: { not: socioSociedadeId } },
+  });
+  if (outros.length === 0) {
+    return { erro: 'UNICO_SOCIO' };
+  }
+
+  const usuarioAlvo = vinculo.socioSociedade.usuario_id;
+  const [acertos, rateiosDespesa, despesasUsuario, aportesUsuario] = await Promise.all([
+    prisma.acertoSocio.count({ where: { socio_id: socioSociedadeId, acerto: { safra_id: safraId } } }),
+    prisma.rateioDespesa.count({ where: { socio_sociedade_id: socioSociedadeId, despesa: { safra_id: safraId } } }),
+    usuarioAlvo
+      ? prisma.despesa.count({ where: { socio_id: usuarioAlvo, safra_id: safraId } })
+      : Promise.resolve(0),
+    usuarioAlvo
+      ? prisma.aporteTrabalho.count({ where: { socio_id: usuarioAlvo, safra_id: safraId } })
+      : Promise.resolve(0),
+  ]);
+
+  if (acertos + rateiosDespesa + despesasUsuario + aportesUsuario > 0) {
+    return { erro: 'TEM_LANCAMENTOS' };
+  }
+
+  const percentualRemovido = Number(vinculo.percentual_lucro);
+  const totalRestante = outros.reduce((acc, s) => acc + Number(s.percentual_lucro), 0);
+
+  const novosPercentuais = outros.map((s) => {
+    const atual = Number(s.percentual_lucro);
+    const acrescimo =
+      totalRestante > 0 ? percentualRemovido * (atual / totalRestante) : percentualRemovido / outros.length;
+    return { socio_sociedade_id: s.socio_sociedade_id, percentual: Math.round((atual + acrescimo) * 100) / 100 };
+  });
+
+  const somaNovos = novosPercentuais.reduce((acc, s) => acc + s.percentual, 0);
+  const diferenca = Math.round((100 - somaNovos) * 100) / 100;
+  if (diferenca !== 0) {
+    novosPercentuais[0].percentual = Math.round((novosPercentuais[0].percentual + diferenca) * 100) / 100;
+  }
+
+  await prisma.$transaction([
+    ...novosPercentuais.map((s) =>
+      prisma.socioSafra.update({
+        where: { safra_id_socio_sociedade_id: { safra_id: safraId, socio_sociedade_id: s.socio_sociedade_id } },
+        data: { percentual_lucro: s.percentual },
+      })
+    ),
+    prisma.socioSafra.delete({
+      where: { safra_id_socio_sociedade_id: { safra_id: safraId, socio_sociedade_id: socioSociedadeId } },
+    }),
+  ]);
+
+  return { socios: await listarSociosDaSafra(safraId) };
+}
+
 export async function listarSafras(sociedadeId: string): Promise<Safra[]> {
   return prisma.safra.findMany({
     where: { sociedade_id: sociedadeId },

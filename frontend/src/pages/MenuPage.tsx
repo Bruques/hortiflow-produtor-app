@@ -55,7 +55,7 @@ export default function MenuPage() {
       cor: 'text-hf-amber',
     },
     {
-      href: `/sociedades/${sociedadeId}/configuracoes/socios`,
+      href: `/safras/${safraId}/configuracoes/socios`,
       titulo: 'Sócios e Sociedade',
       subtitulo: 'Percentual de lucro, convite',
       Icone: Users,

@@ -80,5 +80,13 @@ Porta pro mobile a mesma mudança da [spec 23](../23-socios-por-safra.md) do web
 - `NovaSafraScreen` ganhou a pergunta "Esta safra vai ter sócios ou meeiros?" e o editor de sócios/percentuais, 1:1 com `frontend/src/pages/NovaSafraPage.tsx` — reaproveitar sócio do catálogo da sociedade ou cadastrar um novo, com validação de soma 100% antes de habilitar "Criar e iniciar safra"
 - Quem está criando a safra é pré-adicionado automaticamente (100%) ao escolher "vai ter sócios" — ele precisou já ser sócio da sociedade pra chegar nessa tela, então pedir pra se adicionar manualmente pelo catálogo era um passo supérfluo (mesmo ajuste feito no web depois do primeiro teste)
 - Id de controle de lista dos sócios adicionados na hora (ainda sem `socio_sociedade_id`) usa o mesmo gerador `gerarIdLocal()` já usado em `despesasQueue.ts`/`vendasQueue.ts`, não `crypto.randomUUID()` — não confiável no runtime Hermes/React Native
-- `SociosScreen` (equivalente à `ConfiguracoesSociosPage` do web) ganhou o mesmo aviso: o percentual editado ali é só o padrão sugerido do cadastro, não altera nenhuma safra já criada
 - Fluxo de onboarding "0 safras" (`InicioScreen`, que cria sociedade+safra em sequência) não foi alterado — continua criando a primeira safra sozinha (100%), mesmo escopo do equivalente web (`HomePage`)
+
+---
+
+## Incremento (2026-09-04): correção de vazamento + "Sócios da safra"
+
+Porta pro mobile os dois incrementos pós-lançamento da [spec 23](../23-socios-por-safra.md):
+
+1. **Correção de vazamento**: `listarSociosRequest`/`listarSociosCatalogoRequest` (endpoints de sociedade) agora só devolvem sócios que compartilham alguma safra com quem pergunta (titular continua vendo tudo) — nenhuma mudança de código no mobile, só reflexo do backend.
+2. **`SociosScreen` deixou de ser "sócios da sociedade inteira" e virou "Sócios da safra"**: rota `Socios` do `RootNavigator` passou a receber `{ safraId }` em vez de `{ sociedadeId }` (resolvido via `obterSafraRequest` dentro da tela, igual ao web). Lista, adiciona, ajusta percentual e remove sócios só da safra selecionada, usando os novos `POST/PUT/DELETE /safras/:id/socios...`. `MenuScreen` e `ResumoScreen` (link "Ver sócios" da divisão do lucro) atualizados pra navegar com `safraId`. `ResumoScreen` também trocou `listarSociosRequest(sociedadeId)` por `listarSociosDaSafraRequest(safraId)` no carregamento de sócios pro card de divisão, e o cache local (`obterSociosCache`/`salvarSociosCache`, mesma tabela de antes) passou a ser chaveado por `safraId`.

@@ -31,6 +31,28 @@ export async function listarSociosDaSafraRequest(safraId: string): Promise<{ soc
   return data;
 }
 
+// Task 23, incremento — editar a lista de sócios de uma safra já em andamento.
+export async function criarSocioNaSafraRequest(
+  safraId: string,
+  input: { socio_sociedade_id?: string; nome?: string; papel?: PapelSocio }
+): Promise<{ socios: Socio[] }> {
+  const { data } = await apiClient.post(`/safras/${safraId}/socios`, input);
+  return data;
+}
+
+export async function atualizarPercentuaisSafraRequest(
+  safraId: string,
+  socios: { socio_sociedade_id: string; percentual_lucro: number }[]
+): Promise<{ socios: Socio[] }> {
+  const { data } = await apiClient.put(`/safras/${safraId}/socios/percentuais`, { socios });
+  return data;
+}
+
+export async function removerSocioDaSafraRequest(safraId: string, socioId: string): Promise<{ socios: Socio[] }> {
+  const { data } = await apiClient.delete(`/safras/${safraId}/socios/${socioId}`);
+  return data;
+}
+
 export async function listarSafrasRequest(sociedadeId: string): Promise<{ safras: Safra[] }> {
   const { data } = await apiClient.get(`/sociedades/${sociedadeId}/safras`);
   return data;

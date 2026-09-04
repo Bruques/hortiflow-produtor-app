@@ -47,7 +47,7 @@ export default function App() {
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />
           <Route path="/sociedades/:id/safras/nova" element={<NovaSafraPage />} />
-          <Route path="/sociedades/:id/configuracoes/socios" element={<ConfiguracoesSociosPage />} />
+          <Route path="/safras/:id/configuracoes/socios" element={<ConfiguracoesSociosPage />} />
           <Route path="/sociedades/:id/configuracoes/regras-despesa" element={<ConfiguracoesRegrasDespesaPage />} />
           <Route path="/sociedades/:id/configuracoes/unidades-de-venda" element={<ConfiguracoesUnidadesVendaPage />} />
           <Route path="/sociedades/:id/configuracoes/conta" element={<ConfiguracoesContaPage />} />

@@ -7,7 +7,7 @@ import { PeriodoAvancadoButton, type PeriodoPersonalizado } from '@/components/P
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest } from '@/services/auth';
 import { buscarSimulacaoRequest, buscarSimulacaoPersonalizadaRequest } from '@/services/simulacao';
-import { listarSociosRequest } from '@/services/sociedades';
+import { listarSociosDaSafraRequest } from '@/services/safras';
 import { listarVendasRequest, type FiltroVendas } from '@/services/vendas';
 import { formatarData, formatarMoeda, iniciais } from '@/lib/utils';
 import { ROTULO_STATUS_SAFRA, ROTULO_PAPEL_SOCIO } from '@/lib/rotulos';
@@ -19,7 +19,7 @@ const RAIO_ANEL = 31;
 const CIRCUNFERENCIA_ANEL = 2 * Math.PI * RAIO_ANEL;
 
 export default function ResumoPage() {
-  const { safraId, sociedadeId, safra } = useSafraAtiva();
+  const { safraId, safra } = useSafraAtiva();
   const navigate = useNavigate();
 
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
@@ -33,8 +33,8 @@ export default function ResumoPage() {
 
   useEffect(() => {
     meRequest().then((res) => setUsuarioId(res.usuario.id)).catch(() => {});
-    listarSociosRequest(sociedadeId).then((res) => setSocios(res.socios)).catch(() => {});
-  }, [sociedadeId]);
+    listarSociosDaSafraRequest(safraId).then((res) => setSocios(res.socios)).catch(() => {});
+  }, [safraId]);
 
   // Filtro enviado pro backend já resolver a query no banco em vez de trazer a safra
   // inteira e filtrar em memória — mesmo padrão usado em VendasPage/DespesasPage.
@@ -253,7 +253,7 @@ export default function ResumoPage() {
               <div className="mb-2.5 flex items-baseline justify-between">
                 <h3 className="text-tituloSecao font-extrabold text-hf-stone-900">Divisão do lucro</h3>
                 <Link
-                  to={`/sociedades/${sociedadeId}/configuracoes/socios`}
+                  to={`/safras/${safraId}/configuracoes/socios`}
                   className="flex items-center gap-0.5 text-legenda font-bold text-hf-green-700"
                 >
                   Ver sócios

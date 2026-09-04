@@ -103,4 +103,82 @@ model SocioSafra {
 ## Perguntas em aberto
 
 1. Entrar por código de convite continua só cadastrando a pessoa no catálogo da Sociedade, sem lhe dar acesso a nenhuma safra automaticamente — precisa validar com o desenvolvedor se isso gera confusão ("entrei e não vejo nada") e se merece uma mensagem explicativa na tela pós-entrada
-2. Editar a lista de sócios/percentuais de uma safra já em andamento fica fora deste incremento — avaliar se é uma necessidade imediata ou pode esperar
+
+---
+
+## Incremento (2026-09-03): correção de vazamento entre sócios de safras diferentes
+
+### Motivação
+
+Relatado pelo desenvolvedor logo após o lançamento: um sócio adicionado só na Safra 2 conseguia ver, na tela "Sócios e Sociedade", os sócios da Safra 1 da mesma sociedade — a divisão passou a ser isolada por safra, mas a listagem de sócios (e o catálogo usado em "reaproveitar sócio existente") continuava checando só `ehSocio` (vínculo com a Sociedade), que qualquer sócio de qualquer safra da sociedade possui.
+
+### Regra de negócio
+
+- `GET /sociedades/:id/socios`, `GET /sociedades/:id/socios/catalogo`, `PATCH /sociedades/:id/socios/:socioId` e `DELETE /sociedades/:id/socios/:socioId` passam a restringir a visibilidade: o titular da sociedade continua vendo/editando o catálogo inteiro; qualquer outro sócio só vê/edita sócios com quem compartilha ao menos uma Safra (`SocioSafra` em comum)
+- Tratado como "não encontrado" (não "não autorizado") quando o alvo de uma edição/remoção não é visível pro solicitante — evita confirmar pra quem pergunta se um determinado id existe na sociedade
+- `POST /sociedades/:id/socios` e `PUT /sociedades/:id/socios/percentuais` não mudam (continuam abertos a qualquer sócio da sociedade, sem leitura de outros nomes envolvida)
+
+### Critérios de aceite
+
+1. Dado Financiador + Meeiro A na Safra 1, e Financiador + Meeiro B na Safra 2 (mesma sociedade), o Meeiro A não vê o Meeiro B em `GET /sociedades/:id/socios` nem no catálogo, e vice-versa
+2. O titular da sociedade continua vendo os dois em ambas as consultas
+3. Meeiro A tentando editar nome ou remover o Meeiro B recebe 404 (tratado como se não existisse)
+
+---
+
+## Incremento (2026-09-04): editar sócios de uma safra já em andamento
+
+### Motivação
+
+Levantado pelo desenvolvedor ao testar como titular: a tela de sócios continuava presa à Sociedade inteira (não à safra selecionada), mesmo depois da correção de vazamento acima — o titular via todos os sócios de todas as lavouras ao entrar por qualquer safra, quando o esperado era ver só quem participa daquela safra. Resolve a pergunta em aberto registrada na versão original desta spec ("editar sócios de uma safra já em andamento fica fora deste incremento").
+
+### Escopo
+
+**Entra:**
+- A tela antes chamada "Sócios e Sociedade" (`ConfiguracoesSociosPage` no web, `SociosScreen` no mobile) passa a mostrar e editar só os sócios da **Safra selecionada**, não mais o catálogo inteiro da Sociedade — renomeada para "Sócios da safra"
+- Adicionar sócio a uma safra já criada: reaproveitando um sócio já cadastrado na sociedade (catálogo) ou cadastrando um novo sem conta, igual ao fluxo de criação de safra
+- Ajustar percentuais dos sócios de uma safra já criada, com a mesma validação de soma 100%
+- Remover um sócio de uma safra já criada, com o percentual redistribuído entre os demais (mesma lógica de `removerSocio` da Sociedade), bloqueado se já tiver lançamentos **nessa safra** (despesas, aportes, rateios ou Acertos)
+
+**Fica de fora:**
+- Editar o nome de um sócio sem conta continua sendo uma ação de nível Sociedade (`PATCH /sociedades/:id/socios/:socioId`, já reaproveitável aqui porque a correção de vazamento acima já restringe isso a quem compartilha a safra) — não duplica em rota nova
+
+### Regras de negócio
+
+- `POST /safras/:id/socios` — adiciona um `SocioSafra` a uma safra existente. Com `socio_sociedade_id`: precisa pertencer à mesma sociedade da safra (404 se não) e ainda não estar na safra (409 se já estiver). Sem `socio_sociedade_id`: cria um `SocioSociedade` sem conta novo. Em ambos os casos, entra com 0% — ajuste é o passo seguinte
+- `PUT /safras/:id/socios/percentuais` — mesma validação de `PUT /sociedades/:id/socios/percentuais` (precisa cobrir todos os `SocioSafra` atuais da safra, soma 100% ±0.01), mas escrevendo em `SocioSafra`, não em `SocioSociedade`
+- `DELETE /safras/:id/socios/:socioId` — mesma lógica de `removerSocio` da Sociedade (bloqueia único sócio, auto-remoção e sócio com lançamentos), mas os lançamentos considerados são só os **dessa safra** (`Despesa`, `AporteTrabalho`, `RateioDespesa` e `AcertoSocio` filtrados por `safra_id`) — um sócio pode ser removido de uma safra mesmo tendo lançamentos em outra
+- Todas as três rotas usam `ehSocioDaSafra` (não `ehSocio`) — consistente com o resto das rotas de safra
+
+### Contrato de API
+
+```
+POST /safras/:id/socios
+  auth obrigatório, requer ser sócio DESSA safra
+  body: { socio_sociedade_id?: string, nome?: string, papel?: "FINANCIADOR"|"MEEIRO"|"MISTO" }
+  → 201 { socios: [...] }
+  → 400 se nem socio_sociedade_id nem nome informados
+  → 404 se socio_sociedade_id não pertence à sociedade da safra
+  → 409 se o sócio já participa dessa safra
+
+PUT /safras/:id/socios/percentuais
+  auth obrigatório, requer ser sócio DESSA safra
+  body: { socios: [{ socio_sociedade_id: string, percentual_lucro: number }] }
+  → 200 { socios: [...] }
+  → 422 se a lista não cobre todos os sócios atuais da safra, ou soma != 100% (±0.01)
+
+DELETE /safras/:id/socios/:socioId
+  auth obrigatório, requer ser sócio DESSA safra
+  → 200 { socios: [...] } (percentuais redistribuídos)
+  → 404 se socioId não participa dessa safra
+  → 409 se for o único sócio da safra, autor tentando remover a si mesmo, ou sócio com lançamentos nessa safra
+```
+
+### Critérios de aceite
+
+1. Dada uma safra com só o financiador (100%), adicionar um sócio novo faz ele entrar com 0%; ajustar os percentuais pra 60/40 e salvar funciona
+2. A mesma ação não afeta o percentual de nenhuma outra safra da mesma sociedade
+3. Tentar salvar percentuais que não somam 100% retorna 422 e não altera nada
+4. Remover um sócio sem lançamentos nessa safra funciona e redistribui o percentual dele; remover o único sócio, ou a si mesmo, retorna 409
+5. Um sócio com despesas lançadas em outra safra da mesma sociedade (mas não nesta) pode ser removido normalmente desta
+6. Frontend/mobile: tela "Sócios da safra" (chegada via Menu de uma safra) mostra e edita só os sócios dessa safra, com opção de reaproveitar sócio do catálogo ou cadastrar um novo

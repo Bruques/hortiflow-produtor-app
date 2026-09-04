@@ -70,12 +70,12 @@ export function MenuScreen({ navigation }: Props) {
     },
     {
       chave: 'socios',
-      titulo: 'Sócios e Sociedade',
+      titulo: 'Sócios da safra',
       subtitulo: 'Percentual de lucro, convite',
       Icone: Users,
       bg: cores.green[100],
       cor: cores.green[800],
-      aoTocar: () => navigation.navigate('Socios', { sociedadeId }),
+      aoTocar: () => navigation.navigate('Socios', { safraId }),
     },
     {
       chave: 'regras',

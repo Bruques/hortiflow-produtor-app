@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy, Pencil, Trash2, X, Info } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy, Pencil, Trash2, X } from 'lucide-react';
 import {
-  atualizarPercentuaisRequest,
-  criarSocioRequest,
-  editarNomeSocioRequest,
-  listarSociedadesRequest,
-  listarSociosRequest,
-  removerSocioRequest,
-} from '@/services/sociedades';
+  criarSocioNaSafraRequest,
+  atualizarPercentuaisSafraRequest,
+  listarSociosDaSafraRequest,
+  obterSafraRequest,
+  removerSocioDaSafraRequest,
+} from '@/services/safras';
+import { editarNomeSocioRequest, listarSociedadesRequest, listarSociosCatalogoRequest } from '@/services/sociedades';
 import { cn, iniciais } from '@/lib/utils';
-import type { PapelSocio, Socio } from '@/types/sociedade';
+import type { PapelSocio, Socio, SocioCatalogo } from '@/types/sociedade';
 
 const CORES_BARRA = ['bg-hf-green-800', 'bg-hf-green-600', 'bg-hf-amber', 'bg-hf-blue'];
 
@@ -22,16 +22,22 @@ interface EdicaoSocio {
   papel: PapelSocio;
 }
 
+// Task 23, incremento — sócios/percentuais são por Safra, então esta tela (chegada a partir
+// do Menu de uma safra específica) passou de "sócios da sociedade inteira" pra "sócios desta
+// safra": mostra e edita só quem participa da safra selecionada, não mais o catálogo inteiro
+// da sociedade (docs/specs/23-socios-por-safra.md).
 export default function ConfiguracoesSociosPage() {
-  const { id: sociedadeId } = useParams<{ id: string }>();
+  const { id: safraId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [sociedadeId, setSociedadeId] = useState<string | null>(null);
 
   // Volta de verdade no histórico do navegador (chegou aqui a partir do Menu) — só cai
   // numa rota fixa quando não há histórico (link direto, refresh).
   function voltar() {
     if (location.key !== 'default') navigate(-1);
-    else navigate(`/sociedades/${sociedadeId}/safras`);
+    else navigate(sociedadeId ? `/sociedades/${sociedadeId}/safras` : '/');
   }
 
   const [edicoes, setEdicoes] = useState<EdicaoSocio[]>([]);
@@ -43,7 +49,10 @@ export default function ConfiguracoesSociosPage() {
   const [codigoConvite, setCodigoConvite] = useState<string | null>(null);
   const [codigoCopiado, setCodigoCopiado] = useState(false);
 
+  const [catalogo, setCatalogo] = useState<SocioCatalogo[]>([]);
   const [novoSocioAberto, setNovoSocioAberto] = useState(false);
+  const [modoNovo, setModoNovo] = useState<'existente' | 'novo'>('novo');
+  const [socioExistenteId, setSocioExistenteId] = useState('');
   const [nomeNovoSocio, setNomeNovoSocio] = useState('');
   const [papelNovoSocio, setPapelNovoSocio] = useState<PapelSocio>('MEEIRO');
   const [salvandoNovoSocio, setSalvandoNovoSocio] = useState(false);
@@ -55,9 +64,9 @@ export default function ConfiguracoesSociosPage() {
   const [erroAcaoSocio, setErroAcaoSocio] = useState<string | null>(null);
 
   function carregarSocios() {
-    if (!sociedadeId) return;
+    if (!safraId) return;
     setCarregandoSocios(true);
-    listarSociosRequest(sociedadeId)
+    listarSociosDaSafraRequest(safraId)
       .then((res) => {
         setEdicoes(
           res.socios.map((s: Socio) => ({
@@ -75,13 +84,27 @@ export default function ConfiguracoesSociosPage() {
 
   useEffect(() => {
     carregarSocios();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safraId]);
+
+  useEffect(() => {
+    if (!safraId) return;
+    obterSafraRequest(safraId)
+      .then((res) => setSociedadeId(res.safra.sociedade_id))
+      .catch(() => {});
+  }, [safraId]);
+
+  useEffect(() => {
+    if (!sociedadeId) return;
     listarSociedadesRequest()
       .then((res) => {
         const minhaSociedade = res.sociedades.find((s) => s.id === sociedadeId);
         setCodigoConvite(minhaSociedade?.codigo_convite ?? null);
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    listarSociosCatalogoRequest(sociedadeId)
+      .then((res) => setCatalogo(res.socios))
+      .catch(() => {});
   }, [sociedadeId]);
 
   async function copiarCodigo() {
@@ -104,16 +127,17 @@ export default function ConfiguracoesSociosPage() {
 
   const somaPct = edicoes.reduce((acc, s) => acc + s.percentual_lucro, 0);
   const pctOk = Math.abs(somaPct - 100) < 0.01;
+  const catalogoDisponivel = catalogo.filter((c) => !edicoes.some((e) => e.id === c.id));
 
   async function salvarPercentuais() {
-    if (!sociedadeId) return;
+    if (!safraId) return;
     setErroPct(null);
     setSucessoPct(false);
     setSalvandoPct(true);
     try {
-      await atualizarPercentuaisRequest(
-        sociedadeId,
-        edicoes.map((s) => ({ id: s.id, percentual_lucro: s.percentual_lucro, papel: s.papel }))
+      await atualizarPercentuaisSafraRequest(
+        safraId,
+        edicoes.map((s) => ({ socio_sociedade_id: s.id, percentual_lucro: s.percentual_lucro }))
       );
       setSucessoPct(true);
     } catch (err) {
@@ -125,17 +149,27 @@ export default function ConfiguracoesSociosPage() {
   }
 
   async function adicionarSocio() {
-    if (!sociedadeId || !nomeNovoSocio.trim()) return;
+    if (!safraId) return;
+    if (modoNovo === 'existente' && !socioExistenteId) return;
+    if (modoNovo === 'novo' && !nomeNovoSocio.trim()) return;
+
     setErroPct(null);
     setSalvandoNovoSocio(true);
     try {
-      await criarSocioRequest(sociedadeId, nomeNovoSocio.trim(), papelNovoSocio);
+      await criarSocioNaSafraRequest(
+        safraId,
+        modoNovo === 'existente'
+          ? { socio_sociedade_id: socioExistenteId }
+          : { nome: nomeNovoSocio.trim(), papel: papelNovoSocio }
+      );
       setNomeNovoSocio('');
       setPapelNovoSocio('MEEIRO');
+      setSocioExistenteId('');
       setNovoSocioAberto(false);
       carregarSocios();
-    } catch {
-      setErroPct('Não foi possível adicionar o sócio');
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } }).response?.data;
+      setErroPct(data?.error ?? 'Não foi possível adicionar o sócio');
     } finally {
       setSalvandoNovoSocio(false);
     }
@@ -164,12 +198,12 @@ export default function ConfiguracoesSociosPage() {
   }
 
   async function removerSocio(socio: EdicaoSocio) {
-    if (!sociedadeId) return;
-    if (!window.confirm(`Remover ${socio.nome} da sociedade? Essa ação não pode ser desfeita.`)) return;
+    if (!safraId) return;
+    if (!window.confirm(`Remover ${socio.nome} desta safra? Essa ação não pode ser desfeita.`)) return;
     setErroAcaoSocio(null);
     setRemovendoId(socio.id);
     try {
-      await removerSocioRequest(sociedadeId, socio.id);
+      await removerSocioDaSafraRequest(safraId, socio.id);
       carregarSocios();
     } catch (err) {
       const data = (err as { response?: { data?: { error?: string } } }).response?.data;
@@ -191,7 +225,7 @@ export default function ConfiguracoesSociosPage() {
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
           </button>
-          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Sócios e Sociedade</h2>
+          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Sócios da safra</h2>
           <div className="h-[38px] w-[38px]" />
         </div>
       </div>
@@ -200,16 +234,8 @@ export default function ConfiguracoesSociosPage() {
         <div className="flex flex-col gap-3.5">
           <div>
             <h3 className="m-0 text-[15px] font-extrabold text-hf-stone-900">Percentual de lucro</h3>
-            <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">A soma precisa fechar em 100%</p>
-          </div>
-
-          {/* Task 23 — cada safra tem seu próprio percentual desde a criação; o valor aqui
-              é só o padrão sugerido do cadastro da sociedade, não muda nenhuma safra já criada. */}
-          <div className="flex items-start gap-2.5 rounded-xl bg-hf-cream-100 px-3.5 py-3">
-            <Info className="mt-0.5 h-[15px] w-[15px] shrink-0 text-hf-stone-600" strokeWidth={2} />
-            <p className="m-0 text-[11.5px] leading-relaxed text-hf-stone-600">
-              Isso aqui é só o percentual padrão sugerido ao adicionar sócios. Cada safra tem os próprios
-              sócios e percentual, definidos na criação dela — mudar aqui não altera nenhuma safra já criada.
+            <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">
+              Vale só pra esta safra — a soma precisa fechar em 100%
             </p>
           </div>
 
@@ -361,28 +387,79 @@ export default function ConfiguracoesSociosPage() {
 
           {novoSocioAberto && (
             <div className="flex flex-col gap-3 rounded-2xl border border-hf-line p-3.5">
-              <div>
-                <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Nome do sócio</label>
-                <input
-                  type="text"
-                  value={nomeNovoSocio}
-                  onChange={(e) => setNomeNovoSocio(e.target.value)}
-                  placeholder="Ex: João"
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Papel</label>
-                <select
-                  className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
-                  value={papelNovoSocio}
-                  onChange={(e) => setPapelNovoSocio(e.target.value as PapelSocio)}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModoNovo('existente')}
+                  disabled={catalogoDisponivel.length === 0}
+                  className={cn(
+                    'flex-1 rounded-xl border-[1.5px] py-2 text-[12px] font-bold disabled:opacity-40',
+                    modoNovo === 'existente' ? 'border-hf-green-500 bg-hf-green-100 text-hf-green-800' : 'border-hf-line text-hf-stone-700'
+                  )}
                 >
-                  <option value="MEEIRO">Meeiro</option>
-                  <option value="FINANCIADOR">Financiador</option>
-                  <option value="MISTO">Misto</option>
-                </select>
+                  Sócio já cadastrado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoNovo('novo')}
+                  className={cn(
+                    'flex-1 rounded-xl border-[1.5px] py-2 text-[12px] font-bold',
+                    modoNovo === 'novo' ? 'border-hf-green-500 bg-hf-green-100 text-hf-green-800' : 'border-hf-line text-hf-stone-700'
+                  )}
+                >
+                  Sócio novo
+                </button>
               </div>
+
+              {modoNovo === 'existente' ? (
+                catalogoDisponivel.length === 0 ? (
+                  <p className="m-0 text-xs text-hf-stone-400">
+                    Nenhum outro sócio cadastrado nessa sociedade ainda — cadastre um novo.
+                  </p>
+                ) : (
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Sócio</label>
+                    <select
+                      className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
+                      value={socioExistenteId}
+                      onChange={(e) => setSocioExistenteId(e.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      {catalogoDisponivel.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              ) : (
+                <>
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Nome do sócio</label>
+                    <input
+                      type="text"
+                      value={nomeNovoSocio}
+                      onChange={(e) => setNomeNovoSocio(e.target.value)}
+                      placeholder="Ex: João"
+                      className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base outline-none focus:border-hf-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[12px] font-bold text-hf-green-700">Papel</label>
+                    <select
+                      className="h-11 w-full rounded-xl border border-hf-line bg-white px-3 text-base"
+                      value={papelNovoSocio}
+                      onChange={(e) => setPapelNovoSocio(e.target.value as PapelSocio)}
+                    >
+                      <option value="MEEIRO">Meeiro</option>
+                      <option value="FINANCIADOR">Financiador</option>
+                      <option value="MISTO">Misto</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
               <p className="m-0 text-xs text-hf-stone-400">
                 Entra com 0% — ajuste o percentual de todos depois de adicionar.
               </p>
@@ -397,7 +474,7 @@ export default function ConfiguracoesSociosPage() {
                 <button
                   type="button"
                   onClick={adicionarSocio}
-                  disabled={salvandoNovoSocio || !nomeNovoSocio.trim()}
+                  disabled={salvandoNovoSocio || (modoNovo === 'existente' ? !socioExistenteId : !nomeNovoSocio.trim())}
                   className="flex-1 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white disabled:opacity-50"
                 >
                   {salvandoNovoSocio ? 'Adicionando...' : 'Adicionar'}
