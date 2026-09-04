@@ -97,7 +97,7 @@ export async function editarNomeSocio(req: Request, res: Response): Promise<void
     return;
   }
 
-  const resultado = await sociedadesService.editarNomeSocio(id, socioId, parsed.data.nome);
+  const resultado = await sociedadesService.editarNomeSocio(id, socioId, parsed.data.nome, req.usuarioId);
 
   if ('erro' in resultado) {
     if (resultado.erro === 'NAO_ENCONTRADO') {
@@ -192,7 +192,7 @@ export async function listarSocios(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const socios = await sociedadesService.listarSocios(id);
+  const socios = await sociedadesService.listarSocios(id, req.usuarioId);
   res.json({ socios });
 }
 
@@ -207,7 +207,7 @@ export async function listarSociosCatalogo(req: Request, res: Response): Promise
     return;
   }
 
-  const socios = await sociedadesService.listarSociosCatalogo(id);
+  const socios = await sociedadesService.listarSociosCatalogo(id, req.usuarioId);
   res.json({ socios });
 }
 

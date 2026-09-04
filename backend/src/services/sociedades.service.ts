@@ -167,11 +167,52 @@ export async function listarSociedadesDoUsuario(usuarioId: string) {
   }));
 }
 
+// Task 23, correção pós-lançamento — desde que sócios/percentuais passaram a ser por
+// Safra, `ehSocio` (vínculo com a Sociedade) deixou de significar "participa de tudo": um
+// sócio adicionado só na Safra 2 ganha um SocioSociedade (catálogo da sociedade) e, sem
+// este filtro, `listarSocios`/`listarSociosCatalogo` devolveriam TODOS os sócios da
+// sociedade — inclusive os de outras safras que ele nunca deveria ver (o vazamento
+// reportado: sócio da Safra 2 enxergando o sócio da Safra 1 em "Sócios e Sociedade").
+// Retorna `null` (sem filtro) pro titular da sociedade, que gerencia o catálogo inteiro;
+// pra qualquer outro sócio, retorna só os ids de quem compartilha ao menos uma Safra com ele.
+async function idsSociosVisiveis(usuarioId: string, sociedadeId: string): Promise<string[] | null> {
+  const sociedade = await prisma.sociedade.findUnique({
+    where: { id: sociedadeId },
+    select: { criado_por_usuario_id: true },
+  });
+  if (sociedade?.criado_por_usuario_id === usuarioId) {
+    return null;
+  }
+
+  const minhasSafras = await prisma.socioSafra.findMany({
+    where: { socioSociedade: { usuario_id: usuarioId, sociedade_id: sociedadeId } },
+    select: { safra_id: true },
+  });
+
+  const coSocios = await prisma.socioSafra.findMany({
+    where: { safra_id: { in: minhasSafras.map((s) => s.safra_id) } },
+    select: { socio_sociedade_id: true },
+  });
+
+  const ids = new Set(coSocios.map((c) => c.socio_sociedade_id));
+
+  const meuVinculo = await prisma.socioSociedade.findUnique({
+    where: { usuario_id_sociedade_id: { usuario_id: usuarioId, sociedade_id: sociedadeId } },
+  });
+  if (meuVinculo) ids.add(meuVinculo.id);
+
+  return [...ids];
+}
+
 // Versão enxuta de listarSocios (sem percentual — que agora é por safra, não por
 // sociedade) usada pra popular "reaproveitar um sócio já cadastrado" na tela Nova Safra.
-export async function listarSociosCatalogo(sociedadeId: string) {
+// `usuarioId` restringe o catálogo a quem o solicitante já divide alguma safra (ou tudo,
+// se for o titular) — ver `idsSociosVisiveis`.
+export async function listarSociosCatalogo(sociedadeId: string, usuarioId: string) {
+  const idsVisiveis = await idsSociosVisiveis(usuarioId, sociedadeId);
+
   const vinculos = await prisma.socioSociedade.findMany({
-    where: { sociedade_id: sociedadeId },
+    where: { sociedade_id: sociedadeId, ...(idsVisiveis ? { id: { in: idsVisiveis } } : {}) },
     include: { usuario: true },
   });
 
@@ -183,9 +224,17 @@ export async function listarSociosCatalogo(sociedadeId: string) {
   }));
 }
 
-export async function listarSocios(sociedadeId: string) {
+// `usuarioId` restringe a listagem do mesmo jeito que `listarSociosCatalogo` — ver
+// `idsSociosVisiveis`. As chamadas internas (ex: depois de atualizar percentuais) usam
+// `listarSociosSemFiltro`, que não tem essa restrição.
+export async function listarSocios(sociedadeId: string, usuarioId: string) {
+  const idsVisiveis = await idsSociosVisiveis(usuarioId, sociedadeId);
+  return listarSociosSemFiltro(sociedadeId, idsVisiveis);
+}
+
+export async function listarSociosSemFiltro(sociedadeId: string, idsVisiveis?: string[] | null) {
   const vinculos = await prisma.socioSociedade.findMany({
-    where: { sociedade_id: sociedadeId },
+    where: { sociedade_id: sociedadeId, ...(idsVisiveis ? { id: { in: idsVisiveis } } : {}) },
     include: { usuario: true },
   });
 
@@ -208,7 +257,7 @@ interface SocioPercentualInput {
 type AtualizarPercentuaisResultado =
   | { erro: 'SOCIOS_FALTANDO' }
   | { erro: 'SOMA_INVALIDA'; soma: number }
-  | { socios: Awaited<ReturnType<typeof listarSocios>> };
+  | { socios: Awaited<ReturnType<typeof listarSociosSemFiltro>> };
 
 export async function atualizarPercentuais(
   sociedadeId: string,
@@ -242,21 +291,30 @@ export async function atualizarPercentuais(
     )
   );
 
-  return { socios: await listarSocios(sociedadeId) };
+  return { socios: await listarSociosSemFiltro(sociedadeId) };
 }
 
 type EditarNomeSocioResultado =
   | { erro: 'NAO_ENCONTRADO' }
   | { erro: 'TEM_CONTA' }
-  | { socio: Awaited<ReturnType<typeof listarSocios>>[number] };
+  | { socio: Awaited<ReturnType<typeof listarSociosSemFiltro>>[number] };
 
 export async function editarNomeSocio(
   sociedadeId: string,
   socioId: string,
-  nome: string
+  nome: string,
+  usuarioIdSolicitante: string
 ): Promise<EditarNomeSocioResultado> {
   const socio = await prisma.socioSociedade.findUnique({ where: { id: socioId } });
   if (!socio || socio.sociedade_id !== sociedadeId) {
+    return { erro: 'NAO_ENCONTRADO' };
+  }
+  // Mesma lógica de `idsSociosVisiveis`: um sócio restrito a uma safra específica não pode
+  // editar/remover alguém de outra safra só porque compartilha a Sociedade (ver correção
+  // pós-lançamento da task 23) — trata "não visível" como "não encontrado", sem revelar
+  // se o id existe ou não.
+  const idsVisiveis = await idsSociosVisiveis(usuarioIdSolicitante, sociedadeId);
+  if (idsVisiveis && !idsVisiveis.includes(socioId)) {
     return { erro: 'NAO_ENCONTRADO' };
   }
   if (socio.usuario_id) {
@@ -265,7 +323,7 @@ export async function editarNomeSocio(
 
   await prisma.socioSociedade.update({ where: { id: socioId }, data: { nome } });
 
-  const socios = await listarSocios(sociedadeId);
+  const socios = await listarSociosSemFiltro(sociedadeId);
   return { socio: socios.find((s) => s.id === socioId)! };
 }
 
@@ -274,7 +332,7 @@ type RemoverSocioResultado =
   | { erro: 'UNICO_SOCIO' }
   | { erro: 'AUTO_REMOCAO' }
   | { erro: 'TEM_LANCAMENTOS' }
-  | { socios: Awaited<ReturnType<typeof listarSocios>> };
+  | { socios: Awaited<ReturnType<typeof listarSociosSemFiltro>> };
 
 export async function removerSocio(
   sociedadeId: string,
@@ -283,6 +341,11 @@ export async function removerSocio(
 ): Promise<RemoverSocioResultado> {
   const socio = await prisma.socioSociedade.findUnique({ where: { id: socioId } });
   if (!socio || socio.sociedade_id !== sociedadeId) {
+    return { erro: 'NAO_ENCONTRADO' };
+  }
+  // Ver comentário equivalente em `editarNomeSocio`.
+  const idsVisiveis = await idsSociosVisiveis(usuarioIdSolicitante, sociedadeId);
+  if (idsVisiveis && !idsVisiveis.includes(socioId)) {
     return { erro: 'NAO_ENCONTRADO' };
   }
 
@@ -343,5 +406,5 @@ export async function removerSocio(
     prisma.socioSociedade.delete({ where: { id: socioId } }),
   ]);
 
-  return { socios: await listarSocios(sociedadeId) };
+  return { socios: await listarSociosSemFiltro(sociedadeId) };
 }
