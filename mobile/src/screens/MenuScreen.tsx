@@ -29,9 +29,7 @@ interface ItemMenu {
 // Grade de navegação (aba "Menu" da casca), equivalente a frontend/src/pages/MenuPage.tsx —
 // mesma checagem de papel pro card "Unidades de Venda" (FINANCIADOR/MISTO, mesma regra da
 // spec `06`) e mesmo botão de Sair (docs/specs/mobile/08-navegacao-resumo-e-menu.md). O card
-// "Despesas pessoais" aparece desabilitado (spec `07` adiada pra pós-MVP, ver docs/backlog.md)
-// — a própria spec 08 prevê esse caso: card sem link funcional até a tela existir, não é
-// bloqueio pra esta spec.
+// "Despesas pessoais" (spec `07`, retomada em 2026-09-05) navega pra DespesasPessoaisScreen.
 export function MenuScreen({ navigation }: Props) {
   const { safraAtiva } = useSafraAtiva();
   const { usuario, sair } = useAuth();
@@ -54,10 +52,11 @@ export function MenuScreen({ navigation }: Props) {
     {
       chave: 'despesas-pessoais',
       titulo: 'Despesas pessoais',
-      subtitulo: 'Em breve neste app',
+      subtitulo: 'Seus gastos privados',
       Icone: PiggyBank,
       bg: cores.blue.fundo,
       cor: cores.blue.padrao,
+      aoTocar: () => navigation.navigate('DespesasPessoais', { safraId }),
     },
     {
       chave: 'acertos',

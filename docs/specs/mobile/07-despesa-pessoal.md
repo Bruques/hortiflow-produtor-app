@@ -1,6 +1,6 @@
 # Mobile 07 — Despesa pessoal
 
-> **Status: adiada para pós-MVP mobile** (decisão do dev, 2026-08-03). Fica de fora da ordem `00`-`08` do roadmap inicial — ver `docs/backlog.md`. Spec continua aprovada e pronta pra implementar quando for retomada; nada no conteúdo abaixo muda por causa do adiamento.
+> **Status: implementada em 2026-09-05**, retomada após ter sido adiada pra pós-MVP mobile em 2026-08-03 (ver `docs/backlog.md`).
 
 ## Objetivo
 
@@ -52,4 +52,7 @@ DELETE /despesas-pessoais/:id                → 204 | 403 (não é o dono)
 
 ## Decisões registradas durante a implementação
 
-*(preencher durante a implementação, seguindo o mesmo padrão das specs `01` a `13` — decisões não previstas aqui entram nesta seção, não são resolvidas silenciosamente)*
+- **Tela "Despesas pessoais" e "Nova/editar despesa pessoal" fora da casca de navegação** (`DespesasPessoaisScreen`/`NovaDespesaPessoalScreen`), com seta de voltar própria — mesmo padrão já usado em `AcertosScreen.tsx`/`SociosScreen.tsx`, não é uma das 4 abas
+- **Fila de sincronização própria** (`despesasPessoaisQueue.ts` + `despesasPessoaisCache.ts`), copiando a estrutura de `despesasQueue.ts`/`despesasCache.ts` mas sem os campos que não existem aqui (`socio_id`, `socio_nome`, `rateio`, `status_pagamento`, `coberta_por_acerto`) — só 3 operações (`criar`/`editar`/`excluir`, sem `pagar`)
+- **Sem o toggle "Hoje / Outra data"** que o web tem — a tela usa `DatePickerField` direto (já com o dia de hoje como valor inicial), mesmo padrão já usado em `NovaVendaScreen.tsx`/`NovaDespesaScreen.tsx` no mobile
+- **Teste unitário do critério de aceite 6** (`despesasPessoaisQueue.test.ts`) verifica explicitamente que o payload enviado à fila não carrega `socio_id` nem `rateio`, no mesmo molde do teste equivalente de `despesasQueue.test.ts`

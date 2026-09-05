@@ -10,6 +10,7 @@ import { initSentry } from './src/lib/sentry';
 import { iniciarSincronizacaoAutomatica } from './src/lib/syncTrigger';
 import { sincronizarTudo } from './src/lib/syncQueue';
 import { registrarProcessadoresDespesas } from './src/lib/despesasQueue';
+import { registrarProcessadoresDespesasPessoais } from './src/lib/despesasPessoaisQueue';
 import { registrarProcessadoresVendas } from './src/lib/vendasQueue';
 import { registrarProcessadoresSugestoes } from './src/lib/sugestaoQueue';
 
@@ -20,6 +21,7 @@ initSentry();
 export default function App() {
   useEffect(() => {
     registrarProcessadoresDespesas();
+    registrarProcessadoresDespesasPessoais();
     registrarProcessadoresVendas();
     registrarProcessadoresSugestoes();
     const cancelar = iniciarSincronizacaoAutomatica();

@@ -214,6 +214,12 @@ export function InicioScreen({ navigation }: Props) {
           ))}
         </View>
 
+        {/* Mobile 11 — só faz sentido com 2+ safras (mesmo critério do web, HomePage.tsx);
+            este branch da tela já garante isso (1 safra entra direto, 0 vai pro form acima). */}
+        <Pressable onPress={() => navigation.navigate('DespesaCompartilhada')}>
+          <Text style={styles.linkCentralizado}>Lançar despesa compartilhada entre safras</Text>
+        </Pressable>
+
         <Pressable style={styles.linkSair} onPress={() => sair()}>
           <LogOut size={16} color={cores.stone[600]} />
           <Text style={styles.linkSairTexto}>Sair</Text>

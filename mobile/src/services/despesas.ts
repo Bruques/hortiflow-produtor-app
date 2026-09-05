@@ -67,3 +67,26 @@ export async function marcarDespesaComoPagaRequest(
   const { data } = await apiClient.patch(`/safras/${safraId}/despesas/${despesaId}/pagar`, {});
   return data;
 }
+
+// Mobile 11 (docs/specs/mobile/11-despesa-compartilhada.md) — lança a mesma despesa (já
+// rateada) em várias safras de uma vez. Contrato idêntico ao web (services/despesas.ts).
+export type RateioCompartilhado =
+  | { modo: 'igual' }
+  | { modo: 'percentual'; percentuais: { safra_id: string; percentual: number }[] };
+
+export interface CriarDespesaCompartilhadaInput {
+  safra_ids: string[];
+  tipo: TipoDespesa;
+  valor_total: number;
+  data: string;
+  descricao?: string;
+  foto_comprovante?: string;
+  rateio: RateioCompartilhado;
+}
+
+export async function criarDespesaCompartilhadaRequest(
+  input: CriarDespesaCompartilhadaInput
+): Promise<{ despesas: { safra_id: string; despesa: Despesa }[] }> {
+  const { data } = await apiClient.post('/despesas/compartilhada', input);
+  return data;
+}

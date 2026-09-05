@@ -50,3 +50,19 @@ export interface DespesaLocal extends Despesa {
   filaId: string | null;
   erroSincronizacao: string | null;
 }
+
+// Mobile 07 — despesa pessoal: sempre 100% de quem lançou, sem rateio nem status de
+// pagamento (diferente de Despesa, que é da sociedade).
+export interface DespesaPessoal {
+  id: string;
+  tipo: TipoDespesa;
+  valor: string;
+  data: string;
+  descricao: string | null;
+}
+
+export interface DespesaPessoalLocal extends DespesaPessoal {
+  pendenteOperacao: 'criar' | 'editar' | null;
+  filaId: string | null;
+  erroSincronizacao: string | null;
+}

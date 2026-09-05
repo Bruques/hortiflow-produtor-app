@@ -78,6 +78,17 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           data_pagamento TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS despesas_pessoais_cache (
+          id TEXT PRIMARY KEY,
+          safra_id TEXT NOT NULL,
+          tipo TEXT NOT NULL,
+          valor TEXT NOT NULL,
+          data TEXT NOT NULL,
+          descricao TEXT,
+          pendente_operacao TEXT,
+          fila_id TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS vendas_cache (
           id TEXT PRIMARY KEY,
           safra_id TEXT NOT NULL,

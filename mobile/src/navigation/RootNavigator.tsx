@@ -11,6 +11,9 @@ import { NovaSafraScreen } from '../screens/NovaSafraScreen';
 import { SociosScreen } from '../screens/SociosScreen';
 import { TrocaSenhaScreen } from '../screens/TrocaSenhaScreen';
 import { NovaDespesaScreen } from '../screens/NovaDespesaScreen';
+import { DespesasPessoaisScreen } from '../screens/DespesasPessoaisScreen';
+import { NovaDespesaPessoalScreen } from '../screens/NovaDespesaPessoalScreen';
+import { DespesaCompartilhadaScreen } from '../screens/DespesaCompartilhadaScreen';
 import { NovaVendaScreen } from '../screens/NovaVendaScreen';
 import { ConfiguracoesUnidadesVendaScreen } from '../screens/ConfiguracoesUnidadesVendaScreen';
 import { ConfiguracoesRegrasDespesaScreen } from '../screens/ConfiguracoesRegrasDespesaScreen';
@@ -23,7 +26,7 @@ import { MinhaAssinaturaScreen } from '../screens/MinhaAssinaturaScreen';
 import { AssinaturaBloqueioScreen } from '../screens/AssinaturaBloqueioScreen';
 import { useAuth } from '../context/AuthContext';
 import { navigationRef } from '../lib/navigationRef';
-import type { DespesaLocal } from '../types/despesa';
+import type { DespesaLocal, DespesaPessoalLocal } from '../types/despesa';
 import type { VendaLocal } from '../types/venda';
 
 export type RootStackParamList = {
@@ -42,6 +45,9 @@ export type RootStackParamList = {
   Socios: { safraId: string };
   TrocaSenha: undefined;
   NovaDespesa: { safraId: string; sociedadeId: string; despesa?: DespesaLocal };
+  DespesasPessoais: { safraId: string };
+  NovaDespesaPessoal: { safraId: string; despesaPessoal?: DespesaPessoalLocal };
+  DespesaCompartilhada: undefined;
   NovaVenda: { safraId: string; sociedadeId: string; venda?: VendaLocal };
   UnidadesVenda: { sociedadeId: string };
   RegrasDespesa: { sociedadeId: string; safraId: string };
@@ -99,6 +105,9 @@ export function RootNavigator() {
             <Stack.Screen name="Socios" component={SociosScreen} />
             <Stack.Screen name="TrocaSenha" component={TrocaSenhaScreen} />
             <Stack.Screen name="NovaDespesa" component={NovaDespesaScreen} />
+            <Stack.Screen name="DespesasPessoais" component={DespesasPessoaisScreen} />
+            <Stack.Screen name="NovaDespesaPessoal" component={NovaDespesaPessoalScreen} />
+            <Stack.Screen name="DespesaCompartilhada" component={DespesaCompartilhadaScreen} />
             <Stack.Screen name="NovaVenda" component={NovaVendaScreen} />
             <Stack.Screen name="UnidadesVenda" component={ConfiguracoesUnidadesVendaScreen} />
             <Stack.Screen name="RegrasDespesa" component={ConfiguracoesRegrasDespesaScreen} />
