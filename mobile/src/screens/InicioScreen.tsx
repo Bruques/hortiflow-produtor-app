@@ -222,7 +222,9 @@ export function InicioScreen({ navigation }: Props) {
           <Text style={styles.resumoValor}>
             {carregandoResumo && !resumo ? '...' : formatarMoeda(resumo?.totalReceber ?? 0)}
           </Text>
-          <PeriodToggle valor={periodoResumo} onSelecionar={setPeriodoResumo} />
+          <View style={styles.filtroResumo}>
+            <PeriodToggle valor={periodoResumo} onSelecionar={setPeriodoResumo} />
+          </View>
           <Pressable onPress={() => navigation.navigate('DespesaCompartilhada')}>
             <Text style={styles.linkResumo}>Lançar despesa compartilhada entre safras</Text>
           </Pressable>
@@ -389,6 +391,12 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  // PeriodToggle usa `flex: 1` internamente pensando numa linha (largura, não altura) — sem
+  // este wrapper `row`, o flex:1 tentava crescer verticalmente dentro da coluna do card e
+  // colapsava a altura do texto (bug relatado 2026-09-05: seletor aparecia sem nenhum texto).
+  filtroResumo: {
+    flexDirection: 'row',
   },
   linkResumo: {
     fontSize: 12.5,
