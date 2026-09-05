@@ -8,7 +8,7 @@ Levar pro app mobile o lançamento de despesa compartilhada entre 2+ safras do u
 
 **Entra:**
 - Tela "Despesa compartilhada": escolher 2+ safras próprias (`EM_ANDAMENTO`), tipo de despesa, valor total, data, descrição opcional, e o modo de rateio (igual ou percentual customizado)
-- Acesso via um item no card de resumo consolidado da tela de Início (`InicioScreen`), quando o usuário tem 2+ safras ativas — mesmo critério do web (`HomePage.tsx`)
+- Card de resumo consolidado na tela de Início (`InicioScreen`), com o total estimado a receber somando todas as safras ativas, seletor de período e o link de acesso a esta tela — mesmo card do web (`HomePage.tsx`), reaproveitando `GET /safras/resumo` (já existia no backend, sem uso no mobile até então)
 
 **Fica de fora:**
 - Foto de comprovante — o web permite (`foto_comprovante` no contrato), mas não é critério de aceite aqui; pode entrar depois reaproveitando o componente de câmera já usado em `NovaDespesaScreen.tsx`
@@ -53,5 +53,5 @@ POST /despesas/compartilhada
 ## Decisões registradas durante a implementação
 
 - **Sem foto de comprovante nesta primeira versão** (já registrado como fora de escopo acima) — pode ser adicionado depois reaproveitando o componente de câmera de `NovaDespesaScreen.tsx`
-- **Sem o card de resumo consolidado** ("quanto você recebe, somando todas as safras") que o web tem na Home — só o item de texto "Lançar despesa compartilhada entre safras" foi adicionado à `InicioScreen`. O resumo consolidado em si (`GET /safras/resumo`) é uma funcionalidade maior e separada, fora do pedido que originou este incremento (2026-09-05) — fica registrado como lacuna de paridade ainda aberta, não como decisão desta spec
-- **Tela fora da casca de navegação**, mesmo padrão de `AcertosScreen.tsx`/`SociosScreen.tsx`
+- **Card de resumo consolidado adicionado à `InicioScreen`** (2026-09-05, depois de o desenvolvedor notar a ausência comparando com o print do web) — mesmo texto/dados do web, mas sem gradiente (`expo-linear-gradient` não é dependência do projeto; usa `cores.green[900]` sólido em vez de `from-hf-green-800 to-hf-green-900`), diferença puramente visual, sem efeito no dado exibido
+- **Tela "Despesa compartilhada" fora da casca de navegação**, mesmo padrão de `AcertosScreen.tsx`/`SociosScreen.tsx`

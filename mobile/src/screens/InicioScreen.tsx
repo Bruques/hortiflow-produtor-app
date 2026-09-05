@@ -7,14 +7,18 @@ import { criarSociedadeRequest } from '../services/sociedades';
 import { listarMinhasSafrasRequest } from '../services/safras';
 import { obterMinhasSafrasCache, salvarMinhasSafrasCache } from '../lib/safrasCache';
 import { abrirSafraRequest } from '../services/safras';
+import { buscarResumoConsolidadoRequest } from '../services/simulacao';
 import { mensagemErro } from '../lib/erroApi';
+import { formatarMoeda } from '../lib/formatacao';
 import { useSafraAtiva } from '../context/SafraContext';
 import { useAuth } from '../context/AuthContext';
 import { BannerSemConexao } from '../components/BannerSemConexao';
 import { BrandLockup } from '../components/BrandMark';
+import { PeriodToggle } from '../components/PeriodToggle';
 import { ROTULO_STATUS_SAFRA } from '../lib/rotulos';
 import { cores, espacamento, raio } from '../theme';
 import type { MinhaSafra } from '../types/safra';
+import type { PeriodoFiltro, ResumoConsolidado } from '../types/simulacao';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Inicio'>;
@@ -39,6 +43,13 @@ export function InicioScreen({ navigation }: Props) {
   // duplicada por toque extra (bug relatado 2026-08-26). Uma ref muda no mesmo instante do
   // clique, sem esperar re-render, então bloqueia a segunda chamada de verdade.
   const criandoRef = useRef(false);
+
+  // Resumo consolidado ("quanto eu recebo somando todas as safras ativas") — mesmo padrão
+  // do web (HomePage.tsx), só faz sentido buscar com 2+ safras; com 1 só, o usuário já é
+  // redirecionado direto pra ela (docs/specs/11-resumo-consolidado-e-despesa-compartilhada.md).
+  const [periodoResumo, setPeriodoResumo] = useState<PeriodoFiltro>('mes');
+  const [resumo, setResumo] = useState<ResumoConsolidado | null>(null);
+  const [carregandoResumo, setCarregandoResumo] = useState(false);
 
   const carregar = useCallback(async () => {
     const cache = await obterMinhasSafrasCache();
@@ -71,6 +82,15 @@ export function InicioScreen({ navigation }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregando, erro, safras]);
+
+  useEffect(() => {
+    if (safras.length < 2) return;
+    setCarregandoResumo(true);
+    buscarResumoConsolidadoRequest(periodoResumo)
+      .then(setResumo)
+      .catch(() => setResumo(null))
+      .finally(() => setCarregandoResumo(false));
+  }, [safras.length, periodoResumo]);
 
   function entrarNaSafra(safra: MinhaSafra) {
     selecionarSafra({ safraId: safra.id, sociedadeId: safra.sociedade_id, safra });
@@ -197,6 +217,17 @@ export function InicioScreen({ navigation }: Props) {
           <Text style={styles.subtituloLista}>Escolha uma safra pra continuar</Text>
         </View>
 
+        <View style={styles.cartaoResumo}>
+          <Text style={styles.resumoLabel}>Você recebe (estimado) · todas as safras ativas</Text>
+          <Text style={styles.resumoValor}>
+            {carregandoResumo && !resumo ? '...' : formatarMoeda(resumo?.totalReceber ?? 0)}
+          </Text>
+          <PeriodToggle valor={periodoResumo} onSelecionar={setPeriodoResumo} />
+          <Pressable onPress={() => navigation.navigate('DespesaCompartilhada')}>
+            <Text style={styles.linkResumo}>Lançar despesa compartilhada entre safras</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.lista}>
           {safras.map((s) => (
             <Pressable key={s.id} style={styles.cartaoSafra} onPress={() => entrarNaSafra(s)}>
@@ -213,12 +244,6 @@ export function InicioScreen({ navigation }: Props) {
             </Pressable>
           ))}
         </View>
-
-        {/* Mobile 11 — só faz sentido com 2+ safras (mesmo critério do web, HomePage.tsx);
-            este branch da tela já garante isso (1 safra entra direto, 0 vai pro form acima). */}
-        <Pressable onPress={() => navigation.navigate('DespesaCompartilhada')}>
-          <Text style={styles.linkCentralizado}>Lançar despesa compartilhada entre safras</Text>
-        </Pressable>
 
         <Pressable style={styles.linkSair} onPress={() => sair()}>
           <LogOut size={16} color={cores.stone[600]} />
@@ -348,6 +373,28 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: cores.stone[600],
     marginTop: 2,
+  },
+  cartaoResumo: {
+    gap: espacamento.sm + 2,
+    borderRadius: raio.lg,
+    backgroundColor: cores.green[900],
+    padding: espacamento.lg,
+  },
+  resumoLabel: {
+    fontSize: 12.5,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  resumoValor: {
+    marginTop: 2,
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  linkResumo: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+    textDecorationLine: 'underline',
   },
   lista: {
     gap: espacamento.sm,

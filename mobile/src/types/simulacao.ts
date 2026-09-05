@@ -1,9 +1,7 @@
 import type { TipoDespesa } from './despesa';
 
 // Copiado manualmente de frontend/src/types/simulacao.ts — mobile/ e frontend/ não
-// compartilham tipos entre si (docs/specs/mobile/00-setup-e-infra.md). Sem
-// `QuantidadePorUnidade`/`ResumoConsolidado`: fora de escopo da spec `05` mobile (resumo
-// consolidado entre safras fica pra um incremento futuro).
+// compartilham tipos entre si (docs/specs/mobile/00-setup-e-infra.md).
 export interface DivisaoSocio {
   socio_id: string;
   nome: string;
@@ -50,4 +48,24 @@ export interface RelatorioCompleto {
   quantidadePorUnidade: QuantidadePorUnidade[];
   mediaPrecoPorUnidade: MediaPrecoPorUnidade[];
   despesasPorCategoria: DespesaPorCategoria[];
+}
+
+// Retorno de GET /safras/resumo — soma "quanto eu recebo" de todas as safras ativas do
+// usuário (docs/specs/11-resumo-consolidado-e-despesa-compartilhada.md), pro caso de um
+// financiador com uma Sociedade por meeiro (ou, desde a task 23, com várias safras na mesma
+// sociedade).
+export interface ResumoPorSafra {
+  safra_id: string;
+  safra_nome: string;
+  sociedade_id: string;
+  sociedade_nome: string;
+  receita: number;
+  despesas: number;
+  lucroLiquido: number;
+  meuValor: number;
+}
+
+export interface ResumoConsolidado {
+  totalReceber: number;
+  safras: ResumoPorSafra[];
 }
