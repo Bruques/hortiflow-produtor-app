@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -76,6 +76,14 @@ export function DespesasScreen({ navigation }: Props) {
     const desinscrever = navigation.addListener('focus', carregar);
     return desinscrever;
   }, [navigation, carregar]);
+
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function aoArrastar() {
+    setRefrescando(true);
+    await carregar();
+    setRefrescando(false);
+  }
 
   // Uma sincronização pode acontecer em segundo plano (ex: a conexão volta enquanto essa tela
   // já está aberta) sem nenhuma navegação disparar `carregar()` de novo — sem isso, o badge de
@@ -166,7 +174,11 @@ export function DespesasScreen({ navigation }: Props) {
         <Text style={styles.vazio}>Nenhuma despesa neste período.</Text>
       )}
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.lista}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.lista}
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
+      >
         {despesasDoPeriodo.map((d) => {
           const Icone = ICONE_TIPO_DESPESA[d.tipo];
           return (

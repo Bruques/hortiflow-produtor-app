@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Check, ShoppingCart } from 'lucide-react-native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -82,6 +82,14 @@ export function VendasScreen({ navigation }: Props) {
     const desinscrever = navigation.addListener('focus', carregar);
     return desinscrever;
   }, [navigation, carregar]);
+
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function aoArrastar() {
+    setRefrescando(true);
+    await carregar();
+    setRefrescando(false);
+  }
 
   useEffect(() => {
     if (!sociedadeId) return;
@@ -168,7 +176,11 @@ export function VendasScreen({ navigation }: Props) {
         <Text style={styles.vazio}>Nenhuma venda neste período.</Text>
       )}
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.lista}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.lista}
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
+      >
         {vendasDoPeriodo.map((v) => {
           const valorAuto =
             v.regras_aplicadas.reduce((acc, regraId) => acc + (valorPorRegraId[regraId] ?? 0), 0) *

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangle, ArrowLeft, Check, Minus, Plus, Trash2, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -93,6 +93,14 @@ export function SociosScreen({ navigation, route }: Props) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function aoArrastar() {
+    setRefrescando(true);
+    await carregar();
+    setRefrescando(false);
+  }
 
   useEffect(() => {
     obterSafraRequest(safraId)
@@ -229,7 +237,13 @@ export function SociosScreen({ navigation, route }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.conteudo}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
+      >
         <View>
           <Text style={styles.titulo}>Percentual de lucro</Text>
           <Text style={styles.legenda}>Vale só pra esta safra — a soma precisa fechar em 100%</Text>

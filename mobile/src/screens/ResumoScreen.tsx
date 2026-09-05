@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Calendar, ChevronRight, FileDown, ShoppingCart, TrendingUp, Wallet } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -142,6 +142,14 @@ export function ResumoScreen({ navigation }: Props) {
     carregarSocios();
   }, [carregarSocios]);
 
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function aoArrastar() {
+    setRefrescando(true);
+    await Promise.all([carregarSimulacao(), carregarVendas(), carregarSocios()]);
+    setRefrescando(false);
+  }
+
   function selecionarPeriodo(valor: PeriodoFiltro) {
     setPersonalizado(null);
     setPeriodo(valor);
@@ -172,7 +180,11 @@ export function ResumoScreen({ navigation }: Props) {
   const { safra } = safraAtiva;
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo}>
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={styles.conteudo}
+      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
+    >
       <Pressable onPress={() => navigation.navigate('Inicio')} style={styles.cabecalhoSafra}>
         <Text style={styles.rotuloSafraAtual}>Safra atual</Text>
         <Text style={styles.tituloSafra}>{safra.nome}</Text>

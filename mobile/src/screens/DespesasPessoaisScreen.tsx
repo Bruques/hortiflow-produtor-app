@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Plus, ShieldCheck } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -58,6 +58,14 @@ export function DespesasPessoaisScreen({ navigation, route }: Props) {
     return desinscrever;
   }, [navigation, carregar]);
 
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function aoArrastar() {
+    setRefrescando(true);
+    await carregar();
+    setRefrescando(false);
+  }
+
   // Mesmo raciocínio de DespesasScreen.tsx: uma sincronização em segundo plano não dispara
   // navegação nenhuma — sem isso, o badge de "pendente" só sumia ao sair e voltar da tela.
   useEffect(() => {
@@ -98,7 +106,11 @@ export function DespesasPessoaisScreen({ navigation, route }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.conteudo}
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
+      >
         <Pressable
           style={styles.botaoNovo}
           onPress={() => navigation.navigate('NovaDespesaPessoal', { safraId })}

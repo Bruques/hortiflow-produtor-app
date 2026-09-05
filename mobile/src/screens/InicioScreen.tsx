@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronRight, LogOut } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -83,14 +83,29 @@ export function InicioScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregando, erro, safras]);
 
-  useEffect(() => {
+  const carregarResumo = useCallback(async () => {
     if (safras.length < 2) return;
     setCarregandoResumo(true);
-    buscarResumoConsolidadoRequest(periodoResumo)
-      .then(setResumo)
-      .catch(() => setResumo(null))
-      .finally(() => setCarregandoResumo(false));
+    try {
+      setResumo(await buscarResumoConsolidadoRequest(periodoResumo));
+    } catch {
+      setResumo(null);
+    } finally {
+      setCarregandoResumo(false);
+    }
   }, [safras.length, periodoResumo]);
+
+  useEffect(() => {
+    carregarResumo();
+  }, [carregarResumo]);
+
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function aoArrastar() {
+    setRefrescando(true);
+    await Promise.all([carregar(), carregarResumo()]);
+    setRefrescando(false);
+  }
 
   function entrarNaSafra(safra: MinhaSafra) {
     selecionarSafra({ safraId: safra.id, sociedadeId: safra.sociedade_id, safra });
@@ -211,7 +226,11 @@ export function InicioScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <BannerSemConexao />
-      <View style={styles.conteudo}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.conteudo}
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
+      >
         <View>
           <Text style={styles.tituloLista}>{usuario ? `Olá, ${usuario.nome.split(' ')[0]}` : 'Suas safras'}</Text>
           <Text style={styles.subtituloLista}>Escolha uma safra pra continuar</Text>
@@ -251,7 +270,7 @@ export function InicioScreen({ navigation }: Props) {
           <LogOut size={16} color={cores.stone[600]} />
           <Text style={styles.linkSairTexto}>Sair</Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

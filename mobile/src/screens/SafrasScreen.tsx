@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight, Pencil, Plus, Sprout } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -62,6 +62,14 @@ export function SafrasScreen({ navigation }: Props) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  const [refrescando, setRefrescando] = useState(false);
+
+  async function aoArrastar() {
+    setRefrescando(true);
+    await carregar();
+    setRefrescando(false);
+  }
 
   function abrirEdicao(safra: Safra) {
     setEditandoId(safra.id);
@@ -131,7 +139,11 @@ export function SafrasScreen({ navigation }: Props) {
         <View style={styles.botaoVoltar} />
       </View>
 
-      <View style={styles.conteudo}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.conteudo}
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
+      >
         {erro && <Text style={styles.erro}>{erro}</Text>}
         {carregando && safras.length === 0 && <ActivityIndicator />}
         {!carregando && safras.length === 0 && <Text style={styles.subtitulo}>Nenhuma safra ainda.</Text>}
@@ -217,7 +229,7 @@ export function SafrasScreen({ navigation }: Props) {
             );
           })}
         </View>
-      </View>
+      </ScrollView>
 
       <View style={styles.rodape}>
         <Pressable style={styles.botaoPrimario} onPress={() => navigation.navigate('NovaSafra')}>
