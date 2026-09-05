@@ -7,6 +7,21 @@ let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = SQLite.openDatabaseAsync('hortiflow.db').then(async (db) => {
+      // Migração pra quem já tinha o app instalado antes da task 23 (sócios por safra):
+      // `socios_cache` tinha `id` como chave primária sozinha, correto enquanto um sócio só
+      // podia pertencer a uma sociedade — agora que o mesmo sócio participa de várias safras,
+      // a segunda safra cacheada colidia com a chave primária da primeira (INSERT falhava
+      // silenciosamente, deixando a lista de sócios vazia pra quem estivesse em 2+ safras;
+      // bug relatado 2026-09-05). `CREATE TABLE IF NOT EXISTS` não muda a chave primária de
+      // uma tabela já existente, então detecta o schema antigo e recria — é só cache, sem
+      // perda de dado real (repovoa sozinho na próxima sincronização).
+      const schemaAntigo = await db.getFirstAsync<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'socios_cache'"
+      );
+      if (schemaAntigo && !schemaAntigo.sql.includes('PRIMARY KEY (sociedade_id, id)')) {
+        await db.execAsync('DROP TABLE IF EXISTS socios_cache');
+      }
+
       await db.execAsync(`
         PRAGMA journal_mode = WAL;
 
@@ -29,13 +44,14 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         );
 
         CREATE TABLE IF NOT EXISTS socios_cache (
-          id TEXT PRIMARY KEY,
+          id TEXT NOT NULL,
           sociedade_id TEXT NOT NULL,
           usuario_id TEXT,
           nome TEXT NOT NULL,
           telefone TEXT,
           percentual_lucro TEXT NOT NULL,
-          papel TEXT NOT NULL
+          papel TEXT NOT NULL,
+          PRIMARY KEY (sociedade_id, id)
         );
 
         CREATE TABLE IF NOT EXISTS minhas_safras_cache (
