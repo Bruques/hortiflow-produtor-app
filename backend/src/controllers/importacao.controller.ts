@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as safrasService from '../services/safras.service';
+import * as assinaturaService from '../services/assinatura.service';
 import * as importacaoService from '../services/importacao.service';
 import { classificarArquivo, tamanhoEmBytes, LIMITE_BYTES_POR_TIPO } from '../services/importacao.service';
 
@@ -24,6 +25,14 @@ export async function extrair(req: Request, res: Response): Promise<void> {
   }
   if (!autorizado) {
     res.status(403).json({ error: 'Você não é sócio dessa sociedade' });
+    return;
+  }
+
+  const planoPermite = await assinaturaService.planoPermiteImportacaoPorIAParaSafra(id);
+  if (!planoPermite) {
+    res.status(403).json({
+      error: `A importação de lançamentos por IA está disponível a partir do Plano 2. Fale com a gente pelo WhatsApp ${process.env.WHATSAPP_CONTATO} ou e-mail ${process.env.EMAIL_CONTATO} para fazer upgrade.`,
+    });
     return;
   }
 

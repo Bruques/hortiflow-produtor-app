@@ -15,6 +15,7 @@ import { DespesasPessoaisScreen } from '../screens/DespesasPessoaisScreen';
 import { NovaDespesaPessoalScreen } from '../screens/NovaDespesaPessoalScreen';
 import { DespesaCompartilhadaScreen } from '../screens/DespesaCompartilhadaScreen';
 import { NovaVendaScreen } from '../screens/NovaVendaScreen';
+import { ImportarLancamentosScreen } from '../screens/ImportarLancamentosScreen';
 import { ConfiguracoesUnidadesVendaScreen } from '../screens/ConfiguracoesUnidadesVendaScreen';
 import { ConfiguracoesRegrasDespesaScreen } from '../screens/ConfiguracoesRegrasDespesaScreen';
 import { AcertosScreen } from '../screens/AcertosScreen';
@@ -49,6 +50,7 @@ export type RootStackParamList = {
   NovaDespesaPessoal: { safraId: string; despesaPessoal?: DespesaPessoalLocal };
   DespesaCompartilhada: undefined;
   NovaVenda: { safraId: string; sociedadeId: string; venda?: VendaLocal };
+  ImportarLancamentos: { safraId: string; sociedadeId: string };
   UnidadesVenda: { sociedadeId: string };
   RegrasDespesa: { sociedadeId: string; safraId: string };
   Acertos: { safraId: string };
@@ -109,6 +111,7 @@ export function RootNavigator() {
             <Stack.Screen name="NovaDespesaPessoal" component={NovaDespesaPessoalScreen} />
             <Stack.Screen name="DespesaCompartilhada" component={DespesaCompartilhadaScreen} />
             <Stack.Screen name="NovaVenda" component={NovaVendaScreen} />
+            <Stack.Screen name="ImportarLancamentos" component={ImportarLancamentosScreen} />
             <Stack.Screen name="UnidadesVenda" component={ConfiguracoesUnidadesVendaScreen} />
             <Stack.Screen name="RegrasDespesa" component={ConfiguracoesRegrasDespesaScreen} />
             <Stack.Screen name="Acertos" component={AcertosScreen} />

@@ -5,6 +5,7 @@ import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest, logoutRequest } from '@/services/auth';
 import { listarSociosRequest } from '@/services/sociedades';
+import { statusAssinaturaRequest } from '@/services/assinatura';
 
 interface Item {
   href: string;
@@ -13,7 +14,15 @@ interface Item {
   Icone: LucideIcon;
   bg: string;
   cor: string;
+  bloqueado?: boolean;
 }
+
+// Planos com acesso à importação por IA (docs/specs/24, adendo 2026-09-09) — checagem via
+// `/assinatura/status`, que devolve o plano de quem está logado, não o do titular da
+// sociedade. Funciona certo pro financiador (~98% de quem usa o Menu, ver CLAUDE.md); um
+// meeiro pode ver o card bloqueado mesmo com a sociedade tendo Plano 2/3 — imprecisão aceita
+// pelo dev por ora (o bloqueio de verdade, no backend, sempre olha o titular certo).
+const PLANOS_COM_IMPORTACAO_IA = ['Plano 2', 'Plano 3'];
 
 // Grid única com tudo que não coube nas 4 abas da bottom nav v2 (Resumo/Despesas/Vendas/Menu):
 // ações da safra (Despesas pessoais, Acertos, Abrir nova safra) e ajustes da sociedade
@@ -24,6 +33,9 @@ export default function MenuPage() {
   const { safraId, sociedadeId } = useSafraAtiva();
   const navigate = useNavigate();
   const [souFinanciador, setSouFinanciador] = useState(false);
+  // Default true (não bloqueado) até a checagem responder — evita mostrar o card já travado
+  // por um instante pra quem tem acesso, só por causa da latência dessa chamada extra.
+  const [podeImportarPorIA, setPodeImportarPorIA] = useState(true);
 
   useEffect(() => {
     if (!sociedadeId) return;
@@ -34,6 +46,9 @@ export default function MenuPage() {
           setSouFinanciador(eu?.papel === 'FINANCIADOR' || eu?.papel === 'MISTO');
         });
       })
+      .catch(() => {});
+    statusAssinaturaRequest()
+      .then((status) => setPodeImportarPorIA(!!status.plano && PLANOS_COM_IMPORTACAO_IA.includes(status.plano.nome)))
       .catch(() => {});
   }, [sociedadeId]);
 
@@ -49,10 +64,11 @@ export default function MenuPage() {
     {
       href: `/safras/${safraId}/importacao`,
       titulo: 'Importar lançamentos',
-      subtitulo: 'Foto, PDF ou planilha',
+      subtitulo: podeImportarPorIA ? 'Foto, PDF ou planilha' : 'Recurso do Plano 2+',
       Icone: Sparkles,
-      bg: 'bg-hf-blue-bg',
-      cor: 'text-hf-blue',
+      bg: podeImportarPorIA ? 'bg-hf-blue-bg' : 'bg-hf-cream-100',
+      cor: podeImportarPorIA ? 'text-hf-blue' : 'text-hf-stone-400',
+      bloqueado: !podeImportarPorIA,
     },
     {
       href: `/safras/${safraId}/acertos`,
@@ -152,12 +168,13 @@ export default function MenuPage() {
         <h1 className="font-rounded text-xl font-extrabold text-hf-stone-900">Menu</h1>
 
         <div className="grid grid-cols-2 gap-3">
-          {itens.map(({ href, titulo, subtitulo, Icone, bg, cor }) => (
+          {itens.map(({ href, titulo, subtitulo, Icone, bg, cor, bloqueado }) => (
             <button
               key={href}
               type="button"
-              onClick={() => navigate(href)}
-              className="flex flex-col items-start gap-2.5 rounded-2xl border border-hf-line bg-white p-3.5 text-left"
+              onClick={() => !bloqueado && navigate(href)}
+              disabled={bloqueado}
+              className={`flex flex-col items-start gap-2.5 rounded-2xl border border-hf-line bg-white p-3.5 text-left ${bloqueado ? 'opacity-50' : ''}`}
             >
               <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg} ${cor}`}>
                 <Icone className="h-[18px] w-[18px]" strokeWidth={2} />

@@ -78,6 +78,31 @@ export async function acessoLiberadoParaSafra(safraId: string): Promise<boolean>
   return acessoLiberadoParaTitular(safra.sociedade.criado_por_usuario_id);
 }
 
+// Task 24, adendo 2026-09-09 — importação de lançamentos por IA é recurso exclusivo de quem
+// tem "Plano 2" ou "Plano 3" atribuído (decisão do dev): quem ainda está em trial (sem plano
+// atribuído ainda, `assinatura.plano` null) ou está no "Plano 1" não tem acesso. Comparação
+// pelo campo `nome` do Plano, não por `valor_mensal`/ranking: `editarPlano` (admin) só permite
+// mudar valor e limite de safras, nunca o nome — então o nome é o único campo garantidamente
+// estável pra identificar qual dos 3 planos fixos é qual, mesmo que o preço seja reajustado.
+const PLANOS_COM_IMPORTACAO_IA = ['Plano 2', 'Plano 3'];
+
+export async function planoPermiteImportacaoPorIA(titularUsuarioId: string): Promise<boolean> {
+  const assinatura = await prisma.assinatura.findUnique({
+    where: { usuario_id: titularUsuarioId },
+    include: { plano: true },
+  });
+  return !!assinatura?.plano && PLANOS_COM_IMPORTACAO_IA.includes(assinatura.plano.nome);
+}
+
+export async function planoPermiteImportacaoPorIAParaSafra(safraId: string): Promise<boolean> {
+  const safra = await prisma.safra.findUnique({
+    where: { id: safraId },
+    select: { sociedade: { select: { criado_por_usuario_id: true } } },
+  });
+  if (!safra) return false; // 404 é responsabilidade do controller — aqui só nega por segurança
+  return planoPermiteImportacaoPorIA(safra.sociedade.criado_por_usuario_id);
+}
+
 // Gate de quantidade (403) — chamado antes de colocar uma Safra em EM_ANDAMENTO.
 export async function podeAtivarSafra(titularUsuarioId: string): Promise<boolean> {
   const assinatura = await buscarAssinaturaPorUsuario(titularUsuarioId);

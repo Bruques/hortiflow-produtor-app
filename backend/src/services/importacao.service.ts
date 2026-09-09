@@ -5,12 +5,12 @@ import { TipoDespesa } from '@prisma/client';
 const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Task 24 — importação de despesas/vendas por foto, PDF ou planilha (docs/specs/24). Trocado
-// de Claude pra Gemini (decisão do dev, custo por chamada) — modelo "flash" (não "pro" nem
-// "flash-lite"): é o nível intermediário/barato da família, ainda multimodal (visão + PDF) e
-// com output estruturado, suficiente pra esse caso de uso esporádico. `gemini-2.5-flash` foi
-// descontinuado pra contas novas (erro 404 confirmado em teste real em 2026-09-07) — a própria
-// API indicou `gemini-3.6-flash` como substituto direto da mesma geração/tier.
-const MODELO = 'gemini-3.6-flash';
+// pra "flash-lite" em 2026-09-09 (decisão do dev, priorizando custo) — teste real comparativo
+// (mesma foto, mesmo prompt) mostrou que o flash-lite sai bem mais barato (~R$0,05 vs ~R$0,12
+// por chamada) mas deixou passar 1 de 8 lançamentos, contra 8/8 do `gemini-3.6-flash`; decisão
+// consciente do dev de aceitar essa diferença de qualidade, com a revisão humana da tela
+// (sempre obrigatória) como rede de segurança pro que passar batido.
+const MODELO = 'gemini-3.5-flash-lite';
 
 export type TipoArquivo = 'IMAGEM' | 'PDF' | 'PLANILHA' | 'DESCONHECIDO';
 
@@ -161,6 +161,15 @@ interface LinhaBruta {
 
 export type LinhaExtraida = LinhaBruta & { imagem_origem_base64?: string };
 
+// Limite de tokens de "pensamento" (docs/specs/24, adendo custo 2026-09-09) — sem isso, o
+// Gemini 3.x pensa uma quantidade não previsível antes de responder, e esse raciocínio é
+// cobrado como token de saída (bem mais caro que a entrada). Medido em teste real: sem limite,
+// uma chamada trivial já gastava ~230 tokens de pensamento; com esse teto, caiu bastante sem
+// impedir a extração de funcionar. 0 (desligar completamente) não é aceito por este modelo
+// (erro 400 confirmado em teste) — 1024 é o meio-termo: teto pra não disparar em casos raros,
+// mas espaço suficiente pra várias linhas ambíguas numa página só.
+const LIMITE_THINKING_TOKENS = 1024;
+
 async function extrairComGemini(systemInstruction: string, parts: Part[]): Promise<LinhaBruta[]> {
   const response = await client.models.generateContent({
     model: MODELO,
@@ -169,6 +178,7 @@ async function extrairComGemini(systemInstruction: string, parts: Part[]): Promi
       systemInstruction,
       responseMimeType: 'application/json',
       responseSchema: schemaResposta,
+      thinkingConfig: { thinkingBudget: LIMITE_THINKING_TOKENS },
     },
   });
 

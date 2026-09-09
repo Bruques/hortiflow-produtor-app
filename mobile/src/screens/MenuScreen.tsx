@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, BarChart3, type LucideIcon } from 'lucide-react-native';
+import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, BarChart3, Sparkles, type LucideIcon } from 'lucide-react-native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafraAtiva } from '../context/SafraContext';
 import { useAuth } from '../context/AuthContext';
 import { listarSociosRequest } from '../services/sociedades';
+import { statusAssinaturaRequest } from '../services/assinatura';
 import { cores, espacamento, raio } from '../theme';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import type { SafraTabParamList } from '../navigation/SafraTabs';
@@ -26,6 +27,11 @@ interface ItemMenu {
   aoTocar?: () => void;
 }
 
+// Mesma checagem/mesma ressalva do web (frontend/src/pages/MenuPage.tsx): `/assinatura/status`
+// devolve o plano de quem está logado, não o do titular da sociedade — funciona certo pro
+// financiador (~98% de quem usa o Menu), imprecisão aceita pro caso raro do meeiro por ora.
+const PLANOS_COM_IMPORTACAO_IA = ['Plano 2', 'Plano 3'];
+
 // Grade de navegação (aba "Menu" da casca), equivalente a frontend/src/pages/MenuPage.tsx —
 // mesma checagem de papel pro card "Unidades de Venda" (FINANCIADOR/MISTO, mesma regra da
 // spec `06`) e mesmo botão de Sair (docs/specs/mobile/08-navegacao-resumo-e-menu.md). O card
@@ -34,6 +40,9 @@ export function MenuScreen({ navigation }: Props) {
   const { safraAtiva } = useSafraAtiva();
   const { usuario, sair } = useAuth();
   const [souFinanciador, setSouFinanciador] = useState(false);
+  // Default true (não bloqueado) até a checagem responder — evita mostrar o card já travado
+  // por um instante pra quem tem acesso, só por causa da latência dessa chamada extra.
+  const [podeImportarPorIA, setPodeImportarPorIA] = useState(true);
 
   useEffect(() => {
     if (!safraAtiva || !usuario) return;
@@ -42,6 +51,9 @@ export function MenuScreen({ navigation }: Props) {
         const eu = res.socios.find((s) => s.usuario_id === usuario.id);
         setSouFinanciador(eu?.papel === 'FINANCIADOR' || eu?.papel === 'MISTO');
       })
+      .catch(() => {});
+    statusAssinaturaRequest()
+      .then((status) => setPodeImportarPorIA(!!status.plano && PLANOS_COM_IMPORTACAO_IA.includes(status.plano.nome)))
       .catch(() => {});
   }, [safraAtiva, usuario]);
 
@@ -57,6 +69,17 @@ export function MenuScreen({ navigation }: Props) {
       bg: cores.blue.fundo,
       cor: cores.blue.padrao,
       aoTocar: () => navigation.navigate('DespesasPessoais', { safraId }),
+    },
+    {
+      chave: 'importacao',
+      titulo: 'Importar lançamentos',
+      subtitulo: podeImportarPorIA ? 'Foto, PDF ou planilha' : 'Recurso do Plano 2+',
+      Icone: Sparkles,
+      bg: podeImportarPorIA ? cores.blue.fundo : cores.cream[100],
+      cor: podeImportarPorIA ? cores.blue.padrao : cores.stone[400],
+      // `!item.aoTocar` já é o critério que a grade usa pra desenhar o card apagado/desabilitado
+      // (ver `cardDesabilitado` abaixo) — reaproveitado aqui em vez de criar um campo novo.
+      aoTocar: podeImportarPorIA ? () => navigation.navigate('ImportarLancamentos', { safraId, sociedadeId }) : undefined,
     },
     {
       chave: 'acertos',
