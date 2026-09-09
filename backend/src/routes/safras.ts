@@ -8,6 +8,7 @@ import * as simulacaoController from '../controllers/simulacao.controller';
 import * as acertosController from '../controllers/acertos.controller';
 import * as relatorioController from '../controllers/relatorio.controller';
 import * as relatorioCompletoController from '../controllers/relatorioCompleto.controller';
+import * as importacaoController from '../controllers/importacao.controller';
 import { authMiddleware } from '../middlewares/auth';
 import { criarGateAssinatura } from '../middlewares/assinaturaGate';
 
@@ -37,6 +38,7 @@ router.patch('/:id/despesas/:despesaId/pagar', despesasController.pagar);
 router.delete('/:id/despesas/:despesaId', despesasController.excluir);
 router.post('/:id/despesas-pessoais', despesasPessoaisController.criar);
 router.get('/:id/despesas-pessoais', despesasPessoaisController.listar);
+router.post('/:id/importacao/extrair', importacaoController.extrair);
 router.post('/:id/vendas', vendasController.criar);
 router.get('/:id/vendas', vendasController.listar);
 router.put('/:id/vendas/:vendaId', vendasController.atualizar);

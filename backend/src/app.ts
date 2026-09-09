@@ -51,8 +51,10 @@ app.use(cors({
   credentials: true,
 }));
 // Limite maior que o padrão (100kb) porque a foto de comprovante de despesa vai como base64 no
-// corpo da requisição (task 7 — sem upload pra storage externo nesta fase).
-app.use(express.json({ limit: '8mb' }));
+// corpo da requisição (task 7 — sem upload pra storage externo nesta fase). Subido de 8mb pra
+// 25mb na task 24 (importação por IA), que aceita até 10 arquivos de imagem/PDF numa única
+// requisição — mesma decisão de "sem storage externo", só que pra vários arquivos de uma vez.
+app.use(express.json({ limit: '25mb' }));
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

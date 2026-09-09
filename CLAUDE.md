@@ -144,9 +144,11 @@ Um dos maiores motivos de existir um app **nativo** (e não só continuar no app
 
 ## Jornadas principais
 
-**Sócio financiador**: cria a sociedade → convida sócio(s) por código → define percentual de lucro → abre a safra → lança despesas e vendas → configura regras de despesa recorrente → acompanha painel de simulação em tempo real (dia/semana/mês/safra) → registra um Acerto quando os sócios se acertam de fato. Em paralelo, mantém suas próprias despesas pessoais numa aba separada.
+**Uso real predominante (~98% dos casos, observado pelo dev): só o financiador usa o app.** Ele é quem gerencia a lavoura no dia a dia, lança despesas e vendas de todos os sócios (inclusive em nome do meeiro) e acompanha o painel — o meeiro ou outro sócio **pode** entrar com o código de convite se quiser acompanhar por conta própria, mas na prática raramente o faz. Por isso, nenhuma regra de negócio pode depender de um sócio não-financiador ter conta no app — "quem bancou" uma despesa, por exemplo, precisa poder ser qualquer sócio da sociedade (com ou sem conta vinculada), não só quem já logou pelo menos uma vez.
 
-**Meeiro**: entra via código → vê a mesma safra ativa com visão **não restrita** (todas as despesas e vendas de todos os sócios — transparência total é o ponto central do produto) → filtra o mesmo painel por período → acompanha histórico de Acertos. Também tem sua própria aba de despesas pessoais, privada.
+**Sócio financiador**: cria a sociedade → convida sócio(s) por código → define percentual de lucro → abre a safra → lança despesas e vendas (em nome de qualquer sócio, com ou sem conta) → configura regras de despesa recorrente → acompanha painel de simulação em tempo real (dia/semana/mês/safra) → registra um Acerto quando os sócios se acertam de fato. Em paralelo, mantém suas próprias despesas pessoais numa aba separada.
+
+**Meeiro ou outro sócio (jornada opcional, minoritária)**: entra via código → vê a mesma safra ativa com visão **não restrita** (todas as despesas e vendas de todos os sócios — transparência total é o ponto central do produto) → filtra o mesmo painel por período → acompanha histórico de Acertos. Também tem sua própria aba de despesas pessoais, privada. Nada no produto pode assumir que essa jornada vai acontecer.
 
 ---
 

@@ -46,7 +46,7 @@ export default function SafraLayout() {
   // Telas de formulário em tela cheia (convenção ".../nova", ".../novo" ou ".../editar") têm
   // botão "Voltar" e ação de salvar fixada embaixo — a bottom nav não cabe junto e concorreria
   // com o botão de salvar, então some nessas rotas.
-  const ehTelaDeFormulario = /\/(nov[ao]|editar)$/.test(location.pathname);
+  const ehTelaDeFormulario = /\/(nov[ao]|editar|importacao)$/.test(location.pathname);
 
   return (
     <SafraContext.Provider value={contexto}>

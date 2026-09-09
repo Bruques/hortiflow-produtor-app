@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, BarChart3, type LucideIcon } from 'lucide-react';
+import { PiggyBank, FileText, FileDown, Users, Repeat, Package, Lock, Sprout, LogOut, CreditCard, BarChart3, Sparkles, type LucideIcon } from 'lucide-react';
 import { Topbar } from '@/components/Topbar';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { meRequest, logoutRequest } from '@/services/auth';
@@ -43,6 +43,14 @@ export default function MenuPage() {
       titulo: 'Despesas pessoais',
       subtitulo: 'Seus gastos privados',
       Icone: PiggyBank,
+      bg: 'bg-hf-blue-bg',
+      cor: 'text-hf-blue',
+    },
+    {
+      href: `/safras/${safraId}/importacao`,
+      titulo: 'Importar lançamentos',
+      subtitulo: 'Foto, PDF ou planilha',
+      Icone: Sparkles,
       bg: 'bg-hf-blue-bg',
       cor: 'text-hf-blue',
     },

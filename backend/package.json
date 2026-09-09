@@ -12,6 +12,7 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "@prisma/client": "^5.15.0",
     "@sentry/node": "^10.71.0",
     "bcryptjs": "^2.4.3",
@@ -23,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "pdfkit": "^0.19.1",
     "svg-to-pdfkit": "^0.1.8",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
