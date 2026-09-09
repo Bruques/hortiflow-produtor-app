@@ -11,6 +11,9 @@ import {
   RotateCcw,
   CheckCircle2,
   X,
+  Plus,
+  Info,
+  PenLine,
 } from 'lucide-react';
 import { useSafraAtiva } from '@/lib/SafraContext';
 import { extrairImportacaoRequest } from '@/services/importacao';
@@ -51,6 +54,9 @@ interface LinhaEditavel {
   id: string;
   origemArquivoIndex: number;
   confianca: 'ALTA' | 'BAIXA';
+  // true = criada pelo botão "Adicionar lançamento" (sócio percebeu que a IA deixou passar
+  // algo), não veio de extração nenhuma — troca o selo de confiança por um selo próprio.
+  manual: boolean;
   tipo: TipoLancamentoSugerido;
   descartada: boolean;
   enviada: boolean;
@@ -85,6 +91,7 @@ function paraLinhaEditavel(linha: LinhaExtraida, meuId: string | null, socios: S
     id: `${linha.origem_arquivo_index}-${Math.random().toString(36).slice(2, 9)}`,
     origemArquivoIndex: linha.origem_arquivo_index,
     confianca: linha.confianca,
+    manual: false,
     tipo: linha.tipo_sugerido,
     descartada: false,
     enviada: false,
@@ -102,6 +109,37 @@ function paraLinhaEditavel(linha: LinhaExtraida, meuId: string | null, socios: S
     precoCentavos: linha.preco ? String(Math.round(linha.preco * 100)) : '',
     comprador: linha.comprador ?? '',
     unidadeId: unidadeCorrespondente?.id ?? '',
+    pago: false,
+  };
+}
+
+// Linha em branco criada pelo botão "Adicionar lançamento" — cobre o caso (esperado, não um bug
+// a perseguir) de a IA deixar passar algo que estava na foto/planilha; o sócio completa na mão
+// em vez de precisar sair do fluxo de importação pra lançar manualmente noutra tela.
+function novaLinhaManual(meuId: string | null, socios: Socio[], todosSocios: Socio[]): LinhaEditavel {
+  const socioPadrao = socios.find((s) => s.usuario_id === meuId) ?? socios[0];
+  return {
+    id: `manual-${Math.random().toString(36).slice(2, 9)}`,
+    origemArquivoIndex: -1,
+    confianca: 'ALTA',
+    manual: true,
+    tipo: 'DESPESA',
+    descartada: false,
+    enviada: false,
+    data: '',
+    tipoDespesa: 'OUTRO',
+    socioId: socioPadrao?.usuario_id ?? '',
+    valorCentavos: '',
+    descricao: '',
+    anexarComprovante: false,
+    imagemOrigem: undefined,
+    modoRateio: 'padrao',
+    rateioExclusivoId: todosSocios[0]?.id ?? '',
+    rateioPercentuais: {},
+    quantidadeTexto: '',
+    precoCentavos: '',
+    comprador: '',
+    unidadeId: '',
     pago: false,
   };
 }
@@ -234,6 +272,12 @@ export default function ImportarLancamentosPage() {
 
   function alternarDescarte(id: string) {
     setLinhas((atual) => atual.map((l) => (l.id === id ? { ...l, descartada: !l.descartada } : l)));
+  }
+
+  // Insere no topo da lista (não no fim) — é onde o botão fixo fica, então a linha nova aparece
+  // logo abaixo dele, sem o sócio precisar rolar até o final pra encontrar o que acabou de criar.
+  function adicionarLinhaManual() {
+    setLinhas((atual) => [novaLinhaManual(meuId, socios, todosSocios), ...atual]);
   }
 
   async function criarUnidadeParaLinha(linha: LinhaEditavel) {
@@ -380,6 +424,32 @@ export default function ImportarLancamentosPage() {
 
         {etapa === 'revisao' && (
           <>
+            {/* Fixa logo abaixo do cabeçalho — com muitas linhas extraídas, o botão de adicionar
+                precisa estar sempre à mão, sem depender de rolar até o topo ou o fim da lista. */}
+            <div className="sticky top-[52px] z-[5] -mx-[22px] flex items-center justify-between gap-2 bg-hf-cream-50 px-[22px] py-2.5">
+              <div className="min-w-0 rounded-2xl bg-hf-cream-100 px-3.5 py-2.5 text-[11.5px] font-bold leading-tight text-hf-stone-700">
+                {contagemProntas} pronta{contagemProntas === 1 ? '' : 's'} · {contagemRevisar} precisa
+                {contagemRevisar === 1 ? '' : 'm'} de revisão · {contagemDescartadas} descartada
+                {contagemDescartadas === 1 ? '' : 's'}
+              </div>
+              <button
+                type="button"
+                onClick={adicionarLinhaManual}
+                className="flex shrink-0 items-center gap-1 rounded-full bg-hf-green-800 px-3 py-2.5 text-[11.5px] font-bold text-white"
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.6} />
+                Adicionar
+              </button>
+            </div>
+
+            <div className="flex items-start gap-2.5 rounded-xl bg-hf-blue-bg px-3.5 py-3">
+              <Info className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-blue" strokeWidth={2} />
+              <p className="m-0 text-[11.5px] text-hf-blue">
+                A IA pode deixar algum lançamento de fora, principalmente em letra difícil de ler. Confira cada
+                linha contra o papel/arquivo original antes de confirmar — achou algo faltando? Use "Adicionar" acima.
+              </p>
+            </div>
+
             {arquivosSemLeitura.length > 0 && (
               <div className="flex items-start gap-2.5 rounded-xl bg-hf-amber-bg px-3.5 py-3">
                 <AlertTriangle className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-amber" strokeWidth={2} />
@@ -389,12 +459,6 @@ export default function ImportarLancamentosPage() {
                 </p>
               </div>
             )}
-
-            <div className="rounded-2xl bg-hf-cream-100 px-4 py-3 text-[12px] font-bold text-hf-stone-700">
-              {contagemProntas} pronta{contagemProntas === 1 ? '' : 's'} · {contagemRevisar} precisa
-              {contagemRevisar === 1 ? '' : 'm'} de revisão · {contagemDescartadas} descartada
-              {contagemDescartadas === 1 ? '' : 's'}
-            </div>
 
             {linhas.length === 0 && (
               <p className="text-center text-sm text-hf-stone-600">Nenhum lançamento identificado nos arquivos enviados.</p>
@@ -412,14 +476,21 @@ export default function ImportarLancamentosPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-bold',
-                          linha.confianca === 'ALTA' ? 'bg-hf-green-100 text-hf-green-800' : 'bg-hf-amber-bg text-hf-amber'
-                        )}
-                      >
-                        Confiança {linha.confianca === 'ALTA' ? 'alta' : 'baixa'}
-                      </span>
+                      {linha.manual ? (
+                        <span className="flex items-center gap-1 rounded-full bg-hf-blue-bg px-2 py-0.5 text-[10px] font-bold text-hf-blue">
+                          <PenLine className="h-2.5 w-2.5" strokeWidth={2.6} />
+                          Adicionado por você
+                        </span>
+                      ) : (
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                            linha.confianca === 'ALTA' ? 'bg-hf-green-100 text-hf-green-800' : 'bg-hf-amber-bg text-hf-amber'
+                          )}
+                        >
+                          Confiança {linha.confianca === 'ALTA' ? 'alta' : 'baixa'}
+                        </span>
+                      )}
                       {linha.enviada && (
                         <span className="flex items-center gap-1 rounded-full bg-hf-green-100 px-2 py-0.5 text-[10px] font-bold text-hf-green-800">
                           <CheckCircle2 className="h-2.5 w-2.5" strokeWidth={2.6} />

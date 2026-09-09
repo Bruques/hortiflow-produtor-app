@@ -4,6 +4,15 @@
 
 Quem está começando a usar o HortiFlow Produtor hoje já tem despesas e vendas da safra anotadas em outro lugar — caderno de papel, print de planilha no celular, ou um arquivo Excel — e não vai digitar tudo de novo, uma linha por vez, nas telas de Despesa e Venda. Esta task cria um fluxo onde o sócio envia foto(s), um PDF ou um arquivo de planilha com esses lançamentos, um agente de IA (API da Claude) interpreta o conteúdo e sugere uma lista de despesas/vendas estruturadas, e o sócio **revisa e confirma linha por linha** antes de qualquer coisa ser gravada de fato — porque leitura de letra manuscrita nunca é 100% confiável, e dado incorreto de despesa/venda alimenta diretamente o cálculo de divisão de lucro entre os sócios (ver "Regra crítica de arquitetura" no CLAUDE.md).
 
+## Adendo 2026-09-09 — lançamento perdido pela IA e adição manual na revisão
+
+Teste real (dev, 2026-09-09) com foto de 8 lançamentos: a IA extraiu 7, deixando 1 de fora — comportamento esperado (nunca 100% garantido em letra manuscrita), mas a tela de revisão não dava nenhum jeito de completar o que faltou sem sair do fluxo de importação. Dois ajustes:
+
+- **Aviso fixo na revisão**: banner explicando que a IA pode deixar lançamento de fora e que vale conferir contra o papel/arquivo original antes de confirmar — evita que o sócio confie cegamente no resultado
+- **Botão "Adicionar" fixo** (sticky, logo abaixo do cabeçalho, ao lado do contador de linhas prontas/revisão/descartadas) que insere uma linha em branco no topo da lista, editável do mesmo jeito que as linhas extraídas — corrige lançamento que a IA não pegou sem precisar sair da tela. Fixo (não lá embaixo, na lista) porque com muitos lançamentos extraídos o scroll fica longo
+- Linha adicionada manualmente ganha um selo "Adicionado por você" no lugar do selo de confiança (não fazia sentido mostrar confiança de algo que não veio de extração nenhuma)
+- Decisão do dev: não vale a pena tentar melhorar a precisão da extração em si (ex: rodar duas vezes e comparar) — dobraria o custo por importação pra um ganho incerto, e vai contra a premissa da spec original: a revisão humana é a rede de segurança, não a perfeição do OCR
+
 ## Adendo 2026-09-08 — rateio na tela de revisão e data herdada de cabeçalho de página
 
 Dois ajustes feitos após teste real com foto de caderno (dev, 2026-09-08):
