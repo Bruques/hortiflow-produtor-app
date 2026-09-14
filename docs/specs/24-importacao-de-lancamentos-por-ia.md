@@ -1,5 +1,41 @@
 # Task 24 — Importação de despesas e vendas por foto, PDF ou planilha (via IA)
 
+## Adendo 2026-09-13 — bug real: IA inferia ano errado quando o cabeçalho não tinha ano
+
+Relatado pelo dev em teste real: foto de caderno com "01 SETEMBRO" e "02 SET" (sem ano em nenhum dos dois),
+igual ao padrão previsto no adendo 2026-09-08 ("data no cabeçalho da página"). Resultado: as vendas saíram
+com o ano certo, mas as despesas da MESMA foto saíram com `2024` — e tudo com `confianca: 'ALTA'`, então os
+cards apareceram **verdes**, prontos pra importar sem nenhum aviso de revisão. Causa raiz identificada em
+`importacao.service.ts`: o prompt instruía "assuma o ano atual" mas nunca informava à IA qual é o ano
+atual — o modelo não tem relógio próprio, então chutava um ano, e chutava de forma inconsistente entre
+despesa e venda dentro da mesma chamada.
+
+**Correção**: `construirInstrucaoBase()` (antes uma `const` fixa, agora uma função chamada a cada
+requisição) embute a data real do servidor por extenso ("Hoje é 13 de setembro de 2026...") no prompt, e a
+instrução de inferência de ano do cabeçalho passou a apontar explicitamente pra essa data informada, em vez
+de pedir pra IA "assumir o ano atual" sem contexto nenhum.
+
+**Limitação que continua existindo, por decisão já tomada no adendo 2026-09-08** (não é escopo desta
+correção mudar isso): quando o cabeçalho não tem ano, a IA aplica o ano atual e marca `confianca: 'ALTA'`
+— ou seja, um lançamento antigo registrado tardiamente (ex: produtor fotografando em 2026 uma página de
+caderno de 2025) ainda pode sair com o ano errado, sem cair em revisão obrigatória. Foi uma escolha
+deliberada (a alternativa — sempre exigir revisão manual de todo lançamento sem ano explícito no cabeçalho
+— tornaria a maioria dos casos comuns mais lenta). Revisitar se isso se mostrar um problema recorrente em
+uso real.
+
+## Adendo 2026-09-10 — revisão web reorganizada por status (agrupada + revisão focada)
+
+Uso real em staging mostrou um problema de UX na tela de revisão, relatado pelo dev: com muitos lançamentos extraídos (ex: 20 numa única foto de caderno), a lista ficava longa e uniforme — nada distinguia visualmente um card "pronto para importar" de um "precisa de revisão", o sócio tinha que ler cada card por inteiro pra descobrir qual campo faltava, e o botão "Importar" no rodapé (desabilitado até tudo válido) só se descobria rolando a tela toda. Estudo de UX comparou 3 caminhos (lista agrupada, revisão sequencial tipo card único, e um híbrido dos dois) — decisão do dev: **híbrido**. Mudanças na tela de revisão (`ImportarLancamentosPage.tsx`):
+
+- **Cor forte por status, não mais pastel**: card com fundo `hf-red-bg`/borda `hf-red` quando falta preencher algo obrigatório; fundo `hf-green-100`/borda `hf-green-600` quando já está válido (enviado ou não) — antes a diferença era `#fffaf1` (quase branco) contra branco, ilegível ao sol
+- **Diagnóstico explícito por card**: um selo "Falta: X, Y" lista os campos obrigatórios vazios daquele lançamento (data, quem bancou, valor, rateio, quantidade, preço ou unidade, conforme o tipo) — antes só a cor da borda indicava "algo está errado", sem dizer o quê
+- **Lista agrupada por status, não mais na ordem bruta da extração**: seção "Precisam de revisão (N)" primeiro, depois "Prontas para importar (N)", depois "Descartadas (N)" (colapsada, ao final) — o sócio vê de cara quantas pendências existem e onde estão, sem misturar com o que já está ok
+- **Cards colapsados por padrão**: cada card mostra só um resumo de uma linha (tipo/categoria, valor ou quantidade, selo de confiança/falta) e expande ao ser tocado, mostrando o formulário completo de edição (mesmos campos de antes — nada mudou nas regras de validação, rateio, unidade nem confirmação). Uma linha criada pelo botão "Adicionar" já nasce expandida, pra edição imediata
+- **Atalho "Revisar pendentes agora (N)"**: botão de destaque na barra fixa do topo (visível só quando há pendências) que abre uma revisão focada em tela cheia — um card pendente por vez, com barra de progresso ("N de M"), botões "Descartar" e "Confirmar e avançar" (avança automaticamente pro próximo; fecha sozinho ao terminar o último). É um atalho opcional por cima da mesma lista — tocar direto num card específico da lista continua abrindo a revisão dele normalmente, sem passar pelo atalho
+- **Sem mudança de regra de negócio**: nenhum critério de validação, rateio, confiança, ou contrato de API muda — é só reorganização visual e de navegação da mesma tela de revisão já existente
+
+**Escopo desta rodada**: só o app web (`frontend/src/pages/ImportarLancamentosPage.tsx`). O equivalente mobile (`docs/specs/mobile/12-importacao-por-ia.md`, `ImportarLancamentosScreen.tsx`) fica pendente — a spec mobile será reescrita depois que o dev validar esse comportamento em uso real no web.
+
 ## Objetivo
 
 Quem está começando a usar o HortiFlow Produtor hoje já tem despesas e vendas da safra anotadas em outro lugar — caderno de papel, print de planilha no celular, ou um arquivo Excel — e não vai digitar tudo de novo, uma linha por vez, nas telas de Despesa e Venda. Esta task cria um fluxo onde o sócio envia foto(s), um PDF ou um arquivo de planilha com esses lançamentos, um agente de IA (API da Claude) interpreta o conteúdo e sugere uma lista de despesas/vendas estruturadas, e o sócio **revisa e confirma linha por linha** antes de qualquer coisa ser gravada de fato — porque leitura de letra manuscrita nunca é 100% confiável, e dado incorreto de despesa/venda alimenta diretamente o cálculo de divisão de lucro entre os sócios (ver "Regra crítica de arquitetura" no CLAUDE.md).

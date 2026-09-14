@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -18,6 +18,10 @@ import {
   Plus,
   Info,
   PenLine,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ListChecks,
 } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -169,6 +173,42 @@ function linhaValida(l: LinhaEditavel, socios: Socio[]): boolean {
   return !!l.data && Number(l.quantidadeTexto) > 0 && Number(l.precoCentavos) > 0 && !!l.unidadeId;
 }
 
+// Traduz exatamente quais campos obrigatórios ainda estão vazios — o card de revisão mostra essa
+// lista em vez de só uma cor, pra o sócio não ter que reler o formulário inteiro adivinhando o
+// que falta (docs/specs/mobile/12, adendo de UX portado do web).
+function camposFaltando(l: LinhaEditavel, socios: Socio[]): string[] {
+  const faltando: string[] = [];
+  if (!l.data) faltando.push('data');
+  if (l.tipo === 'DESPESA') {
+    if (!l.socioId) faltando.push('quem bancou');
+    if (!(Number(l.valorCentavos) > 0)) faltando.push('valor');
+    if (!rateioValido(l, socios)) faltando.push('rateio (some 100%)');
+  } else {
+    if (!(Number(l.quantidadeTexto) > 0)) faltando.push('quantidade');
+    if (!(Number(l.precoCentavos) > 0)) faltando.push('preço');
+    if (!l.unidadeId) faltando.push('unidade');
+  }
+  return faltando;
+}
+
+// Resumo de uma linha (usado no card colapsado) — o formulário completo só aparece quando o
+// sócio toca pra expandir.
+function resumoLinha(l: LinhaEditavel, unidades: UnidadeVenda[]): { titulo: string; valor: string } {
+  if (l.tipo === 'DESPESA') {
+    const categoria = ROTULO_TIPO_DESPESA[l.tipoDespesa] ?? 'Despesa';
+    return {
+      titulo: `${categoria}${l.descricao ? ' — ' + l.descricao : ''}`,
+      valor: Number(l.valorCentavos) > 0 ? formatarMoeda(Number(l.valorCentavos) / 100) : '—',
+    };
+  }
+  const unidadeNome = unidades.find((u) => u.id === l.unidadeId)?.nome ?? 'un.';
+  const total =
+    Number(l.quantidadeTexto) > 0 && Number(l.precoCentavos) > 0
+      ? formatarMoeda((Number(l.quantidadeTexto) * Number(l.precoCentavos)) / 100)
+      : '—';
+  return { titulo: `Venda — ${l.quantidadeTexto || '?'} ${unidadeNome}`, valor: total };
+}
+
 function rateioParaEnviar(l: LinhaEditavel, socios: Socio[]): { socio_id: string; percentual: number }[] | undefined {
   if (l.modoRateio === 'padrao') return undefined;
   if (l.modoRateio === 'exclusivo') return l.rateioExclusivoId ? [{ socio_id: l.rateioExclusivoId, percentual: 100 }] : undefined;
@@ -180,11 +220,13 @@ function rateioParaEnviar(l: LinhaEditavel, socios: Socio[]): { socio_id: string
 type Etapa = 'upload' | 'revisao' | 'resumo';
 
 // Tela de importação por IA (docs/specs/mobile/12-importacao-por-ia.md), equivalente à
-// frontend/src/pages/ImportarLancamentosPage.tsx do web. A extração exige internet (chamada à
-// API do Gemini) — sem conexão, o botão "Analisar" fica desabilitado com aviso explícito, em
-// vez de tentar enfileirar algo que não existe ainda. Depois de extraído, a confirmação de cada
-// linha reaproveita `criarDespesa`/`criarVenda` da fila offline já existente — nunca falha por
-// falta de rede, então (diferente do web) não precisa de lógica própria de retry parcial.
+// frontend/src/pages/ImportarLancamentosPage.tsx do web — inclusive a reorganização da revisão
+// por status (agrupada + revisão focada) e o congelamento de seção por edição, portados do web
+// depois de validados lá. A extração exige internet (chamada à API do Gemini) — sem conexão, o
+// botão "Analisar" fica desabilitado com aviso explícito, em vez de tentar enfileirar algo que
+// não existe ainda. Depois de extraído, a confirmação de cada linha reaproveita
+// `criarDespesa`/`criarVenda` da fila offline já existente — nunca falha por falta de rede, então
+// (diferente do web) não precisa de lógica própria de retry parcial.
 export function ImportarLancamentosScreen({ navigation, route }: Props) {
   const { safraId, sociedadeId } = route.params;
   const { usuario } = useAuth();
@@ -205,6 +247,48 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
 
   const [nomeNovaUnidade, setNomeNovaUnidade] = useState<Record<string, string>>({});
   const [criandoUnidade, setCriandoUnidade] = useState<string | null>(null);
+
+  // Cards nascem colapsados (só resumo de uma linha) — expandem ao toque pra mostrar o
+  // formulário completo. Reduz o quanto o sócio precisa rolar quando há muitos lançamentos.
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
+  // Enquanto o sócio está digitando em algum campo do card, a SEÇÃO em que ele aparece fica
+  // congelada no estado de quando começou a editar — sem isso, terminar de digitar um valor faz
+  // o card virar válido no meio da digitação e pular pra outra seção da lista, debaixo do dedo
+  // do sócio. Ao sair do campo (perder o foco), o congelamento é liberado com uma pequena folga
+  // (RN não tem "relatedTarget" como o DOM web, então usamos um timeout curto pra absorver o
+  // caso comum de trocar de campo dentro do mesmo card sem descongelar à toa). A cor do card usa
+  // a validade ao vivo o tempo todo — só a posição na lista espera esse momento.
+  const [emEdicao, setEmEdicao] = useState<Set<string>>(new Set());
+  const estadoCongeladoRef = useRef<Record<string, 'ok' | 'revisar'>>({});
+  const blurTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Revisão focada: atalho que abre um pendente por vez em tela cheia, com progresso e avanço
+  // automático — por cima da mesma lista, nunca a única forma de revisar.
+  const [revisaoFocada, setRevisaoFocada] = useState<{ ids: string[]; indice: number } | null>(null);
+
+  function marcarEmEdicao(id: string, entrando: boolean) {
+    if (entrando) {
+      if (blurTimersRef.current[id]) {
+        clearTimeout(blurTimersRef.current[id]);
+        delete blurTimersRef.current[id];
+      }
+      setEmEdicao((atual) => (atual.has(id) ? atual : new Set(atual).add(id)));
+      if (estadoCongeladoRef.current[id] === undefined) {
+        const linha = linhas.find((l) => l.id === id);
+        if (linha) estadoCongeladoRef.current[id] = linhaValida(linha, socios) ? 'ok' : 'revisar';
+      }
+      return;
+    }
+    blurTimersRef.current[id] = setTimeout(() => {
+      delete blurTimersRef.current[id];
+      setEmEdicao((atual) => {
+        if (!atual.has(id)) return atual;
+        const novo = new Set(atual);
+        novo.delete(id);
+        return novo;
+      });
+      delete estadoCongeladoRef.current[id];
+    }, 200);
+  }
 
   useEffect(() => {
     (async () => {
@@ -324,8 +408,31 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
     setLinhas((atual) => atual.map((l) => (l.id === id ? { ...l, descartada: !l.descartada } : l)));
   }
 
+  // Só abre/fecha o formulário — o congelamento de seção depende de foco (`marcarEmEdicao`), não
+  // de expandir/colapsar.
+  function alternarExpandida(id: string) {
+    setExpandidas((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+  }
+
   function adicionarLinhaManual() {
-    setLinhas((atual) => [novaLinhaManual(usuario?.id ?? null, sociosComConta, socios), ...atual]);
+    const linha = novaLinhaManual(usuario?.id ?? null, sociosComConta, socios);
+    setLinhas((atual) => [linha, ...atual]);
+    setExpandidas((atual) => new Set(atual).add(linha.id));
+  }
+
+  // Seção em que a linha aparece na lista agrupada — congelada enquanto o sócio está com o foco
+  // em algum campo do card. A cor/selo do card (em `renderCard`) usa a validade real, ao vivo,
+  // então o card pode ficar verde por dentro antes de migrar fisicamente de seção.
+  function secaoDaLinha(l: LinhaEditavel): 'ok' | 'revisar' {
+    if (l.enviada) return 'ok';
+    const congelado = emEdicao.has(l.id) ? estadoCongeladoRef.current[l.id] : undefined;
+    if (congelado) return congelado;
+    return linhaValida(l, socios) ? 'ok' : 'revisar';
   }
 
   async function criarUnidadeParaLinha(linha: LinhaEditavel) {
@@ -345,9 +452,32 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
   }
 
   const linhasAtivas = linhas.filter((l) => !l.descartada);
-  const contagemProntas = linhasAtivas.filter((l) => !l.enviada && linhaValida(l, socios)).length;
-  const contagemRevisar = linhasAtivas.filter((l) => !l.enviada && !linhaValida(l, socios)).length;
-  const contagemDescartadas = linhas.length - linhasAtivas.length;
+  const linhasPendentes = linhasAtivas.filter((l) => secaoDaLinha(l) === 'revisar');
+  const linhasProntas = linhasAtivas.filter((l) => secaoDaLinha(l) === 'ok');
+  const linhasDescartadas = linhas.filter((l) => l.descartada);
+  const contagemProntas = linhasProntas.filter((l) => !l.enviada).length;
+  const contagemRevisar = linhasPendentes.length;
+  // Contagem real (sem o congelamento de seção) — usada no atalho de revisão focada, já que ele
+  // monta a fila com base na validade de verdade, não na posição congelada na lista passiva.
+  const contagemRevisarReal = linhasAtivas.filter((l) => !l.enviada && !linhaValida(l, socios)).length;
+
+  function iniciarRevisaoFocada() {
+    const ids = linhasAtivas.filter((l) => !l.enviada && !linhaValida(l, socios)).map((l) => l.id);
+    if (ids.length === 0) return;
+    setRevisaoFocada({ ids, indice: 0 });
+  }
+
+  function avancarRevisaoFocada() {
+    setRevisaoFocada((atual) => {
+      if (!atual) return atual;
+      if (atual.indice + 1 < atual.ids.length) return { ...atual, indice: atual.indice + 1 };
+      return null;
+    });
+  }
+
+  function voltarRevisaoFocada() {
+    setRevisaoFocada((atual) => (atual && atual.indice > 0 ? { ...atual, indice: atual.indice - 1 } : atual));
+  }
 
   async function confirmarImportacao() {
     setErro(null);
@@ -400,6 +530,451 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
   const totalEnviadasDespesa = linhas.filter((l) => l.enviada && l.tipo === 'DESPESA').length;
   const totalEnviadasVenda = linhas.filter((l) => l.enviada && l.tipo === 'VENDA').length;
 
+  // Corpo completo e editável de uma linha — reaproveitado no card expandido da lista normal e
+  // na revisão focada em tela cheia. Cada TextInput chama `marcarEmEdicao` no foco/blur pra
+  // alimentar o congelamento de seção (RN não borbulha foco por View como o DOM web).
+  function corpoLinha(linha: LinhaEditavel) {
+    const onFocusCampo = () => marcarEmEdicao(linha.id, true);
+    const onBlurCampo = () => marcarEmEdicao(linha.id, false);
+
+    return (
+      <>
+        <View style={{ flexDirection: 'row', gap: espacamento.sm }}>
+          {(['DESPESA', 'VENDA'] as const).map((t) => {
+            const ativo = linha.tipo === t;
+            return (
+              <Pressable
+                key={t}
+                style={[styles.tipoBotao, ativo && styles.tipoBotaoAtivo]}
+                onPress={() => atualizarLinha(linha.id, { tipo: t })}
+                disabled={linha.enviada}
+              >
+                <Text style={[styles.tipoBotaoTexto, ativo && styles.tipoBotaoTextoAtivo]}>
+                  {t === 'DESPESA' ? 'Despesa' : 'Venda'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View>
+          <Text style={styles.label}>Data</Text>
+          <DateSelectorChip
+            value={linha.data || hojeISO()}
+            onChange={(v) => atualizarLinha(linha.id, { data: v })}
+          />
+          {!linha.data && <Text style={styles.campoErro}>Preencha a data</Text>}
+        </View>
+
+        {linha.tipo === 'DESPESA' ? (
+          <>
+            <View>
+              <Text style={styles.label}>Categoria</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.linhaChips}>
+                  {TIPOS_DESPESA.map((t) => {
+                    const ativo = linha.tipoDespesa === t;
+                    return (
+                      <Pressable
+                        key={t}
+                        style={[styles.chip, ativo && styles.chipAtivo]}
+                        onPress={() => atualizarLinha(linha.id, { tipoDespesa: t })}
+                        disabled={linha.enviada}
+                      >
+                        <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>
+                          {ROTULO_TIPO_DESPESA[t]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+
+            <View>
+              <Text style={styles.label}>Quem bancou?</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.linhaChips}>
+                  {sociosComConta.map((s) => {
+                    const ativo = s.usuario_id === linha.socioId;
+                    return (
+                      <Pressable
+                        key={s.id}
+                        style={[styles.chip, ativo && styles.chipAtivo]}
+                        onPress={() => atualizarLinha(linha.id, { socioId: s.usuario_id! })}
+                        disabled={linha.enviada}
+                      >
+                        <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{s.nome}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+
+            <View>
+              <Text style={styles.label}>Quem paga essa despesa?</Text>
+              <View style={{ flexDirection: 'row', gap: espacamento.xs + 2 }}>
+                {(
+                  [
+                    { modo: 'padrao' as const, titulo: 'Como o lucro' },
+                    { modo: 'exclusivo' as const, titulo: 'Só um sócio' },
+                    { modo: 'personalizado' as const, titulo: 'Personalizado' },
+                  ]
+                ).map(({ modo, titulo }) => {
+                  const ativo = linha.modoRateio === modo;
+                  return (
+                    <Pressable
+                      key={modo}
+                      style={[styles.rateioBotao, ativo && styles.rateioBotaoAtivo]}
+                      disabled={linha.enviada}
+                      onPress={() =>
+                        atualizarLinha(linha.id, {
+                          modoRateio: modo,
+                          rateioPercentuais:
+                            modo === 'personalizado' && Object.keys(linha.rateioPercentuais).length === 0
+                              ? Object.fromEntries(
+                                  socios.map((s, i) => [s.id, String(splitPercentuaisMultiplosDe5(socios.length)[i])])
+                                )
+                              : linha.rateioPercentuais,
+                        })
+                      }
+                    >
+                      <Text style={[styles.rateioBotaoTexto, ativo && styles.rateioBotaoTextoAtivo]}>{titulo}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {linha.modoRateio === 'exclusivo' && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: espacamento.sm }}>
+                  <View style={styles.linhaChips}>
+                    {socios.map((s) => {
+                      const ativo = s.id === linha.rateioExclusivoId;
+                      return (
+                        <Pressable
+                          key={s.id}
+                          style={[styles.chip, ativo && styles.chipAtivo]}
+                          onPress={() => atualizarLinha(linha.id, { rateioExclusivoId: s.id })}
+                          disabled={linha.enviada}
+                        >
+                          <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{s.nome}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              )}
+
+              {linha.modoRateio === 'personalizado' && (
+                <View style={styles.blocoRateio}>
+                  {socios.map((s) => {
+                    const valor = Number(linha.rateioPercentuais[s.id]?.replace(',', '.')) || 0;
+                    return (
+                      <View key={s.id} style={styles.linhaPercentual}>
+                        <Text style={styles.linhaPercentualNome} numberOfLines={1}>
+                          {s.nome}
+                        </Text>
+                        <TextInput
+                          style={styles.inputPercentual}
+                          value={String(valor)}
+                          keyboardType="numeric"
+                          editable={!linha.enviada}
+                          onFocus={onFocusCampo}
+                          onBlur={onBlurCampo}
+                          onChangeText={(texto) =>
+                            atualizarLinha(linha.id, {
+                              rateioPercentuais: {
+                                ...linha.rateioPercentuais,
+                                [s.id]: texto.replace(/\D/g, '').slice(0, 3),
+                              },
+                            })
+                          }
+                        />
+                        <Text style={styles.percentualSinal}>%</Text>
+                      </View>
+                    );
+                  })}
+                  {!rateioValido(linha, socios) && (
+                    <Text style={styles.campoErro}>A soma precisa fechar em 100%</Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            <View style={{ alignItems: 'center' }}>
+              <Text style={[styles.label, { textAlign: 'center' }]}>Valor</Text>
+              <View style={styles.valorLinha}>
+                <Text style={styles.valorPrefixo}>R$</Text>
+                <TextInput
+                  style={styles.valorInput}
+                  value={formatarValorMascara(linha.valorCentavos)}
+                  onFocus={onFocusCampo}
+                  onBlur={onBlurCampo}
+                  onChangeText={(texto) =>
+                    atualizarLinha(linha.id, { valorCentavos: texto.replace(/\D/g, '').slice(0, 9) })
+                  }
+                  placeholder="0,00"
+                  placeholderTextColor={cores.stone[400]}
+                  keyboardType="numeric"
+                  editable={!linha.enviada}
+                />
+              </View>
+            </View>
+
+            <TextInput
+              style={styles.input}
+              value={linha.descricao}
+              onChangeText={(texto) => atualizarLinha(linha.id, { descricao: texto })}
+              onFocus={onFocusCampo}
+              onBlur={onBlurCampo}
+              placeholder="Descrição (opcional)"
+              placeholderTextColor={cores.stone[400]}
+              editable={!linha.enviada}
+            />
+
+            {linha.imagemOrigem && (
+              <View style={styles.linhaToggle}>
+                <Text style={styles.toggleTitulo}>Anexar imagem como comprovante</Text>
+                <Switch
+                  value={linha.anexarComprovante}
+                  onValueChange={(v) => atualizarLinha(linha.id, { anexarComprovante: v })}
+                  trackColor={{ false: cores.cream[100], true: cores.green[800] }}
+                  thumbColor="#FFFFFF"
+                  disabled={linha.enviada}
+                />
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <View style={{ flexDirection: 'row', gap: espacamento.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Quantidade</Text>
+                <TextInput
+                  style={styles.input}
+                  value={linha.quantidadeTexto}
+                  onFocus={onFocusCampo}
+                  onBlur={onBlurCampo}
+                  onChangeText={(texto) =>
+                    atualizarLinha(linha.id, { quantidadeTexto: texto.replace(/\D/g, '').slice(0, 4) })
+                  }
+                  keyboardType="numeric"
+                  editable={!linha.enviada}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Preço unitário</Text>
+                <View style={styles.valorLinhaPequena}>
+                  <Text style={styles.valorPrefixoPequeno}>R$</Text>
+                  <TextInput
+                    style={styles.valorInputPequeno}
+                    value={formatarValorMascara(linha.precoCentavos)}
+                    onFocus={onFocusCampo}
+                    onBlur={onBlurCampo}
+                    onChangeText={(texto) =>
+                      atualizarLinha(linha.id, { precoCentavos: texto.replace(/\D/g, '').slice(0, 9) })
+                    }
+                    placeholder="0,00"
+                    placeholderTextColor={cores.stone[400]}
+                    keyboardType="numeric"
+                    editable={!linha.enviada}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {Number(linha.quantidadeTexto) > 0 && Number(linha.precoCentavos) > 0 && (
+              <Text style={styles.totalLinha}>
+                Total:{' '}
+                <Text style={{ fontWeight: '800' }}>
+                  {formatarMoeda((Number(linha.quantidadeTexto) * Number(linha.precoCentavos)) / 100)}
+                </Text>
+              </Text>
+            )}
+
+            <View>
+              <Text style={styles.label}>Unidade</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.linhaChips}>
+                  {unidades.map((u) => {
+                    const ativo = u.id === linha.unidadeId;
+                    return (
+                      <Pressable
+                        key={u.id}
+                        style={[styles.chip, ativo && styles.chipAtivo]}
+                        onPress={() => atualizarLinha(linha.id, { unidadeId: u.id })}
+                        disabled={linha.enviada}
+                      >
+                        <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{u.nome}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              {!linha.unidadeId && !linha.enviada && (
+                <View style={{ flexDirection: 'row', gap: espacamento.sm, marginTop: espacamento.sm }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    value={nomeNovaUnidade[linha.id] ?? ''}
+                    onFocus={onFocusCampo}
+                    onBlur={onBlurCampo}
+                    onChangeText={(texto) => setNomeNovaUnidade((atual) => ({ ...atual, [linha.id]: texto }))}
+                    placeholder="ou crie uma nova, ex: Caixa"
+                    placeholderTextColor={cores.stone[400]}
+                  />
+                  <Pressable
+                    style={styles.botaoCriarUnidade}
+                    disabled={!nomeNovaUnidade[linha.id]?.trim() || criandoUnidade === linha.id}
+                    onPress={() => criarUnidadeParaLinha(linha)}
+                  >
+                    {criandoUnidade === linha.id ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.botaoCriarUnidadeTexto}>Criar</Text>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+            </View>
+
+            <TextInput
+              style={styles.input}
+              value={linha.comprador}
+              onFocus={onFocusCampo}
+              onBlur={onBlurCampo}
+              onChangeText={(texto) => atualizarLinha(linha.id, { comprador: texto })}
+              placeholder="Comprador (opcional)"
+              placeholderTextColor={cores.stone[400]}
+              editable={!linha.enviada}
+            />
+
+            <View style={styles.linhaToggle}>
+              <Text style={styles.toggleTitulo}>Já foi pago</Text>
+              <Switch
+                value={linha.pago}
+                onValueChange={(v) => atualizarLinha(linha.id, { pago: v })}
+                trackColor={{ false: cores.cream[100], true: cores.green[800] }}
+                thumbColor="#FFFFFF"
+                disabled={linha.enviada}
+              />
+            </View>
+          </>
+        )}
+      </>
+    );
+  }
+
+  // Card da lista normal — colapsado por padrão (resumo de uma linha + selo), expande ao toque
+  // pra mostrar o corpo completo. `secao` é só a seção onde está posicionado (congelada durante
+  // a edição); a cor/selo usam a validade real, ao vivo — o card pode virar verde por dentro
+  // assim que os campos ficam completos, antes de migrar fisicamente de seção.
+  function renderCard(linha: LinhaEditavel, secao: 'revisar' | 'ok' | 'descartada') {
+    const estado: 'revisar' | 'ok' | 'descartada' =
+      secao === 'descartada' ? 'descartada' : linha.enviada || linhaValida(linha, socios) ? 'ok' : 'revisar';
+    const faltando = estado === 'revisar' ? camposFaltando(linha, socios) : [];
+    const resumo = resumoLinha(linha, unidades);
+    const expandida = expandidas.has(linha.id);
+
+    return (
+      <View
+        key={linha.id}
+        style={[
+          styles.card,
+          estado === 'descartada' && styles.cardDescartado,
+          estado === 'revisar' && styles.cardRevisar,
+          estado === 'ok' && styles.cardOk,
+        ]}
+      >
+        <Pressable
+          onPress={() => estado !== 'descartada' && alternarExpandida(linha.id)}
+          disabled={estado === 'descartada'}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: espacamento.sm }}
+        >
+          <View style={{ flex: 1, gap: espacamento.xs + 2 }}>
+            <View style={styles.cardTopo}>
+              {linha.manual ? (
+                <View style={[styles.selo, { backgroundColor: cores.blue.fundo }]}>
+                  <PenLine size={11} color={cores.blue.padrao} strokeWidth={2.6} />
+                  <Text style={[styles.seloTexto, { color: cores.blue.padrao }]}>Adicionado por você</Text>
+                </View>
+              ) : (
+                <View style={[styles.selo, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+                  <Text
+                    style={[
+                      styles.seloTexto,
+                      { color: linha.confianca === 'ALTA' ? cores.green[800] : cores.amber.padrao },
+                    ]}
+                  >
+                    Confiança {linha.confianca === 'ALTA' ? 'alta' : 'baixa'}
+                  </Text>
+                </View>
+              )}
+              {linha.enviada && (
+                <View style={[styles.selo, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+                  <CheckCircle2 size={11} color={cores.green[800]} strokeWidth={2.6} />
+                  <Text style={[styles.seloTexto, { color: cores.green[800] }]}>Importado</Text>
+                </View>
+              )}
+              {faltando.length > 0 && (
+                <View style={[styles.selo, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+                  <Text style={[styles.seloTexto, { color: cores.red.padrao }]}>Falta: {faltando.join(', ')}</Text>
+                </View>
+              )}
+            </View>
+            {!expandida && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: espacamento.sm }}>
+                <Text style={styles.resumoTitulo} numberOfLines={1}>
+                  {resumo.titulo}
+                </Text>
+                <Text style={styles.resumoValor}>{resumo.valor}</Text>
+              </View>
+            )}
+          </View>
+          {estado !== 'descartada' &&
+            (expandida ? (
+              <ChevronUp size={16} color={cores.stone[400]} strokeWidth={2.4} />
+            ) : (
+              <ChevronDown size={16} color={cores.stone[400]} strokeWidth={2.4} />
+            ))}
+        </Pressable>
+
+        {!linha.enviada && estado !== 'descartada' && (
+          <Pressable style={styles.botaoDescartar} onPress={() => alternarDescarte(linha.id)} hitSlop={6}>
+            <Trash2 size={13} color={cores.stone[600]} strokeWidth={2.4} />
+            <Text style={styles.botaoDescartarTexto}>Descartar</Text>
+          </Pressable>
+        )}
+        {estado === 'descartada' && (
+          <Pressable style={styles.botaoDescartar} onPress={() => alternarDescarte(linha.id)} hitSlop={6}>
+            <RotateCcw size={13} color={cores.stone[400]} strokeWidth={2.4} />
+            <Text style={[styles.botaoDescartarTexto, { color: cores.stone[400] }]}>Restaurar</Text>
+          </Pressable>
+        )}
+
+        {expandida && estado !== 'descartada' && <View style={{ gap: espacamento.md - 2 }}>{corpoLinha(linha)}</View>}
+
+        {/* Card congelado em "revisão" (`secao`) mas já válido de verdade (`estado`) — pode
+            acontecer se o congelamento ainda não liberou (folga do blur, ver `marcarEmEdicao`).
+            Em vez de esperar o sócio adivinhar, este botão libera na hora. Fica no fim do card
+            e com cor sólida — é a ação que fecha aquele lançamento. */}
+        {expandida && estado === 'ok' && secao === 'revisar' && (
+          <Pressable style={styles.botaoConfirmarPronto} onPress={() => marcarEmEdicao(linha.id, false)}>
+            <CheckCircle2 size={15} color="#FFFFFF" strokeWidth={2.4} />
+            <Text style={styles.botaoConfirmarProntoTexto}>Tudo certo aqui — toque para confirmar</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
+
+  // Revisão focada em tela cheia (atalho "Revisar pendentes agora") — anda pelos ids
+  // "fotografados" no momento em que foi aberta (validade real, não a seção congelada), um card
+  // por vez.
+  const linhaFocada = revisaoFocada ? linhas.find((l) => l.id === revisaoFocada.ids[revisaoFocada.indice]) : undefined;
+  const faltandoFocada = linhaFocada ? camposFaltando(linhaFocada, socios) : [];
+  const podeAvancarFocada = !!linhaFocada && linhaValida(linhaFocada, socios);
+
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <TelaComTeclado>
@@ -420,17 +995,27 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
           <View style={etapa === 'revisao' ? styles.barraFixa : styles.barraFixaEscondida}>
             {etapa === 'revisao' && (
               <>
-                <View style={styles.barraFixaContador}>
-                  <Text style={styles.barraFixaTexto}>
-                    {contagemProntas} pronta{contagemProntas === 1 ? '' : 's'} · {contagemRevisar} precisa
-                    {contagemRevisar === 1 ? '' : 'm'} de revisão · {contagemDescartadas} descartada
-                    {contagemDescartadas === 1 ? '' : 's'}
-                  </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: espacamento.sm }}>
+                  <View style={styles.barraFixaContador}>
+                    <Text style={styles.barraFixaTexto}>
+                      {contagemProntas} pronta{contagemProntas === 1 ? '' : 's'} · {contagemRevisar} precisa
+                      {contagemRevisar === 1 ? '' : 'm'} de revisão · {linhasDescartadas.length} descartada
+                      {linhasDescartadas.length === 1 ? '' : 's'}
+                    </Text>
+                  </View>
+                  <Pressable style={styles.botaoAdicionar} onPress={adicionarLinhaManual}>
+                    <Plus size={14} color="#FFFFFF" strokeWidth={2.6} />
+                    <Text style={styles.botaoAdicionarTexto}>Adicionar</Text>
+                  </Pressable>
                 </View>
-                <Pressable style={styles.botaoAdicionar} onPress={adicionarLinhaManual}>
-                  <Plus size={14} color="#FFFFFF" strokeWidth={2.6} />
-                  <Text style={styles.botaoAdicionarTexto}>Adicionar</Text>
-                </Pressable>
+                {contagemRevisarReal > 0 && (
+                  <Pressable style={styles.botaoRevisarPendentes} onPress={iniciarRevisaoFocada}>
+                    <ListChecks size={15} color="#FFFFFF" strokeWidth={2.2} />
+                    <Text style={styles.botaoRevisarPendentesTexto}>
+                      Revisar pendentes agora ({contagemRevisarReal})
+                    </Text>
+                  </Pressable>
+                )}
               </>
             )}
           </View>
@@ -509,380 +1094,39 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
 
                 {linhas.length === 0 && <Text style={styles.semLinhas}>Nenhum lançamento identificado.</Text>}
 
-                {linhas.map((linha) => {
-                  const valida = linhaValida(linha, socios);
-                  return (
-                    <View
-                      key={linha.id}
-                      style={[
-                        styles.card,
-                        linha.descartada ? styles.cardDescartado : valida ? styles.cardOk : styles.cardRevisar,
-                      ]}
-                    >
-                      <View style={styles.cardTopo}>
-                        {linha.manual ? (
-                          <View style={[styles.selo, { backgroundColor: cores.blue.fundo }]}>
-                            <PenLine size={11} color={cores.blue.padrao} strokeWidth={2.6} />
-                            <Text style={[styles.seloTexto, { color: cores.blue.padrao }]}>Adicionado por você</Text>
-                          </View>
-                        ) : (
-                          <View
-                            style={[
-                              styles.selo,
-                              { backgroundColor: linha.confianca === 'ALTA' ? cores.green[100] : cores.amber.fundo },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.seloTexto,
-                                { color: linha.confianca === 'ALTA' ? cores.green[800] : cores.amber.padrao },
-                              ]}
-                            >
-                              Confiança {linha.confianca === 'ALTA' ? 'alta' : 'baixa'}
-                            </Text>
-                          </View>
-                        )}
-                        {linha.enviada && (
-                          <View style={[styles.selo, { backgroundColor: cores.green[100] }]}>
-                            <CheckCircle2 size={11} color={cores.green[800]} strokeWidth={2.6} />
-                            <Text style={[styles.seloTexto, { color: cores.green[800] }]}>Importado</Text>
-                          </View>
-                        )}
-                        <View style={{ flex: 1 }} />
-                        {!linha.enviada && (
-                          <Pressable style={styles.botaoDescartar} onPress={() => alternarDescarte(linha.id)} hitSlop={6}>
-                            {linha.descartada ? (
-                              <RotateCcw size={13} color={cores.stone[400]} strokeWidth={2.4} />
-                            ) : (
-                              <Trash2 size={13} color={cores.stone[400]} strokeWidth={2.4} />
-                            )}
-                            <Text style={styles.botaoDescartarTexto}>{linha.descartada ? 'Restaurar' : 'Descartar'}</Text>
-                          </Pressable>
-                        )}
-                      </View>
+                {linhasPendentes.length > 0 && (
+                  <View style={{ gap: espacamento.sm + 2 }}>
+                    <Text style={[styles.tituloSecao, { color: cores.red.padrao }]}>
+                      PRECISAM DE REVISÃO ({linhasPendentes.length})
+                    </Text>
+                    {linhasPendentes.map((linha) => renderCard(linha, 'revisar'))}
+                  </View>
+                )}
 
-                      {!linha.descartada && (
-                        <>
-                          <View style={{ flexDirection: 'row', gap: espacamento.sm }}>
-                            {(['DESPESA', 'VENDA'] as const).map((t) => {
-                              const ativo = linha.tipo === t;
-                              return (
-                                <Pressable
-                                  key={t}
-                                  style={[styles.tipoBotao, ativo && styles.tipoBotaoAtivo]}
-                                  onPress={() => atualizarLinha(linha.id, { tipo: t })}
-                                  disabled={linha.enviada}
-                                >
-                                  <Text style={[styles.tipoBotaoTexto, ativo && styles.tipoBotaoTextoAtivo]}>
-                                    {t === 'DESPESA' ? 'Despesa' : 'Venda'}
-                                  </Text>
-                                </Pressable>
-                              );
-                            })}
-                          </View>
+                {linhasProntas.length > 0 && (
+                  <View style={{ gap: espacamento.sm + 2 }}>
+                    <Text style={[styles.tituloSecao, { color: cores.green[700] }]}>
+                      PRONTAS PARA IMPORTAR ({linhasProntas.length})
+                    </Text>
+                    {linhasProntas.map((linha) => renderCard(linha, 'ok'))}
+                  </View>
+                )}
 
-                          <View>
-                            <Text style={styles.label}>Data</Text>
-                            <DateSelectorChip
-                              value={linha.data || hojeISO()}
-                              onChange={(v) => atualizarLinha(linha.id, { data: v })}
-                            />
-                            {!linha.data && <Text style={styles.campoErro}>Preencha a data</Text>}
-                          </View>
-
-                          {linha.tipo === 'DESPESA' ? (
-                            <>
-                              <View>
-                                <Text style={styles.label}>Categoria</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                  <View style={styles.linhaChips}>
-                                    {TIPOS_DESPESA.map((t) => {
-                                      const ativo = linha.tipoDespesa === t;
-                                      return (
-                                        <Pressable
-                                          key={t}
-                                          style={[styles.chip, ativo && styles.chipAtivo]}
-                                          onPress={() => atualizarLinha(linha.id, { tipoDespesa: t })}
-                                          disabled={linha.enviada}
-                                        >
-                                          <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>
-                                            {ROTULO_TIPO_DESPESA[t]}
-                                          </Text>
-                                        </Pressable>
-                                      );
-                                    })}
-                                  </View>
-                                </ScrollView>
-                              </View>
-
-                              <View>
-                                <Text style={styles.label}>Quem bancou?</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                  <View style={styles.linhaChips}>
-                                    {sociosComConta.map((s) => {
-                                      const ativo = s.usuario_id === linha.socioId;
-                                      return (
-                                        <Pressable
-                                          key={s.id}
-                                          style={[styles.chip, ativo && styles.chipAtivo]}
-                                          onPress={() => atualizarLinha(linha.id, { socioId: s.usuario_id! })}
-                                          disabled={linha.enviada}
-                                        >
-                                          <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{s.nome}</Text>
-                                        </Pressable>
-                                      );
-                                    })}
-                                  </View>
-                                </ScrollView>
-                              </View>
-
-                              <View>
-                                <Text style={styles.label}>Quem paga essa despesa?</Text>
-                                <View style={{ flexDirection: 'row', gap: espacamento.xs + 2 }}>
-                                  {(
-                                    [
-                                      { modo: 'padrao' as const, titulo: 'Como o lucro' },
-                                      { modo: 'exclusivo' as const, titulo: 'Só um sócio' },
-                                      { modo: 'personalizado' as const, titulo: 'Personalizado' },
-                                    ]
-                                  ).map(({ modo, titulo }) => {
-                                    const ativo = linha.modoRateio === modo;
-                                    return (
-                                      <Pressable
-                                        key={modo}
-                                        style={[styles.rateioBotao, ativo && styles.rateioBotaoAtivo]}
-                                        disabled={linha.enviada}
-                                        onPress={() =>
-                                          atualizarLinha(linha.id, {
-                                            modoRateio: modo,
-                                            rateioPercentuais:
-                                              modo === 'personalizado' && Object.keys(linha.rateioPercentuais).length === 0
-                                                ? Object.fromEntries(
-                                                    socios.map((s, i) => [s.id, String(splitPercentuaisMultiplosDe5(socios.length)[i])])
-                                                  )
-                                                : linha.rateioPercentuais,
-                                          })
-                                        }
-                                      >
-                                        <Text style={[styles.rateioBotaoTexto, ativo && styles.rateioBotaoTextoAtivo]}>{titulo}</Text>
-                                      </Pressable>
-                                    );
-                                  })}
-                                </View>
-
-                                {linha.modoRateio === 'exclusivo' && (
-                                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: espacamento.sm }}>
-                                    <View style={styles.linhaChips}>
-                                      {socios.map((s) => {
-                                        const ativo = s.id === linha.rateioExclusivoId;
-                                        return (
-                                          <Pressable
-                                            key={s.id}
-                                            style={[styles.chip, ativo && styles.chipAtivo]}
-                                            onPress={() => atualizarLinha(linha.id, { rateioExclusivoId: s.id })}
-                                            disabled={linha.enviada}
-                                          >
-                                            <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{s.nome}</Text>
-                                          </Pressable>
-                                        );
-                                      })}
-                                    </View>
-                                  </ScrollView>
-                                )}
-
-                                {linha.modoRateio === 'personalizado' && (
-                                  <View style={styles.blocoRateio}>
-                                    {socios.map((s) => {
-                                      const valor = Number(linha.rateioPercentuais[s.id]?.replace(',', '.')) || 0;
-                                      return (
-                                        <View key={s.id} style={styles.linhaPercentual}>
-                                          <Text style={styles.linhaPercentualNome} numberOfLines={1}>
-                                            {s.nome}
-                                          </Text>
-                                          <TextInput
-                                            style={styles.inputPercentual}
-                                            value={String(valor)}
-                                            keyboardType="numeric"
-                                            editable={!linha.enviada}
-                                            onChangeText={(texto) =>
-                                              atualizarLinha(linha.id, {
-                                                rateioPercentuais: {
-                                                  ...linha.rateioPercentuais,
-                                                  [s.id]: texto.replace(/\D/g, '').slice(0, 3),
-                                                },
-                                              })
-                                            }
-                                          />
-                                          <Text style={styles.percentualSinal}>%</Text>
-                                        </View>
-                                      );
-                                    })}
-                                    {!rateioValido(linha, socios) && (
-                                      <Text style={styles.campoErro}>A soma precisa fechar em 100%</Text>
-                                    )}
-                                  </View>
-                                )}
-                              </View>
-
-                              <View style={{ alignItems: 'center' }}>
-                                <Text style={[styles.label, { textAlign: 'center' }]}>Valor</Text>
-                                <View style={styles.valorLinha}>
-                                  <Text style={styles.valorPrefixo}>R$</Text>
-                                  <TextInput
-                                    style={styles.valorInput}
-                                    value={formatarValorMascara(linha.valorCentavos)}
-                                    onChangeText={(texto) =>
-                                      atualizarLinha(linha.id, { valorCentavos: texto.replace(/\D/g, '').slice(0, 9) })
-                                    }
-                                    placeholder="0,00"
-                                    placeholderTextColor={cores.stone[400]}
-                                    keyboardType="numeric"
-                                    editable={!linha.enviada}
-                                  />
-                                </View>
-                              </View>
-
-                              <TextInput
-                                style={styles.input}
-                                value={linha.descricao}
-                                onChangeText={(texto) => atualizarLinha(linha.id, { descricao: texto })}
-                                placeholder="Descrição (opcional)"
-                                placeholderTextColor={cores.stone[400]}
-                                editable={!linha.enviada}
-                              />
-
-                              {linha.imagemOrigem && (
-                                <View style={styles.linhaToggle}>
-                                  <Text style={styles.toggleTitulo}>Anexar imagem como comprovante</Text>
-                                  <Switch
-                                    value={linha.anexarComprovante}
-                                    onValueChange={(v) => atualizarLinha(linha.id, { anexarComprovante: v })}
-                                    trackColor={{ false: cores.cream[100], true: cores.green[800] }}
-                                    thumbColor="#FFFFFF"
-                                    disabled={linha.enviada}
-                                  />
-                                </View>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <View style={{ flexDirection: 'row', gap: espacamento.sm }}>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={styles.label}>Quantidade</Text>
-                                  <TextInput
-                                    style={styles.input}
-                                    value={linha.quantidadeTexto}
-                                    onChangeText={(texto) =>
-                                      atualizarLinha(linha.id, { quantidadeTexto: texto.replace(/\D/g, '').slice(0, 4) })
-                                    }
-                                    keyboardType="numeric"
-                                    editable={!linha.enviada}
-                                  />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={styles.label}>Preço unitário</Text>
-                                  <View style={styles.valorLinhaPequena}>
-                                    <Text style={styles.valorPrefixoPequeno}>R$</Text>
-                                    <TextInput
-                                      style={styles.valorInputPequeno}
-                                      value={formatarValorMascara(linha.precoCentavos)}
-                                      onChangeText={(texto) =>
-                                        atualizarLinha(linha.id, { precoCentavos: texto.replace(/\D/g, '').slice(0, 9) })
-                                      }
-                                      placeholder="0,00"
-                                      placeholderTextColor={cores.stone[400]}
-                                      keyboardType="numeric"
-                                      editable={!linha.enviada}
-                                    />
-                                  </View>
-                                </View>
-                              </View>
-
-                              {Number(linha.quantidadeTexto) > 0 && Number(linha.precoCentavos) > 0 && (
-                                <Text style={styles.totalLinha}>
-                                  Total:{' '}
-                                  <Text style={{ fontWeight: '800' }}>
-                                    {formatarMoeda((Number(linha.quantidadeTexto) * Number(linha.precoCentavos)) / 100)}
-                                  </Text>
-                                </Text>
-                              )}
-
-                              <View>
-                                <Text style={styles.label}>Unidade</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                  <View style={styles.linhaChips}>
-                                    {unidades.map((u) => {
-                                      const ativo = u.id === linha.unidadeId;
-                                      return (
-                                        <Pressable
-                                          key={u.id}
-                                          style={[styles.chip, ativo && styles.chipAtivo]}
-                                          onPress={() => atualizarLinha(linha.id, { unidadeId: u.id })}
-                                          disabled={linha.enviada}
-                                        >
-                                          <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{u.nome}</Text>
-                                        </Pressable>
-                                      );
-                                    })}
-                                  </View>
-                                </ScrollView>
-                                {!linha.unidadeId && !linha.enviada && (
-                                  <View style={{ flexDirection: 'row', gap: espacamento.sm, marginTop: espacamento.sm }}>
-                                    <TextInput
-                                      style={[styles.input, { flex: 1 }]}
-                                      value={nomeNovaUnidade[linha.id] ?? ''}
-                                      onChangeText={(texto) => setNomeNovaUnidade((atual) => ({ ...atual, [linha.id]: texto }))}
-                                      placeholder="ou crie uma nova, ex: Caixa"
-                                      placeholderTextColor={cores.stone[400]}
-                                    />
-                                    <Pressable
-                                      style={styles.botaoCriarUnidade}
-                                      disabled={!nomeNovaUnidade[linha.id]?.trim() || criandoUnidade === linha.id}
-                                      onPress={() => criarUnidadeParaLinha(linha)}
-                                    >
-                                      {criandoUnidade === linha.id ? (
-                                        <ActivityIndicator color="#FFFFFF" size="small" />
-                                      ) : (
-                                        <Text style={styles.botaoCriarUnidadeTexto}>Criar</Text>
-                                      )}
-                                    </Pressable>
-                                  </View>
-                                )}
-                              </View>
-
-                              <TextInput
-                                style={styles.input}
-                                value={linha.comprador}
-                                onChangeText={(texto) => atualizarLinha(linha.id, { comprador: texto })}
-                                placeholder="Comprador (opcional)"
-                                placeholderTextColor={cores.stone[400]}
-                                editable={!linha.enviada}
-                              />
-
-                              <View style={styles.linhaToggle}>
-                                <Text style={styles.toggleTitulo}>Já foi pago</Text>
-                                <Switch
-                                  value={linha.pago}
-                                  onValueChange={(v) => atualizarLinha(linha.id, { pago: v })}
-                                  trackColor={{ false: cores.cream[100], true: cores.green[800] }}
-                                  thumbColor="#FFFFFF"
-                                  disabled={linha.enviada}
-                                />
-                              </View>
-                            </>
-                          )}
-                        </>
-                      )}
-                    </View>
-                  );
-                })}
+                {linhasDescartadas.length > 0 && (
+                  <View style={{ gap: espacamento.sm + 2 }}>
+                    <Text style={[styles.tituloSecao, { color: cores.stone[400] }]}>
+                      DESCARTADAS ({linhasDescartadas.length})
+                    </Text>
+                    {linhasDescartadas.map((linha) => renderCard(linha, 'descartada'))}
+                  </View>
+                )}
               </>
             )}
 
             {etapa === 'resumo' && (
               <View style={styles.resumoContainer}>
                 <CheckCircle2 size={48} color={cores.green[700]} strokeWidth={1.6} />
-                <Text style={styles.resumoTitulo}>Importação concluída</Text>
+                <Text style={styles.resumoTituloFinal}>Importação concluída</Text>
                 <Text style={styles.resumoTexto}>
                   {totalEnviadasDespesa} despesa{totalEnviadasDespesa === 1 ? '' : 's'} e {totalEnviadasVenda} venda
                   {totalEnviadasVenda === 1 ? '' : 's'} importadas
@@ -920,6 +1164,78 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
           </View>
         )}
       </TelaComTeclado>
+
+      <Modal visible={!!revisaoFocada} animationType="slide" onRequestClose={() => setRevisaoFocada(null)}>
+        <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
+          {revisaoFocada && (
+            <View style={{ flex: 1 }}>
+              <View style={styles.cabecalhoFocado}>
+                <View style={styles.cabecalhoFocadoTopo}>
+                  <Pressable style={styles.botaoVoltar} onPress={() => setRevisaoFocada(null)} hitSlop={8}>
+                    <X size={18} color={cores.stone[900]} />
+                  </Pressable>
+                  <Text style={styles.tituloCabecalho}>Revisão rápida</Text>
+                  <View style={styles.botaoVoltar} />
+                </View>
+                <View style={styles.barraProgresso}>
+                  <View
+                    style={[
+                      styles.barraProgressoFill,
+                      { width: `${((revisaoFocada.indice + 1) / revisaoFocada.ids.length) * 100}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.progressoLegenda}>
+                  Lançamento {revisaoFocada.indice + 1} de {revisaoFocada.ids.length}
+                </Text>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.conteudoFocado} keyboardShouldPersistTaps="handled">
+                {linhaFocada ? (
+                  <View style={[styles.card, styles.cardRevisar, { marginTop: espacamento.md }]}>
+                    <View style={styles.cardTopo}>
+                      <View style={[styles.selo, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+                        <Text style={[styles.seloTexto, { color: cores.red.padrao }]}>
+                          Falta: {faltandoFocada.join(', ') || 'confira os campos'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ gap: espacamento.md - 2 }}>{corpoLinha(linhaFocada)}</View>
+                  </View>
+                ) : (
+                  <Text style={styles.semLinhas}>Este lançamento não está mais disponível.</Text>
+                )}
+              </ScrollView>
+
+              <View style={styles.rodape}>
+                <View style={{ flexDirection: 'row', gap: espacamento.sm + 2 }}>
+                  {revisaoFocada.indice > 0 && (
+                    <Pressable style={styles.botaoAnteriorFocado} onPress={voltarRevisaoFocada} hitSlop={8}>
+                      <ChevronLeft size={20} color={cores.stone[700]} strokeWidth={2.4} />
+                    </Pressable>
+                  )}
+                  <Pressable
+                    style={styles.botaoDescartarFocado}
+                    onPress={() => {
+                      if (linhaFocada) alternarDescarte(linhaFocada.id);
+                      avancarRevisaoFocada();
+                    }}
+                  >
+                    <Text style={styles.botaoDescartarFocadoTexto}>Descartar</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.botaoAvancarFocado, !podeAvancarFocada && styles.botaoDesabilitado]}
+                    disabled={!podeAvancarFocada}
+                    onPress={avancarRevisaoFocada}
+                  >
+                    <Text style={styles.textoBotaoPrimario}>Confirmar e avançar</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -947,8 +1263,6 @@ const styles = StyleSheet.create({
   conteudo: { paddingHorizontal: espacamento.xl, paddingBottom: espacamento.xl },
   barraFixaEscondida: { height: 0 },
   barraFixa: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: espacamento.sm,
     backgroundColor: cores.cream[50],
     paddingVertical: espacamento.sm + 2,
@@ -965,6 +1279,16 @@ const styles = StyleSheet.create({
     paddingVertical: espacamento.sm + 2,
   },
   botaoAdicionarTexto: { fontSize: 11.5, fontWeight: '700', color: '#FFFFFF' },
+  botaoRevisarPendentes: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.xs + 2,
+    backgroundColor: cores.green[900],
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.sm + 2,
+  },
+  botaoRevisarPendentesTexto: { fontSize: 12.5, fontWeight: '700', color: '#FFFFFF' },
   erro: { color: cores.red.padrao, textAlign: 'center', fontSize: 13, fontWeight: '500' },
   introducao: { fontSize: 13, lineHeight: 18, color: cores.stone[600] },
   aviso: {
@@ -998,15 +1322,28 @@ const styles = StyleSheet.create({
   },
   itemArquivoTexto: { flex: 1, fontSize: 12, fontWeight: '500', color: cores.stone[700], marginRight: espacamento.sm },
   semLinhas: { textAlign: 'center', fontSize: 13, color: cores.stone[600] },
+  tituloSecao: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.4 },
   card: { gap: espacamento.md - 2, borderWidth: 1.5, borderRadius: raio.lg, padding: espacamento.md + 2 },
-  cardOk: { borderColor: cores.linha, backgroundColor: '#FFFFFF' },
-  cardRevisar: { borderColor: cores.amber.fundo, backgroundColor: '#fffaf1' },
+  cardOk: { borderColor: cores.green[600], backgroundColor: cores.green[100] },
+  cardRevisar: { borderColor: cores.red.padrao, backgroundColor: cores.red.fundo },
   cardDescartado: { borderColor: cores.linha, backgroundColor: cores.cream[100], opacity: 0.6 },
-  cardTopo: { flexDirection: 'row', alignItems: 'center', gap: espacamento.xs + 2 },
+  cardTopo: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: espacamento.xs + 2 },
   selo: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: raio.pill, paddingHorizontal: espacamento.sm, paddingVertical: 2 },
   seloTexto: { fontSize: 10, fontWeight: '700' },
-  botaoDescartar: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  botaoDescartarTexto: { fontSize: 11, fontWeight: '700', color: cores.stone[400] },
+  resumoTitulo: { flex: 1, fontSize: 13, fontWeight: '700', color: cores.stone[900] },
+  resumoValor: { fontSize: 12.5, fontWeight: '700', color: cores.stone[700] },
+  botaoDescartar: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', marginTop: -espacamento.xs },
+  botaoDescartarTexto: { fontSize: 11, fontWeight: '700', color: cores.stone[600] },
+  botaoConfirmarPronto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.xs + 2,
+    backgroundColor: cores.green[800],
+    borderRadius: raio.md,
+    paddingVertical: espacamento.sm + 3,
+  },
+  botaoConfirmarProntoTexto: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   tipoBotao: { flex: 1, borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.md, paddingVertical: espacamento.sm, alignItems: 'center', backgroundColor: '#FFFFFF' },
   tipoBotaoAtivo: { borderColor: cores.green[800], backgroundColor: cores.green[800] },
   tipoBotaoTexto: { fontSize: 12, fontWeight: '700', color: cores.stone[700] },
@@ -1022,7 +1359,7 @@ const styles = StyleSheet.create({
   rateioBotaoAtivo: { borderColor: cores.green[700], backgroundColor: cores.green[100] },
   rateioBotaoTexto: { fontSize: 10.5, fontWeight: '700', color: cores.stone[700] },
   rateioBotaoTextoAtivo: { color: cores.green[800] },
-  blocoRateio: { marginTop: espacamento.sm, gap: espacamento.xs + 2, borderWidth: 1.5, borderColor: cores.green[100], borderRadius: raio.md, padding: espacamento.sm + 2 },
+  blocoRateio: { marginTop: espacamento.sm, gap: espacamento.xs + 2, borderWidth: 1.5, borderColor: cores.green[100], borderRadius: raio.md, padding: espacamento.sm + 2, backgroundColor: '#FFFFFF' },
   linhaPercentual: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: espacamento.sm },
   linhaPercentualNome: { flex: 1, fontSize: 12, fontWeight: '600', color: cores.stone[700] },
   inputPercentual: { width: 44, borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.sm, textAlign: 'center', paddingVertical: 4, fontSize: 12, fontWeight: '700', color: cores.stone[900] },
@@ -1030,17 +1367,17 @@ const styles = StyleSheet.create({
   valorLinha: { flexDirection: 'row', alignItems: 'baseline', gap: espacamento.xs + 2, borderBottomWidth: 2, borderBottomColor: cores.linha, paddingVertical: espacamento.sm },
   valorPrefixo: { fontSize: 18, fontWeight: '700', color: cores.stone[400] },
   valorInput: { minWidth: 120, fontSize: 26, fontWeight: '800', color: cores.stone[900], padding: 0 },
-  valorLinhaPequena: { flexDirection: 'row', alignItems: 'center', gap: espacamento.xs, borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.md, paddingHorizontal: espacamento.sm + 2, paddingVertical: espacamento.sm },
+  valorLinhaPequena: { flexDirection: 'row', alignItems: 'center', gap: espacamento.xs, borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.md, paddingHorizontal: espacamento.sm + 2, paddingVertical: espacamento.sm, backgroundColor: '#FFFFFF' },
   valorPrefixoPequeno: { fontSize: 12, fontWeight: '700', color: cores.stone[600] },
   valorInputPequeno: { flex: 1, fontSize: 12.5, fontWeight: '700', color: cores.stone[900], padding: 0 },
   totalLinha: { fontSize: 12, color: cores.stone[600] },
   input: { borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.md, paddingHorizontal: espacamento.md, paddingVertical: espacamento.sm + 2, fontSize: 12.5, fontWeight: '500', color: cores.stone[900], backgroundColor: '#FFFFFF' },
   botaoCriarUnidade: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: espacamento.md, borderRadius: raio.md, backgroundColor: cores.green[800] },
   botaoCriarUnidadeTexto: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
-  linhaToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.md, paddingHorizontal: espacamento.md, paddingVertical: espacamento.sm },
+  linhaToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.md, paddingHorizontal: espacamento.md, paddingVertical: espacamento.sm, backgroundColor: '#FFFFFF' },
   toggleTitulo: { flex: 1, fontSize: 12, fontWeight: '600', color: cores.stone[700] },
   resumoContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: espacamento.sm, paddingVertical: espacamento.xxl },
-  resumoTitulo: { fontSize: 15, fontWeight: '800', color: cores.stone[900] },
+  resumoTituloFinal: { fontSize: 15, fontWeight: '800', color: cores.stone[900] },
   resumoTexto: { fontSize: 13, color: cores.stone[600] },
   botaoVoltarLista: { marginTop: espacamento.sm, borderWidth: 1.5, borderColor: cores.linha, borderRadius: raio.md, paddingHorizontal: espacamento.lg, paddingVertical: espacamento.sm + 2 },
   botaoVoltarListaTexto: { fontSize: 12.5, fontWeight: '700', color: cores.stone[700] },
@@ -1048,4 +1385,14 @@ const styles = StyleSheet.create({
   botaoPrimario: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espacamento.sm, borderRadius: raio.lg, paddingVertical: espacamento.lg - 2, backgroundColor: cores.green[800] },
   botaoDesabilitado: { opacity: 0.5 },
   textoBotaoPrimario: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  cabecalhoFocado: { paddingHorizontal: espacamento.lg, paddingTop: espacamento.sm, paddingBottom: espacamento.md, borderBottomWidth: 1, borderBottomColor: cores.cream[100], gap: espacamento.sm },
+  cabecalhoFocadoTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  barraProgresso: { height: 6, borderRadius: raio.pill, backgroundColor: cores.cream[100], overflow: 'hidden' },
+  barraProgressoFill: { height: '100%', borderRadius: raio.pill, backgroundColor: cores.green[800] },
+  progressoLegenda: { fontSize: 11.5, fontWeight: '700', color: cores.stone[600] },
+  conteudoFocado: { paddingHorizontal: espacamento.xl, paddingBottom: espacamento.xl },
+  botaoAnteriorFocado: { width: 46, alignItems: 'center', justifyContent: 'center', borderRadius: raio.lg, borderWidth: 1.5, borderColor: cores.linha },
+  botaoDescartarFocado: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: raio.lg, borderWidth: 1.5, borderColor: cores.red.padrao, paddingVertical: espacamento.lg - 4 },
+  botaoDescartarFocadoTexto: { fontSize: 13, fontWeight: '700', color: cores.red.padrao },
+  botaoAvancarFocado: { flex: 1.4, alignItems: 'center', justifyContent: 'center', borderRadius: raio.lg, backgroundColor: cores.green[800], paddingVertical: espacamento.lg - 4 },
 });

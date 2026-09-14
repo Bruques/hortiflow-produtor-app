@@ -82,8 +82,31 @@ const ROTULO_TIPO_DESPESA: Record<TipoDespesa, string> = {
 
 const VALORES_TIPO_DESPESA = Object.keys(ROTULO_TIPO_DESPESA);
 
-const INSTRUCAO_BASE = `Você está ajudando um produtor rural (parceria de meação, produção de morango) a migrar
+// Formata a data real do servidor por extenso, em português — usada pra dar à IA o "ano atual"
+// de verdade (ver bug de 2026-09-13 no comentário de `construirInstrucaoBase`), já que o modelo
+// não tem noção confiável de que dia é hoje e, sem essa informação, chuta um ano de forma
+// inconsistente entre linhas da mesma chamada.
+function dataDeHojePorExtenso(): string {
+  return new Date().toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
+// Construída a cada chamada (não é mais uma const de módulo) pra sempre embutir a data real do
+// dia — bug real encontrado em 2026-09-13: o prompt pedia "assuma o ano atual" sem nunca dizer
+// à IA qual é o ano atual, e o modelo não tem relógio próprio, então chutava um ano (ex: 2024)
+// de forma inconsistente entre despesas e vendas da MESMA foto, mesmo com confiança "ALTA" —
+// um card aparecia verde, pronto pra importar, com o ano errado e nenhum aviso de revisão.
+function construirInstrucaoBase(): string {
+  return `Você está ajudando um produtor rural (parceria de meação, produção de morango) a migrar
 lançamentos financeiros anotados fora do sistema (caderno de papel, planilha) para dados estruturados.
+
+Hoje é ${dataDeHojePorExtenso()}. Use essa data real SOMENTE pra inferir o ano quando a anotação não tiver
+ano explícito (ex: cabeçalho "01 SETEMBRO" sem ano vira o dia 1 de setembro do ano atual) — nunca pra
+corrigir ou substituir um ano que já esteja escrito na anotação.
 
 Cada lançamento é uma DESPESA (compra, gasto, pagamento) ou uma VENDA (venda da produção pra um comprador).
 
@@ -101,8 +124,9 @@ Regras importantes:
 - É muito comum, numa página de caderno, a data aparecer **uma única vez** no topo do bloco (ex: "01
   SETEMBRO") e valer para todas as anotações abaixo dela, até aparecer uma nova data mais adiante. Nesse
   caso, aplique essa data a cada lançamento daquele bloco — não deixe a data como null só porque ela não
-  está repetida ao lado de cada linha individual. Assuma o ano atual quando a data do cabeçalho não tiver
-  ano explícito.
+  está repetida ao lado de cada linha individual. Se esse cabeçalho não tiver ano explícito, use a data de
+  hoje informada acima pra inferir o ano (nunca invente um ano diferente do atual sem justificativa clara
+  no texto original).
 - Valores monetários: o formato de origem é brasileiro (vírgula como separador decimal, ponto como separador
   de milhar). Converta pra número puro (ex: "1.234,56" vira 1234.56).
 - Marque confianca "BAIXA" sempre que você precisou adivinhar algo: letra difícil de ler, número ambíguo,
@@ -118,6 +142,7 @@ Regras importantes:
 - O campo origem_arquivo_index deve ser o índice (começando em 0) do arquivo de onde aquela linha veio,
   na ordem em que os arquivos foram apresentados a você.
 - Responda só com o JSON pedido pelo schema, nada além disso.`;
+}
 
 // Schema de output estruturado no formato que o Gemini exige (subconjunto de OpenAPI 3.0,
 // campos opcionais viram `nullable: true` em vez de `type: [..., "null"]" do JSON Schema puro).
@@ -206,7 +231,7 @@ async function extrairDeImagensOuPdf(arquivos: ArquivoClassificado[]): Promise<L
 
   parts.push({ text: 'Extraia todos os lançamentos (despesas e vendas) visíveis nesses arquivos, seguindo as regras acima.' });
 
-  const linhas = await extrairComGemini(INSTRUCAO_BASE, parts);
+  const linhas = await extrairComGemini(construirInstrucaoBase(), parts);
 
   // Anexa a própria imagem de origem em cada linha vinda de foto (não PDF — várias páginas
   // num PDF só tornariam ambíguo qual página vira comprovante), pra tela de revisão oferecer
@@ -243,7 +268,7 @@ async function extrairDePlanilha(arquivo: ArquivoClassificado): Promise<LinhaExt
     .map((linha) => linha.map((celula) => String(celula ?? '')).join(' | '))
     .join('\n');
 
-  const instrucaoPlanilha = `${INSTRUCAO_BASE}
+  const instrucaoPlanilha = `${construirInstrucaoBase()}
 
 As linhas abaixo vieram de uma planilha (arquivo "${arquivo.nome}"), separadas por " | ". A primeira linha
 provavelmente é o cabeçalho, mas o nome das colunas é livre (pode ser em qualquer ordem, com abreviações,
