@@ -141,7 +141,14 @@ export async function criarPedidoPix(params: {
       total_amount: valorFormatado,
       external_reference: params.externalReference,
       processing_mode: 'automatic',
-      payer: { email: emailPixPara(params.usuarioId) },
+      payer: {
+        email: emailPixPara(params.usuarioId),
+        // "APRO" em first_name é a palavra-mágica de teste do Mercado Pago (mesmo padrão
+        // dos cartões de teste): em sandbox, aprova o Pix automaticamente alguns segundos
+        // depois de criado, sem precisar escanear o QR de verdade. Só entra quando
+        // MP_SANDBOX_PAYER_EMAIL está setado (ambiente de teste) — nunca em produção.
+        ...(process.env.MP_SANDBOX_PAYER_EMAIL ? { first_name: 'APRO' } : {}),
+      },
       transactions: {
         payments: [{ amount: valorFormatado, payment_method: { id: 'pix', type: 'bank_transfer' } }],
       },
