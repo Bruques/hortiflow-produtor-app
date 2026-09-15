@@ -236,20 +236,34 @@ export interface MpPayment {
   payment_type_id?: string;
 }
 
+// Bug real encontrado em produção (2026-09-15): a API de Pagamentos devolve `id` como
+// NÚMERO no JSON (ex: 178132390917) — diferente da API de Orders (Pix), cujo id já vem como
+// string alfanumérica de verdade. O tipo `MpPayment.id: string` era só uma promessa do
+// TypeScript, sem conversão em runtime — o `mp_payment_id` (campo `String?` no Prisma)
+// quebrava a confirmação do webhook de cartão com "Expected StringNullableFilter... provided
+// Int", derrubando a criação do Pagamento sem gerar nenhum erro visível pro produtor (ele só
+// via o checkout voltar sem confirmar). Corrigido convertendo pra string aqui, na borda.
 export async function buscarPagamento(paymentId: string): Promise<MpPayment> {
-  return mpFetch<MpPayment>(`/v1/payments/${paymentId}`);
+  const pagamento = await mpFetch<MpPayment>(`/v1/payments/${paymentId}`);
+  return { ...pagamento, id: String(pagamento.id) };
 }
 
 // Formato de notificação do Mercado Pago (query string): `?type=payment&data.id=123` pras
 // cobranças de cartão (Checkout Pro) e `?type=order&data.id=...` pros pedidos Pix (API de
-// Orders) — os dois confirmados contra webhook real em staging (2026-09-15). `merchant_order`
-// aceito também por segurança, embora não observado.
+// Orders) — os dois confirmados contra webhook real em staging (2026-09-15).
+//
+// `merchant_order` — bug real encontrado em produção (2026-09-15): esse tópico (legado,
+// específico do Checkout Pro) chega com um id de outro sistema, não da API de Orders — tratar
+// como `tipo: 'order'` fazia `buscarPedido` chamar `/v1/orders/{id do merchant_order}`, que
+// sempre falha (`invalid_path_param`), gerando retentativa infinita do Mercado Pago. Como o
+// cartão já confirma pelo tópico `payment` e o Pix pelo `order` de verdade, `merchant_order`
+// é redundante — ignorado agora (retorna null, webhook responde 200 sem processar nada).
 export function extrairNotificacaoWebhook(query: Record<string, unknown>): { tipo: 'payment' | 'order'; id: string } | null {
   const tipoRaw = (query.type ?? query.topic) as string | undefined;
   const id = (query['data.id'] ?? query.id) as string | undefined;
   if (!id) return null;
   if (tipoRaw === 'payment') return { tipo: 'payment', id };
-  if (tipoRaw === 'order' || tipoRaw === 'merchant_order') return { tipo: 'order', id };
+  if (tipoRaw === 'order') return { tipo: 'order', id };
   return null;
 }
 
