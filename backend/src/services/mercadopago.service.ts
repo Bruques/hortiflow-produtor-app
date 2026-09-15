@@ -44,13 +44,16 @@ function emailSinteticoPara(usuarioId: string): string {
   return `${usuarioId}@usuarios.hortiflow-produtor.com.br`;
 }
 
-// A API de Orders (usada só pro Pix, ver criarPedidoPix) exige, em modo sandbox, que o
-// e-mail do pagador termine em `@testuser.com` (erro `invalid_email_for_sandbox` com o
-// e-mail sintético normal, achado em teste real 2026-09-15) — restrição que não existe com
+// As APIs mais novas do Mercado Pago (Orders, usada pro Pix; Preapproval, usada pra
+// assinatura recorrente mensal) exigem, em modo sandbox, que o e-mail do pagador seja de um
+// usuário real ou de teste de verdade — o e-mail sintético normal é recusado (`invalid_
+// email_for_sandbox` na de Orders, "Both payer and collector must be real or test users" na
+// de Preapproval — achados em teste real 2026-09-15). Restrição que não existe com
 // credenciais de produção. MP_SANDBOX_PAYER_EMAIL permite configurar um e-mail de usuário de
 // teste válido só nos ambientes de teste (local/staging), sem mexer no comportamento de
-// produção, onde essa env não deve ser setada.
-function emailPixPara(usuarioId: string): string {
+// produção, onde essa env não deve ser setada. Checkout Pro (Preferences — cartão anual e a
+// preferência de cartão) não tem essa exigência, por isso continua usando o e-mail sintético.
+function emailPagadorSandbox(usuarioId: string): string {
   return process.env.MP_SANDBOX_PAYER_EMAIL || emailSinteticoPara(usuarioId);
 }
 
@@ -142,7 +145,7 @@ export async function criarPedidoPix(params: {
       external_reference: params.externalReference,
       processing_mode: 'automatic',
       payer: {
-        email: emailPixPara(params.usuarioId),
+        email: emailPagadorSandbox(params.usuarioId),
         // "APRO" em first_name é a palavra-mágica de teste do Mercado Pago (mesmo padrão
         // dos cartões de teste): em sandbox, aprova o Pix automaticamente alguns segundos
         // depois de criado, sem precisar escanear o QR de verdade. Só entra quando
@@ -201,7 +204,7 @@ export async function criarAssinaturaRecorrente(params: {
     body: JSON.stringify({
       reason: params.descricao,
       external_reference: params.externalReference,
-      payer_email: emailSinteticoPara(params.usuarioId),
+      payer_email: emailPagadorSandbox(params.usuarioId),
       back_url: params.callbackUrl,
       auto_recurring: {
         frequency: 1,
