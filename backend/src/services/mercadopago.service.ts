@@ -44,6 +44,16 @@ function emailSinteticoPara(usuarioId: string): string {
   return `${usuarioId}@usuarios.hortiflow-produtor.com.br`;
 }
 
+// A API de Orders (usada só pro Pix, ver criarPedidoPix) exige, em modo sandbox, que o
+// e-mail do pagador termine em `@testuser.com` (erro `invalid_email_for_sandbox` com o
+// e-mail sintético normal, achado em teste real 2026-09-15) — restrição que não existe com
+// credenciais de produção. MP_SANDBOX_PAYER_EMAIL permite configurar um e-mail de usuário de
+// teste válido só nos ambientes de teste (local/staging), sem mexer no comportamento de
+// produção, onde essa env não deve ser setada.
+function emailPixPara(usuarioId: string): string {
+  return process.env.MP_SANDBOX_PAYER_EMAIL || emailSinteticoPara(usuarioId);
+}
+
 interface MpPreference {
   id: string;
   init_point: string;
@@ -131,7 +141,7 @@ export async function criarPedidoPix(params: {
       total_amount: valorFormatado,
       external_reference: params.externalReference,
       processing_mode: 'automatic',
-      payer: { email: emailSinteticoPara(params.usuarioId) },
+      payer: { email: emailPixPara(params.usuarioId) },
       transactions: {
         payments: [{ amount: valorFormatado, payment_method: { id: 'pix', type: 'bank_transfer' } }],
       },
