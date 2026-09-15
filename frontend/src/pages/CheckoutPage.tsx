@@ -1,39 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Copy, Check, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { checkoutRequest, statusAssinaturaRequest, verificarPagamentoPixRequest } from '@/services/assinatura';
-import { cn, formatarCpf } from '@/lib/utils';
+import { checkoutRequest, statusAssinaturaRequest } from '@/services/assinatura';
+import { cn } from '@/lib/utils';
 import type { AssinaturaStatus } from '@/types/assinatura';
 
-interface PixGerado {
-  paymentId: string;
-  qrCode: string;
-  qrCodeBase64: string;
-  dataExpiracao: string;
-}
-
-// Spec 25 — checkout pós-trial, equivalente ao mobile/src/screens/CheckoutScreen.tsx.
+// Spec 25 — checkout pós-trial, equivalente ao mobile/src/screens/CheckoutScreen.tsx. No
+// web, "abrir o checkout hospedado" é simplesmente redirecionar a aba pro `initPoint` — sem
+// WebView, sem app externo.
 //
-// Cartão: "abrir o checkout hospedado" é simplesmente redirecionar a aba pro `initPoint`.
-// Pix: NÃO redireciona — testado em 2026-09-15 e o Checkout Pro exige login numa conta
-// Mercado Pago pra pagar via Pix, o que não serve pro nosso caso. Mostra o QR Code direto
-// nesta página (gerado via API de Pagamentos). CPF é opcional (testado sem ele com sucesso).
-// Tela de Pix inspirada num concorrente (print trazido pelo dev, 2026-09-15): expiração,
-// status ao vivo e um botão "Já paguei — verificar" que checa ativamente em vez de só
-// esperar o webhook em silêncio.
+// Cartão e Pix vão os dois por esse mesmo caminho hoje: tentamos um Pix sem redirecionar
+// (QR Code direto via API de Pagamentos), mas a conta de teste bateu num erro de
+// autorização do Mercado Pago não resolvido ainda — ver aviso em
+// backend/src/services/mercadopago.service.ts.
 export default function CheckoutPage() {
   const [status, setStatus] = useState<AssinaturaStatus | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [ciclo, setCiclo] = useState<'MENSAL' | 'ANUAL'>('ANUAL');
   const [metodo, setMetodo] = useState<'CARTAO' | 'PIX'>('CARTAO');
-  const [cpf, setCpf] = useState('');
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [pix, setPix] = useState<PixGerado | null>(null);
-  const [pixStatus, setPixStatus] = useState('pending');
-  const [copiado, setCopiado] = useState(false);
-  const [verificando, setVerificando] = useState(false);
 
   useEffect(() => {
     statusAssinaturaRequest()
@@ -50,107 +35,12 @@ export default function CheckoutPage() {
     setProcessando(true);
     setErro(null);
     try {
-      const resultado = await checkoutRequest({
-        planoId: status.plano.id,
-        ciclo,
-        metodo,
-        cpf: cpf.replace(/\D/g, '').length === 11 ? cpf.replace(/\D/g, '') : undefined,
-      });
-
-      if (resultado.tipo === 'PIX') {
-        setPix({
-          paymentId: resultado.mpPaymentId,
-          qrCode: resultado.qrCode,
-          qrCodeBase64: resultado.qrCodeBase64,
-          dataExpiracao: resultado.dataExpiracao,
-        });
-        setPixStatus('pending');
-        return;
-      }
-
+      const resultado = await checkoutRequest({ planoId: status.plano.id, ciclo, metodo });
       window.location.href = resultado.initPoint;
     } catch {
       setErro('Não foi possível iniciar o pagamento');
       setProcessando(false);
     }
-  }
-
-  async function copiarCodigoPix() {
-    if (!pix) return;
-    await navigator.clipboard.writeText(pix.qrCode);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
-  }
-
-  async function jaPagueiVerificar() {
-    if (!pix) return;
-    setVerificando(true);
-    setErro(null);
-    try {
-      const resultado = await verificarPagamentoPixRequest(pix.paymentId);
-      setPixStatus(resultado.pagamentoStatus);
-      if (!resultado.vencida) {
-        window.location.href = '/';
-      }
-    } catch {
-      setErro('Não foi possível verificar o pagamento');
-    } finally {
-      setVerificando(false);
-    }
-  }
-
-  if (pix) {
-    const horaExpiracao = new Date(pix.dataExpiracao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    return (
-      <div className="min-h-screen bg-hf-cream-50 px-6 py-10">
-        <div className="mx-auto flex max-w-sm flex-col items-center gap-4 text-center">
-          <h1 className="font-rounded text-[19px] font-extrabold text-hf-stone-900">Escaneie pra pagar</h1>
-          <p className="text-[13px] leading-relaxed text-hf-stone-600">
-            Abra o app do seu banco, escaneie o QR Code ou cole o código copia-e-cola.
-          </p>
-
-          <img
-            src={`data:image/png;base64,${pix.qrCodeBase64}`}
-            alt="QR Code Pix"
-            className="h-60 w-60 rounded-2xl border border-hf-line bg-white"
-          />
-
-          <button
-            type="button"
-            onClick={copiarCodigoPix}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-green-700 py-3 text-sm font-bold text-hf-green-700"
-          >
-            {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copiado ? 'Código copiado' : 'Copiar código Pix'}
-          </button>
-
-          <div className="w-full rounded-2xl border border-hf-line p-3">
-            <p className="m-0 text-[13px] text-hf-stone-600">Vence em: {horaExpiracao}</p>
-            <p className="m-0 text-[13px] text-hf-stone-600">Status: {pixStatus === 'pending' ? 'aguardando pagamento' : pixStatus}</p>
-          </div>
-
-          <button
-            type="button"
-            onClick={jaPagueiVerificar}
-            disabled={verificando}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-hf-green-100 py-3 text-sm font-bold text-hf-green-800 disabled:opacity-60"
-          >
-            <RefreshCw className={cn('h-4 w-4', verificando && 'animate-spin')} />
-            {verificando ? 'Verificando...' : 'Já paguei — verificar'}
-          </button>
-
-          {erro && <p className="text-sm font-medium text-hf-red">{erro}</p>}
-
-          <p className="text-[12.5px] leading-relaxed text-hf-stone-600">
-            A confirmação é automática assim que o Mercado Pago aprovar.
-          </p>
-
-          <a href="/" className="text-sm font-bold text-hf-green-700">
-            Voltar pro início
-          </a>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -183,19 +73,6 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {metodo === 'PIX' && (
-              <div className="flex flex-col gap-2">
-                <span className="text-[13px] font-bold text-hf-stone-900">CPF (opcional)</span>
-                <Input
-                  inputMode="numeric"
-                  placeholder="000.000.000-00"
-                  value={formatarCpf(cpf)}
-                  onChange={(e) => setCpf(e.target.value.replace(/\D/g, ''))}
-                  maxLength={14}
-                />
-              </div>
-            )}
-
             {ciclo === 'MENSAL' && metodo === 'PIX' && (
               <p className="rounded-xl bg-hf-amber-bg p-3 text-[12px] leading-relaxed text-hf-amber">
                 No Pix mensal não há débito automático — você recebe um novo código todo mês e precisa pagar manualmente.
@@ -205,7 +82,7 @@ export default function CheckoutPage() {
             {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 
             <Button size="lg" className="w-full bg-hf-green-800 hover:bg-hf-green-900" onClick={irParaPagamento} disabled={processando}>
-              {processando ? 'Processando...' : metodo === 'PIX' ? 'Gerar QR Code' : 'Ir para pagamento'}
+              {processando ? 'Abrindo pagamento...' : 'Ir para pagamento'}
             </Button>
           </>
         )}

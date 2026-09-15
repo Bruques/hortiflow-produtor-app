@@ -92,9 +92,6 @@ const checkoutSchema = z.object({
   // origem) — o backend não deve fixar isso. Cai pro deep link do app mobile só por
   // compatibilidade com uma chamada antiga sem esse campo.
   retornoUrl: z.string().url().optional(),
-  // Opcional — testado em 2026-09-15 sem CPF nenhum e o Mercado Pago aceitou o Pix
-  // normalmente, apesar da documentação sugerir que seria obrigatório.
-  cpf: z.string().trim().min(11).optional(),
 });
 
 export async function checkout(req: Request, res: Response): Promise<void> {
@@ -113,15 +110,5 @@ export async function checkout(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  res.json(resultado);
-}
-
-export async function verificarPagamentoPix(req: Request, res: Response): Promise<void> {
-  const { paymentId } = req.params;
-  const resultado = await assinaturaService.verificarPagamentoPix(req.usuarioId, paymentId);
-  if ('erro' in resultado) {
-    res.status(404).json({ error: 'Assinatura não encontrada' });
-    return;
-  }
   res.json(resultado);
 }

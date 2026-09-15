@@ -12,6 +12,5 @@ router.get('/planos', assinaturaController.listarPlanos);
 router.post('/onboarding', assinaturaController.onboarding);
 router.patch('/plano', assinaturaController.escolherPlano);
 router.post('/checkout', assinaturaController.checkout);
-router.get('/checkout/pix/:paymentId/status', assinaturaController.verificarPagamentoPix);
 
 export default router;

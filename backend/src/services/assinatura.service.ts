@@ -280,12 +280,11 @@ type CheckoutResultado =
   | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
   | { erro: 'PLANO_NAO_ENCONTRADO' }
   | { tipo: 'ASSINATURA'; mpSubscriptionId: string; initPoint: string }
-  | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string }
-  | { tipo: 'PIX'; mpPaymentId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
+  | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string };
 
 export async function iniciarCheckout(
   usuarioId: string,
-  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX'; cpf?: string },
+  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX' },
   urls: { callbackUrl: string; notificationUrl: string }
 ): Promise<CheckoutResultado> {
   const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
@@ -296,35 +295,13 @@ export async function iniciarCheckout(
 
   const cicloTexto = dados.ciclo === CicloAssinatura.ANUAL ? 'anual' : 'mensal';
   const descricao = `HortiFlow — ${plano.nome} (${cicloTexto})`;
-  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
 
-  // Pix nunca passa pelo Checkout Pro (redirecionamento hospedado) — descoberto em teste
-  // manual (2026-09-15) que ele exige o pagador logar numa conta Mercado Pago, o que não
-  // faz sentido pro nosso caso. Em vez disso, gera o QR Code direto via API de Pagamentos,
-  // mostrado dentro do próprio app (ver mercadopago.service.ts). CPF é opcional — testado
-  // sem ele e o Mercado Pago aceitou normalmente.
-  if (dados.metodo === 'PIX') {
-    const pix = await mercadopagoService.criarPagamentoPix({
-      usuarioId,
-      descricao,
-      valor,
-      cpf: dados.cpf,
-      externalReference: assinatura.id,
-      notificationUrl: urls.notificationUrl,
-    });
-    await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
-    return {
-      tipo: 'PIX',
-      mpPaymentId: pix.paymentId,
-      qrCode: pix.qrCode,
-      qrCodeBase64: pix.qrCodeBase64,
-      dataExpiracao: pix.dataExpiracao,
-    };
-  }
-
-  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — anual +
-  // cartão é cobrança única (ver spec 25).
-  if (dados.ciclo === CicloAssinatura.MENSAL) {
+  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — os outros
+  // três (mensal+Pix, anual+cartão, anual+Pix) são cobrança única, todos via Checkout Pro
+  // (redirecionamento hospedado). Tentamos Pix direto via API de Pagamentos (sem
+  // redirecionar), mas essa conta bate em erro de autorização do lado do Mercado Pago que
+  // não conseguimos resolver — ver aviso no topo de mercadopago.service.ts.
+  if (dados.ciclo === CicloAssinatura.MENSAL && dados.metodo === 'CARTAO') {
     const { preapprovalId, initPoint } = await mercadopagoService.criarAssinaturaRecorrente({
       usuarioId,
       descricao,
@@ -339,10 +316,12 @@ export async function iniciarCheckout(
     return { tipo: 'ASSINATURA', mpSubscriptionId: preapprovalId, initPoint };
   }
 
-  const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnicaCartao({
+  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
+  const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnica({
     usuarioId,
     descricao,
     valor,
+    metodo: dados.metodo,
     externalReference: assinatura.id,
     callbackUrl: urls.callbackUrl,
     notificationUrl: urls.notificationUrl,
@@ -617,26 +596,4 @@ export async function confirmarPagamentoWebhookMercadoPago(paymentId: string): P
       data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
     }),
   ]);
-}
-
-// Botão "Já paguei — verificar" (inspirado num concorrente, ver docs/specs/25): checagem
-// ativa do pagador em vez de só esperar o webhook em silêncio — útil se o webhook atrasar
-// ou falhar. Reaproveita `confirmarPagamentoWebhookMercadoPago`, que agora é idempotente.
-export async function verificarPagamentoPix(
-  usuarioId: string,
-  paymentId: string
-): Promise<{ erro: 'ASSINATURA_NAO_ENCONTRADA' } | { pagamentoStatus: string; vencida: boolean; dataFimAcesso: Date }> {
-  const pagamento = await mercadopagoService.buscarPagamento(paymentId);
-  if (pagamento.status === 'approved') {
-    await confirmarPagamentoWebhookMercadoPago(paymentId);
-  }
-
-  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
-  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
-
-  return {
-    pagamentoStatus: pagamento.status,
-    vencida: assinatura.data_fim_acesso < new Date(),
-    dataFimAcesso: assinatura.data_fim_acesso,
-  };
 }

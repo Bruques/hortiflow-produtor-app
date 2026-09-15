@@ -1,12 +1,5 @@
 import apiClient from './apiClient';
-import type {
-  AssinaturaStatus,
-  CheckoutResultado,
-  FaixaMeeiros,
-  LocalizacaoProducao,
-  PlanoRecomendado,
-  VerificarPixResultado,
-} from '../types/assinatura';
+import type { AssinaturaStatus, CheckoutResultado, FaixaMeeiros, LocalizacaoProducao, PlanoRecomendado } from '../types/assinatura';
 
 export async function statusAssinaturaRequest(): Promise<AssinaturaStatus> {
   const { data } = await apiClient.get<AssinaturaStatus>('/assinatura/status');
@@ -60,16 +53,10 @@ export async function checkoutRequest(dados: {
   planoId: string;
   ciclo: 'MENSAL' | 'ANUAL';
   metodo: 'CARTAO' | 'PIX';
-  cpf?: string;
 }): Promise<CheckoutResultado> {
   const { data } = await apiClient.post<CheckoutResultado>('/assinatura/checkout', {
     ...dados,
     retornoUrl: 'hortiflowprodutor://checkout-retorno',
   });
-  return data;
-}
-
-export async function verificarPagamentoPixRequest(paymentId: string): Promise<VerificarPixResultado> {
-  const { data } = await apiClient.get<VerificarPixResultado>(`/assinatura/checkout/pix/${paymentId}/status`);
   return data;
 }

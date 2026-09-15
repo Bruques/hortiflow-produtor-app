@@ -1,14 +1,15 @@
 // Spec 25 — cliente HTTP do Mercado Pago (gateway de cobrança do onboarding automatizado),
 // no mesmo padrão do asaas.service.ts: fetch nativo, sem dependência nova.
 //
-// Testado contra o Mercado Pago de teste (conta sandbox real) em 2026-09-15. Achado nesse
-// teste: cartão via Checkout Pro (redirecionamento hospedado) funciona bem, mas o Pix via
-// Checkout Pro **exige login numa conta Mercado Pago do pagador** — inaceitável pro nosso
-// caso (o pagador não deveria precisar de conta nenhuma). Por isso o Pix NÃO usa Checkout
-// Pro: usa a API de Pagamentos direta (`POST /v1/payments`), que devolve um QR Code pra
-// mostrar dentro do próprio app, sem redirecionar o pagador pra lugar nenhum.
-
-import { randomUUID } from 'crypto';
+// Testado contra o Mercado Pago de teste (conta sandbox real) em 2026-09-15. Cartão e Pix
+// vão os dois pelo Checkout Pro (redirecionamento hospedado) — tentamos gerar o Pix direto
+// via API de Pagamentos (`POST /v1/payments`), sem redirecionar o pagador, mas essa conta
+// bate em "Unauthorized use of live credentials" em toda tentativa de criar um pagamento
+// (não é sobre payer/CPF — testamos várias combinações, inclusive credenciais de uma conta
+// de vendedor de teste separada). É provavelmente alguma etapa de ativação de conta que só
+// o suporte do Mercado Pago sabe explicar — fica registrado como pendência pra revisitar
+// (ver "Perguntas em aberto" na spec 25). Por ora, Pix aceita o mesmo requisito de login
+// numa conta Mercado Pago que o Checkout Pro exige — igual ao cartão.
 
 const MP_API_URL = process.env.MP_API_URL || 'https://api.mercadopago.com';
 
@@ -43,14 +44,25 @@ interface MpPreference {
   init_point: string;
 }
 
-// Cobrança única, hospedada (Checkout Pro) — só sobrou o caso cartão + anual (Pix não usa
-// mais isso, ver criarPagamentoPix abaixo). Ainda assim exclui explicitamente boleto/Pix/
-// caixa eletrônico da preferência, pra garantir que só cartão apareça nessa tela.
+type Metodo = 'CARTAO' | 'PIX';
+
+// Tipos de pagamento do Mercado Pago a excluir da preferência pra forçar só cartão ou só Pix.
 // https://www.mercadopago.com.br/developers — payment_methods.excluded_payment_types
-export async function criarCobrancaUnicaCartao(params: {
+function tiposExcluidosPara(metodo: Metodo): { id: string }[] {
+  if (metodo === 'CARTAO') {
+    return [{ id: 'ticket' }, { id: 'bank_transfer' }, { id: 'atm' }, { id: 'prepaid_card' }];
+  }
+  return [{ id: 'credit_card' }, { id: 'debit_card' }, { id: 'prepaid_card' }, { id: 'ticket' }, { id: 'atm' }];
+}
+
+// Cobrança única, hospedada (Checkout Pro) — usada pra ciclo anual (cartão ou Pix) e pra
+// ciclo mensal + Pix (que não tem débito automático, então "assinatura" não se aplica: cada
+// cobrança é uma preferência nova). Ver docs/specs/25-onboarding-e-checkout-automatizados.md.
+export async function criarCobrancaUnica(params: {
   usuarioId: string;
   descricao: string;
   valor: number;
+  metodo: Metodo;
   externalReference: string;
   callbackUrl: string;
   notificationUrl: string;
@@ -64,9 +76,7 @@ export async function criarCobrancaUnicaCartao(params: {
       back_urls: { success: params.callbackUrl, failure: params.callbackUrl, pending: params.callbackUrl },
       auto_return: 'approved',
       notification_url: params.notificationUrl,
-      payment_methods: {
-        excluded_payment_types: [{ id: 'ticket' }, { id: 'bank_transfer' }, { id: 'atm' }, { id: 'prepaid_card' }],
-      },
+      payment_methods: { excluded_payment_types: tiposExcluidosPara(params.metodo) },
     }),
   });
 
@@ -75,65 +85,6 @@ export async function criarCobrancaUnicaCartao(params: {
     // Quem decide se é um pagamento de teste ou real são as credenciais usadas (o
     // MP_ACCESS_TOKEN), não a URL — por isso um único link (`init_point`) serve pros dois casos.
     initPoint: preference.init_point,
-  };
-}
-
-interface MpPagamentoPixCriado {
-  id: number;
-  status: string;
-  date_of_expiration?: string;
-  point_of_interaction?: {
-    transaction_data?: {
-      qr_code?: string; // "copia e cola"
-      qr_code_base64?: string; // imagem do QR Code, já em base64 (sem o prefixo data:image/...)
-    };
-  };
-}
-
-const PIX_MINUTOS_EXPIRACAO = 30;
-
-// Pix direto via API de Pagamentos — sem redirecionar o pagador, sem exigir conta/login no
-// Mercado Pago (ver aviso no topo do arquivo). CPF é opcional: testado em 2026-09-15 sem
-// CPF nenhum e o Mercado Pago aceitou normalmente — a documentação sugeria ser obrigatório,
-// mas na prática não é (bate com concorrentes que também não pedem). Se um dia a API passar
-// a exigir de verdade, o erro que ela devolve é específico o bastante pra tratar depois.
-export async function criarPagamentoPix(params: {
-  usuarioId: string;
-  descricao: string;
-  valor: number;
-  cpf?: string;
-  externalReference: string;
-  notificationUrl: string;
-}): Promise<{ paymentId: string; status: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string }> {
-  const expiracao = new Date(Date.now() + PIX_MINUTOS_EXPIRACAO * 60 * 1000);
-  const cpfDigitos = params.cpf?.replace(/\D/g, '');
-
-  const pagamento = await mpFetch<MpPagamentoPixCriado>('/v1/payments', {
-    method: 'POST',
-    // Idempotency key: evita criar dois pagamentos Pix se a chamada for repetida (ex: o app
-    // reenviar por instabilidade de rede) — cada tentativa de checkout gera uma nova, então
-    // um duplo toque do usuário no botão ainda cria dois pagamentos distintos de propósito.
-    headers: { 'X-Idempotency-Key': randomUUID() },
-    body: JSON.stringify({
-      transaction_amount: params.valor,
-      description: params.descricao,
-      payment_method_id: 'pix',
-      external_reference: params.externalReference,
-      notification_url: params.notificationUrl,
-      date_of_expiration: expiracao.toISOString(),
-      payer: {
-        email: emailSinteticoPara(params.usuarioId),
-        ...(cpfDigitos ? { identification: { type: 'CPF', number: cpfDigitos } } : {}),
-      },
-    }),
-  });
-
-  return {
-    paymentId: String(pagamento.id),
-    status: pagamento.status,
-    qrCode: pagamento.point_of_interaction?.transaction_data?.qr_code ?? '',
-    qrCodeBase64: pagamento.point_of_interaction?.transaction_data?.qr_code_base64 ?? '',
-    dataExpiracao: pagamento.date_of_expiration ?? expiracao.toISOString(),
   };
 }
 

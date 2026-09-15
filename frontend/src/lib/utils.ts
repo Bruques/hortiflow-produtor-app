@@ -17,16 +17,6 @@ export function formatarMoeda(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-// Spec 25 — máscara visual do CPF pedido no checkout Pix (000.000.000-00). O valor guardado
-// no state continua só dígitos; essa função só formata o que é exibido no campo.
-export function formatarCpf(digitos: string): string {
-  const d = digitos.replace(/\D/g, '').slice(0, 11);
-  return d
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-}
-
 // Iniciais pro avatar circular usado em listas com nome de sócio (Resumo, Despesas, Vendas).
 export function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/);
