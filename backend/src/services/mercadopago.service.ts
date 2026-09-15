@@ -49,10 +49,7 @@ function tiposExcluidosPara(metodo: Metodo): { id: string }[] {
 interface MpPreference {
   id: string;
   init_point: string;
-  sandbox_init_point: string;
 }
-
-const USAR_SANDBOX = (process.env.MP_API_URL || '').includes('sandbox') || process.env.NODE_ENV !== 'production';
 
 // Cobrança única, hospedada (Checkout Pro) — usada pra ciclo anual (cartão ou Pix) e pra
 // ciclo mensal + Pix (que não tem débito automático, então "assinatura" não se aplica: cada
@@ -81,7 +78,9 @@ export async function criarCobrancaUnica(params: {
 
   return {
     preferenceId: preference.id,
-    initPoint: USAR_SANDBOX ? preference.sandbox_init_point : preference.init_point,
+    // Quem decide se é um pagamento de teste ou real são as credenciais usadas (o
+    // MP_ACCESS_TOKEN), não a URL — por isso um único link (`init_point`) serve pros dois casos.
+    initPoint: preference.init_point,
   };
 }
 
