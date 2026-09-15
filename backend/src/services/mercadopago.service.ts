@@ -238,11 +238,9 @@ export async function buscarPagamento(paymentId: string): Promise<MpPayment> {
 }
 
 // Formato de notificação do Mercado Pago (query string): `?type=payment&data.id=123` pras
-// cobranças de cartão (Checkout Pro) e algo do tipo `?type=order|merchant_order&data.id=...`
-// pros pedidos Pix (API de Orders) — esse segundo formato ainda não foi confirmado contra um
-// webhook real (só testado a criação via curl, sem notification_url apontando pra algo
-// observável); os logs do backend em produção/staging são a fonte de verdade se precisar
-// ajustar os nomes exatos aceitos aqui.
+// cobranças de cartão (Checkout Pro) e `?type=order&data.id=...` pros pedidos Pix (API de
+// Orders) — os dois confirmados contra webhook real em staging (2026-09-15). `merchant_order`
+// aceito também por segurança, embora não observado.
 export function extrairNotificacaoWebhook(query: Record<string, unknown>): { tipo: 'payment' | 'order'; id: string } | null {
   const tipoRaw = (query.type ?? query.topic) as string | undefined;
   const id = (query['data.id'] ?? query.id) as string | undefined;
