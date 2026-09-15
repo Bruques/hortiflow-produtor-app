@@ -14,6 +14,10 @@ const ROTULO_TIPO_DESPESA: Record<TipoDespesa, string> = {
   MAO_DE_OBRA: 'Mão de obra',
   EMBALAGEM: 'Embalagem',
   TRANSPORTE: 'Transporte',
+  CUSTEIO: 'Custeio',
+  FERTIRRIGACAO: 'Fertirrigação',
+  ENERGIA: 'Energia',
+  OLEO_DIESEL: 'Óleo diesel',
   OUTRO: 'Outro',
 };
 

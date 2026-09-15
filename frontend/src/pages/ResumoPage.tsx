@@ -179,20 +179,28 @@ export default function ResumoPage() {
             <div>
               <h3 className="mb-2.5 text-tituloSecao font-extrabold text-hf-stone-900">Resumo do período</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/safras/${safraId}/vendas`)}
+                  className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5 text-left active:bg-hf-stone-50"
+                >
                   <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-hf-blue-bg">
                     <ShoppingCart className="h-[17px] w-[17px] text-hf-blue" />
                   </div>
                   <span className="text-auxiliar text-hf-stone-600">Receita (Vendas)</span>
                   <span className="-mt-1.5 text-valorDestaque font-extrabold tabular-nums">{formatarMoeda(simulacao.receita)}</span>
-                </div>
-                <div className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/safras/${safraId}/despesas`)}
+                  className="flex flex-col gap-2 rounded-2xl border border-hf-line p-3.5 text-left active:bg-hf-stone-50"
+                >
                   <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-hf-red-bg">
                     <Wallet className="h-[17px] w-[17px] text-hf-red" />
                   </div>
                   <span className="text-auxiliar text-hf-stone-600">Despesas</span>
                   <span className="-mt-1.5 text-valorDestaque font-extrabold tabular-nums">{formatarMoeda(simulacao.despesas)}</span>
-                </div>
+                </button>
                 <div className="col-span-2 flex items-center gap-3 rounded-2xl border border-hf-line p-3.5">
                   <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-hf-green-100">
                     <TrendingUp className="h-[17px] w-[17px] text-hf-green-600" />

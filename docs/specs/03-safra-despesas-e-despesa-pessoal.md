@@ -157,6 +157,30 @@ Origem: mesmo item de backlog do adendo de `05-calculo-e-painel-simulacao.md` (u
 - Nova função `dataEstaNoIntervalo(dataISO, dataInicio, dataFim)` em `frontend/src/lib/periodo.ts`, ao lado de `dataEstaNoPeriodo` — mesma comparação por dia em UTC, mas contra um intervalo arbitrário em vez dos atalhos fixos
 - Nenhuma mudança de contrato de API nem de schema
 
+## Adendo (2026-09-15) — novas categorias no enum `TipoDespesa`
+
+Origem: feedback de um usuário real do app (relatado ao dev via print + texto), apontando que categorias comuns de custo da meação em morango ficavam todas caindo em `OUTRO`, perdendo granularidade — em especial fertirrigação, que o produtor descreveu como "muito importante".
+
+Decisão registrada com o desenvolvedor: adicionar 4 valores novos ao enum `TipoDespesa`, sem remover nem renomear nenhum dos 8 existentes (`TERRA, MUDAS, ADUBO, DEFENSIVOS, MAO_DE_OBRA, EMBALAGEM, TRANSPORTE, OUTRO`):
+
+- `CUSTEIO` — custeio/financiamento bancário da safra
+- `FERTIRRIGACAO` — despesas específicas de fertirrigação
+- `ENERGIA` — energia elétrica (ex: motor elétrico de irrigação, comum em cultivo suspenso)
+- `OLEO_DIESEL` — óleo diesel (ex: maquinário de cultivo no chão)
+
+Ficou de fora da lista original de feedback (Insumos, Serviços, Estrutura de estufas) — decisão do dev de reduzir o escopo desta rodada; podem ser revisitados depois se o mesmo tipo de reclamação (categoria caindo em "Outro") se repetir para eles.
+
+Impacto técnico:
+- Migração de enum Prisma **puramente aditiva** (`ALTER TYPE ... ADD VALUE`) — não mexe em nenhuma despesa já lançada, todos os valores antigos continuam válidos
+- Precisa de ícone novo em `frontend/src/lib/iconesTipoDespesa.tsx` e rótulo em `frontend/src/lib/rotulos.ts` para cada categoria nova
+- Nenhuma mudança de contrato de API (o campo `tipo` já aceitava qualquer valor do enum) nem no cálculo de divisão (que soma por `valor`, não por `tipo`)
+
+## Adendo (2026-09-15) — cards do resumo do período viram atalho
+
+Origem: mesmo feedback de usuário — os cards "Receita (Vendas)" e "Despesas" na tela de Início (`ResumoPage`) eram só informativos, enquanto o padrão de navegação real (abrir a tela de Vendas/Despesas) ficava só no menu inferior, com área de toque menor.
+
+Decisão: os cards passam a navegar para as mesmas rotas do menu inferior (`/safras/:id/vendas` e `/safras/:id/despesas`), mantendo o menu inferior como está — é reforço de atalho, não substituição. Puramente de navegação/UX, sem mudança de regra de negócio, contrato de API ou schema.
+
 ## Critérios de aceite
 
 1. Dado um sócio de uma Sociedade, `POST /sociedades/:id/safras` cria a Safra com status `EM_ANDAMENTO`
@@ -170,3 +194,5 @@ Origem: mesmo item de backlog do adendo de `05-calculo-e-painel-simulacao.md` (u
 9. Dado uma despesa pessoal de A, o usuário B tentando `PUT` ou `DELETE` nela recebe 403
 10. Nenhuma despesa pessoal aparece em `GET /safras/:id/despesas` (sociedade) e vice-versa
 11. Frontend: tela pra abrir/encerrar Safra, tela de lançamento e lista de despesas da sociedade (mobile-first), e uma aba separada "Minhas despesas pessoais" com CRUD simples, deixando visualmente clara a separação entre as duas contas
+12. `Custeio`, `Fertirrigação`, `Energia` e `Óleo Diesel` aparecem como opções na grade de "Tipo de despesa" da tela Nova Despesa, cada uma com ícone e rótulo próprios
+13. Na tela de Início, clicar no card "Receita (Vendas)" navega para `/safras/:id/vendas` e clicar no card "Despesas" navega para `/safras/:id/despesas`, mesmo destino que os itens equivalentes do menu inferior

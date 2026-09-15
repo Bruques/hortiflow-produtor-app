@@ -1,4 +1,4 @@
-import { Sprout, Leaf, Droplet, ShieldAlert, Users, Package, Truck, Receipt } from 'lucide-react';
+import { Sprout, Leaf, Droplet, Droplets, ShieldAlert, Users, Package, Truck, Banknote, Zap, Fuel, Receipt } from 'lucide-react';
 import type { TipoDespesa } from '@/types/despesa';
 
 // Um ícone por categoria pra identificação rápida na lista (o produtor reconhece pelo ícone
@@ -13,5 +13,9 @@ export const ICONE_TIPO_DESPESA: Record<TipoDespesa, typeof Sprout> = {
   MAO_DE_OBRA: Users,
   EMBALAGEM: Package,
   TRANSPORTE: Truck,
+  CUSTEIO: Banknote,
+  FERTIRRIGACAO: Droplets,
+  ENERGIA: Zap,
+  OLEO_DIESEL: Fuel,
   OUTRO: Receipt,
 };
