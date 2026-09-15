@@ -37,10 +37,9 @@ export interface PlanoCatalogo {
   implantacaoAssistidaMensal: boolean;
 }
 
-export interface CheckoutResultado {
-  tipo: 'ASSINATURA' | 'COBRANCA_UNICA';
-  initPoint: string;
-}
+export type CheckoutResultado =
+  | { tipo: 'ASSINATURA' | 'COBRANCA_UNICA'; initPoint: string }
+  | { tipo: 'PIX'; qrCode: string; qrCodeBase64: string };
 
 export async function listarPlanosRequest(): Promise<PlanoCatalogo[]> {
   const { data } = await apiClient.get<PlanoCatalogo[]>('/assinatura/planos');
@@ -69,6 +68,7 @@ export async function checkoutRequest(dados: {
   planoId: string;
   ciclo: 'MENSAL' | 'ANUAL';
   metodo: 'CARTAO' | 'PIX';
+  cpf?: string;
 }): Promise<CheckoutResultado> {
   const { data } = await apiClient.post<CheckoutResultado>('/assinatura/checkout', {
     ...dados,

@@ -1,11 +1,14 @@
 // Spec 25 — cliente HTTP do Mercado Pago (gateway de cobrança do onboarding automatizado),
 // no mesmo padrão do asaas.service.ts: fetch nativo, sem dependência nova.
 //
-// AVISO IMPORTANTE: este arquivo foi escrito a partir da documentação pública do Mercado
-// Pago (Checkout Pro / Preferences e Assinaturas / Preapproval), mas não foi testado contra
-// uma conta sandbox real nesta sessão (sem credenciais disponíveis). Antes de ir pra produção,
-// validar cada chamada com o `MP_ACCESS_TOKEN` de teste do Mercado Pago e conferir o formato
-// exato do payload de webhook que a conta realmente envia.
+// Testado contra o Mercado Pago de teste (conta sandbox real) em 2026-09-15. Achado nesse
+// teste: cartão via Checkout Pro (redirecionamento hospedado) funciona bem, mas o Pix via
+// Checkout Pro **exige login numa conta Mercado Pago do pagador** — inaceitável pro nosso
+// caso (o pagador não deveria precisar de conta nenhuma). Por isso o Pix NÃO usa Checkout
+// Pro: usa a API de Pagamentos direta (`POST /v1/payments`), que devolve um QR Code pra
+// mostrar dentro do próprio app, sem redirecionar o pagador pra lugar nenhum.
+
+import { randomUUID } from 'crypto';
 
 const MP_API_URL = process.env.MP_API_URL || 'https://api.mercadopago.com';
 
@@ -35,30 +38,19 @@ function emailSinteticoPara(usuarioId: string): string {
   return `${usuarioId}@usuarios.hortiflow-produtor.com.br`;
 }
 
-type Metodo = 'CARTAO' | 'PIX';
-
-// Tipos de pagamento do Mercado Pago a excluir da preferência pra forçar só cartão ou só Pix.
-// https://www.mercadopago.com.br/developers — payment_methods.excluded_payment_types
-function tiposExcluidosPara(metodo: Metodo): { id: string }[] {
-  if (metodo === 'CARTAO') {
-    return [{ id: 'ticket' }, { id: 'bank_transfer' }, { id: 'atm' }, { id: 'prepaid_card' }];
-  }
-  return [{ id: 'credit_card' }, { id: 'debit_card' }, { id: 'prepaid_card' }, { id: 'ticket' }, { id: 'atm' }];
-}
-
 interface MpPreference {
   id: string;
   init_point: string;
 }
 
-// Cobrança única, hospedada (Checkout Pro) — usada pra ciclo anual (cartão ou Pix) e pra
-// ciclo mensal + Pix (que não tem débito automático, então "assinatura" não se aplica: cada
-// cobrança é uma preferência nova). Ver docs/specs/25-onboarding-e-checkout-automatizados.md.
-export async function criarCobrancaUnica(params: {
+// Cobrança única, hospedada (Checkout Pro) — só sobrou o caso cartão + anual (Pix não usa
+// mais isso, ver criarPagamentoPix abaixo). Ainda assim exclui explicitamente boleto/Pix/
+// caixa eletrônico da preferência, pra garantir que só cartão apareça nessa tela.
+// https://www.mercadopago.com.br/developers — payment_methods.excluded_payment_types
+export async function criarCobrancaUnicaCartao(params: {
   usuarioId: string;
   descricao: string;
   valor: number;
-  metodo: Metodo;
   externalReference: string;
   callbackUrl: string;
   notificationUrl: string;
@@ -72,7 +64,9 @@ export async function criarCobrancaUnica(params: {
       back_urls: { success: params.callbackUrl, failure: params.callbackUrl, pending: params.callbackUrl },
       auto_return: 'approved',
       notification_url: params.notificationUrl,
-      payment_methods: { excluded_payment_types: tiposExcluidosPara(params.metodo) },
+      payment_methods: {
+        excluded_payment_types: [{ id: 'ticket' }, { id: 'bank_transfer' }, { id: 'atm' }, { id: 'prepaid_card' }],
+      },
     }),
   });
 
@@ -81,6 +75,56 @@ export async function criarCobrancaUnica(params: {
     // Quem decide se é um pagamento de teste ou real são as credenciais usadas (o
     // MP_ACCESS_TOKEN), não a URL — por isso um único link (`init_point`) serve pros dois casos.
     initPoint: preference.init_point,
+  };
+}
+
+interface MpPagamentoPixCriado {
+  id: number;
+  status: string;
+  point_of_interaction?: {
+    transaction_data?: {
+      qr_code?: string; // "copia e cola"
+      qr_code_base64?: string; // imagem do QR Code, já em base64 (sem o prefixo data:image/...)
+    };
+  };
+}
+
+// Pix direto via API de Pagamentos — sem redirecionar o pagador, sem exigir conta/login no
+// Mercado Pago (ver aviso no topo do arquivo). Exige CPF do pagador: é uma exigência da
+// própria API pra Pix no Brasil, por isso o checkout pede esse campo só quando Pix é
+// escolhido (o Usuario do HortiFlow não tem CPF cadastrado em nenhum outro lugar).
+export async function criarPagamentoPix(params: {
+  usuarioId: string;
+  descricao: string;
+  valor: number;
+  cpf: string;
+  externalReference: string;
+  notificationUrl: string;
+}): Promise<{ paymentId: string; status: string; qrCode: string; qrCodeBase64: string }> {
+  const pagamento = await mpFetch<MpPagamentoPixCriado>('/v1/payments', {
+    method: 'POST',
+    // Idempotency key: evita criar dois pagamentos Pix se a chamada for repetida (ex: o app
+    // reenviar por instabilidade de rede) — cada tentativa de checkout gera uma nova, então
+    // um duplo toque do usuário no botão ainda cria dois pagamentos distintos de propósito.
+    headers: { 'X-Idempotency-Key': randomUUID() },
+    body: JSON.stringify({
+      transaction_amount: params.valor,
+      description: params.descricao,
+      payment_method_id: 'pix',
+      external_reference: params.externalReference,
+      notification_url: params.notificationUrl,
+      payer: {
+        email: emailSinteticoPara(params.usuarioId),
+        identification: { type: 'CPF', number: params.cpf.replace(/\D/g, '') },
+      },
+    }),
+  });
+
+  return {
+    paymentId: String(pagamento.id),
+    status: pagamento.status,
+    qrCode: pagamento.point_of_interaction?.transaction_data?.qr_code ?? '',
+    qrCodeBase64: pagamento.point_of_interaction?.transaction_data?.qr_code_base64 ?? '',
   };
 }
 

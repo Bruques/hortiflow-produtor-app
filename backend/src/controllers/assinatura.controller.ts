@@ -83,21 +83,30 @@ export async function escolherPlano(req: Request, res: Response): Promise<void> 
   res.json(resultado);
 }
 
-const checkoutSchema = z.object({
-  planoId: z.string().uuid(),
-  ciclo: z.enum(['MENSAL', 'ANUAL']),
-  metodo: z.enum(['CARTAO', 'PIX']),
-  // API agnóstica de cliente (ver CLAUDE.md): quem sabe pra onde deve voltar depois do
-  // checkout hospedado é o cliente (app mobile com seu deep link, web com sua própria
-  // origem) — o backend não deve fixar isso. Cai pro deep link do app mobile só por
-  // compatibilidade com uma chamada antiga sem esse campo.
-  retornoUrl: z.string().url().optional(),
-});
+const checkoutSchema = z
+  .object({
+    planoId: z.string().uuid(),
+    ciclo: z.enum(['MENSAL', 'ANUAL']),
+    metodo: z.enum(['CARTAO', 'PIX']),
+    // API agnóstica de cliente (ver CLAUDE.md): quem sabe pra onde deve voltar depois do
+    // checkout hospedado é o cliente (app mobile com seu deep link, web com sua própria
+    // origem) — o backend não deve fixar isso. Cai pro deep link do app mobile só por
+    // compatibilidade com uma chamada antiga sem esse campo.
+    retornoUrl: z.string().url().optional(),
+    // Só obrigatório quando metodo é PIX (checado no .refine abaixo) — a API de Pagamentos
+    // do Mercado Pago exige CPF do pagador pra gerar o QR Code, e o Usuario do HortiFlow
+    // não tem esse dado cadastrado em nenhum outro lugar.
+    cpf: z.string().trim().min(11).optional(),
+  })
+  .refine((dados) => dados.metodo !== 'PIX' || !!dados.cpf, {
+    message: 'CPF é obrigatório pra pagar com Pix',
+    path: ['cpf'],
+  });
 
 export async function checkout(req: Request, res: Response): Promise<void> {
   const parsed = checkoutSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'Plano ou ciclo inválido' });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Plano ou ciclo inválido' });
     return;
   }
 
@@ -106,7 +115,14 @@ export async function checkout(req: Request, res: Response): Promise<void> {
 
   const resultado = await assinaturaService.iniciarCheckout(req.usuarioId, parsed.data, { callbackUrl, notificationUrl });
   if ('erro' in resultado) {
-    res.status(404).json({ error: resultado.erro === 'PLANO_NAO_ENCONTRADO' ? 'Plano não encontrado' : 'Assinatura não encontrada' });
+    const status = resultado.erro === 'CPF_OBRIGATORIO_PARA_PIX' ? 400 : 404;
+    const mensagem =
+      resultado.erro === 'CPF_OBRIGATORIO_PARA_PIX'
+        ? 'CPF é obrigatório pra pagar com Pix'
+        : resultado.erro === 'PLANO_NAO_ENCONTRADO'
+          ? 'Plano não encontrado'
+          : 'Assinatura não encontrada';
+    res.status(status).json({ error: mensagem });
     return;
   }
 

@@ -279,12 +279,14 @@ export async function escolherPlano(
 type CheckoutResultado =
   | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
   | { erro: 'PLANO_NAO_ENCONTRADO' }
+  | { erro: 'CPF_OBRIGATORIO_PARA_PIX' }
   | { tipo: 'ASSINATURA'; mpSubscriptionId: string; initPoint: string }
-  | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string };
+  | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string }
+  | { tipo: 'PIX'; mpPaymentId: string; qrCode: string; qrCodeBase64: string };
 
 export async function iniciarCheckout(
   usuarioId: string,
-  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX' },
+  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX'; cpf?: string },
   urls: { callbackUrl: string; notificationUrl: string }
 ): Promise<CheckoutResultado> {
   const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
@@ -295,10 +297,31 @@ export async function iniciarCheckout(
 
   const cicloTexto = dados.ciclo === CicloAssinatura.ANUAL ? 'anual' : 'mensal';
   const descricao = `HortiFlow — ${plano.nome} (${cicloTexto})`;
+  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
 
-  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — os outros
-  // três (mensal+Pix, anual+cartão, anual+Pix) são cobrança única (ver spec 25).
-  if (dados.ciclo === CicloAssinatura.MENSAL && dados.metodo === 'CARTAO') {
+  // Pix nunca passa pelo Checkout Pro (redirecionamento hospedado) — descoberto em teste
+  // manual (2026-09-15) que ele exige o pagador logar numa conta Mercado Pago, o que não
+  // faz sentido pro nosso caso. Em vez disso, gera o QR Code direto via API de Pagamentos,
+  // mostrado dentro do próprio app (ver mercadopago.service.ts). Essa API exige CPF do
+  // pagador, que o Usuario do HortiFlow não tem cadastrado em lugar nenhum — por isso o
+  // checkout pede esse campo só quando Pix é escolhido.
+  if (dados.metodo === 'PIX') {
+    if (!dados.cpf) return { erro: 'CPF_OBRIGATORIO_PARA_PIX' };
+    const pix = await mercadopagoService.criarPagamentoPix({
+      usuarioId,
+      descricao,
+      valor,
+      cpf: dados.cpf,
+      externalReference: assinatura.id,
+      notificationUrl: urls.notificationUrl,
+    });
+    await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
+    return { tipo: 'PIX', mpPaymentId: pix.paymentId, qrCode: pix.qrCode, qrCodeBase64: pix.qrCodeBase64 };
+  }
+
+  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — anual +
+  // cartão é cobrança única (ver spec 25).
+  if (dados.ciclo === CicloAssinatura.MENSAL) {
     const { preapprovalId, initPoint } = await mercadopagoService.criarAssinaturaRecorrente({
       usuarioId,
       descricao,
@@ -313,12 +336,10 @@ export async function iniciarCheckout(
     return { tipo: 'ASSINATURA', mpSubscriptionId: preapprovalId, initPoint };
   }
 
-  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
-  const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnica({
+  const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnicaCartao({
     usuarioId,
     descricao,
     valor,
-    metodo: dados.metodo,
     externalReference: assinatura.id,
     callbackUrl: urls.callbackUrl,
     notificationUrl: urls.notificationUrl,

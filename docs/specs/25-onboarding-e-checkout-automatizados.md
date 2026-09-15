@@ -91,11 +91,9 @@ Esta spec implementa o **Fluxo A** já validado em wireframe com o desenvolvedor
 ### Checkout pós-trial
 
 - Quando `dataFimAcesso < agora` (gate 402 já existente, spec 18), a tela de bloqueio agora mostra, como ação principal, **"Assinar agora"**, levando ao checkout — o link/contato manual (WhatsApp/e-mail) continua disponível como ação secundária, pro caso de o produtor preferir ser atendido diretamente
-- No checkout: plano e ciclo vêm pré-selecionados do que o produtor escolheu na tela de plano, mas podem ser trocados ali; depois escolhe a forma de pagamento (Pix ou cartão). Ao confirmar, o app **redireciona pro checkout hospedado do Mercado Pago** (abre em navegador/WebView) — o produtor sai do formulário nativo do app nesse momento, paga na página do Mercado Pago, e volta pro app depois
-- **Mensal + cartão**: cria assinatura recorrente no Mercado Pago (cobrança automática todo mês)
-- **Mensal + Pix**: gera cobrança Pix a cada ciclo; como Pix não tem débito automático, o produtor recebe um novo QR Code/código copia-e-cola a cada mês e precisa pagar manualmente — se não pagar até o vencimento, cai no mesmo gate 402 de acesso vencido (sem lembrete automático nem tela diferenciada nesta spec)
-- **Anual + cartão**: cobrança única do valor total anual (R$ 538,92 / R$ 970,92 / R$ 1.402,92), à vista no Mercado Pago — o parcelamento em até 12x, se o banco do produtor oferecer, acontece do lado da operadora do cartão dele, não é uma assinatura recorrente nossa
-- **Anual + Pix**: cobrança única do valor total anual, à vista, sem parcelamento (Pix não parcela)
+- No checkout: plano e ciclo vêm pré-selecionados do que o produtor escolheu na tela de plano, mas podem ser trocados ali; depois escolhe a forma de pagamento (Pix ou cartão)
+- **Cartão (mensal ou anual)**: o app **redireciona pro checkout hospedado do Mercado Pago** (abre em navegador/WebView) — o produtor sai do app nesse momento, paga na página do Mercado Pago, e volta depois. Mensal cria assinatura recorrente (cobrança automática todo mês); anual é cobrança única do valor total (R$ 538,92 / R$ 970,92 / R$ 1.402,92), à vista — o parcelamento em até 12x, se o banco do produtor oferecer, acontece do lado da operadora do cartão dele, não é uma assinatura recorrente nossa
+- **Pix (mensal ou anual) — mudou de desenho depois de testado em 2026-09-15**: a spec original previa redirecionar pro Checkout Pro igual ao cartão, mas isso na prática **exige o pagador logar numa conta Mercado Pago** pra pagar via Pix, o que não faz sentido pro nosso caso (o pagador não deveria precisar de conta nenhuma). Por isso o Pix **não redireciona**: o app pede o **CPF do pagador** (exigido pela API de Pagamentos do Mercado Pago pra gerar cobrança Pix — o `Usuario` do HortiFlow não tem CPF cadastrado em nenhum outro lugar, então esse campo só existe aqui, não é persistido) e mostra um **QR Code + código copia-e-cola direto na tela**, sem sair do app. Como Pix não tem débito automático, no ciclo mensal o produtor recebe um novo QR Code a cada mês e precisa pagar manualmente — se não pagar até o vencimento, cai no mesmo gate 402 de acesso vencido (sem lembrete automático nem tela diferenciada nesta spec)
 - Webhook do Mercado Pago confirmando pagamento: estende `dataFimAcesso` (30 dias pra mensal, 365 dias pra anual), muda `status` pra `ATIVA`, grava o identificador da assinatura/cobrança do Mercado Pago
 
 ### Painel admin (mantido da spec 18, sem remoção)
@@ -129,11 +127,16 @@ PATCH /assinatura/plano
   — grava a escolha sem cobrar; disponível em qualquer momento do trial, não só uma vez
 
 POST /assinatura/checkout
-  Body: { planoId, ciclo: "MENSAL"|"ANUAL", metodo: "CARTAO"|"PIX", retornoUrl?: string }
-    // `retornoUrl` é pra onde o Mercado Pago volta depois do pagamento — cada cliente manda
-    // a sua (deep link do app mobile, URL do próprio site no web), pra manter a API
-    // agnóstica de cliente (ver CLAUDE.md); sem o campo, cai no deep link do app mobile
-    // por compatibilidade.
+  Body: { planoId, ciclo: "MENSAL"|"ANUAL", metodo: "CARTAO"|"PIX", retornoUrl?: string, cpf?: string }
+    // `retornoUrl` é pra onde o Mercado Pago volta depois do pagamento (só usado por
+    // cartão) — cada cliente manda a sua (deep link do app mobile, URL do próprio site no
+    // web), pra manter a API agnóstica de cliente (ver CLAUDE.md); sem o campo, cai no deep
+    // link do app mobile por compatibilidade.
+    // `cpf` é obrigatório quando metodo é PIX (400 "CPF é obrigatório pra pagar com Pix" se
+    // faltar) — exigência da API de Pagamentos do Mercado Pago pra gerar o QR Code.
+  200 (Pix, mensal ou anual): { tipo: "PIX", mpPaymentId, qrCode, qrCodeBase64 }
+    // qrCode = código copia-e-cola; qrCodeBase64 = imagem do QR Code em base64, pra mostrar
+    // direto na tela (sem redirecionar o pagador pra lugar nenhum)
   200 (mensal + cartão, assinatura recorrente): { tipo: "ASSINATURA", mpSubscriptionId, initPoint }
   200 (demais combinações, cobrança única): { tipo: "COBRANCA_UNICA", mpPaymentId, initPoint }
   400: { error: "Plano ou ciclo inválido" }
@@ -184,7 +187,8 @@ Rotas e gates já existentes na spec 18 (402 por tempo vencido, 403 por limite d
 6. Dado um usuário que confirma um plano, quando consulta seu status logo em seguida, então `status` continua `TRIAL` e nenhum `Pagamento` foi criado — confirmar plano não cobra
 7. Dado um usuário com trial vencido, quando abre o app, então vê a tela de bloqueio com "Assinar agora" como ação principal e uma opção secundária de contato manual
 8. Dado um usuário que escolhe plano mensal + cartão no checkout, quando confirma, então uma assinatura recorrente é criada no Mercado Pago e `POST /assinatura/checkout` retorna `tipo: "ASSINATURA"`
-9. Dado um usuário que escolhe plano anual + Pix, quando confirma, então recebe o link do checkout hospedado do Mercado Pago (`initPoint`) de uma cobrança única no valor total anual, sem opção de parcelamento
+9. Dado um usuário que escolhe plano anual + Pix e informa o CPF, quando confirma, então recebe um QR Code + código copia-e-cola (`tipo: "PIX"`) no valor total anual, sem ser redirecionado nem precisar de conta Mercado Pago
+9b. Dado um usuário que escolhe Pix sem informar CPF, quando tenta confirmar, então o botão fica desabilitado (front) e, se a chamada chegar assim mesmo, o backend recusa com 400 "CPF é obrigatório pra pagar com Pix"
 10. Dado um webhook do Mercado Pago confirmando uma cobrança, quando processado, então `dataFimAcesso` é estendido (30 dias se mensal, 365 dias se anual) e `status` vira `ATIVA`
 11. Dado um usuário no plano Essencial mensal, quando consulta os recursos do seu plano, então não vê acesso a despesas pessoais, suporte prioritário nem implantação assistida
 12. Dado esse mesmo usuário, quando muda pra Essencial **anual**, então passa a ter direito a implantação assistida (mas despesas pessoais e suporte prioritário continuam fora, exclusivos de Profissional/Gestão)

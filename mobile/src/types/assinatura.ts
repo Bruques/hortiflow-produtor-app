@@ -34,7 +34,6 @@ export interface PlanoRecomendado {
   valorAnualTotal: number;
 }
 
-export interface CheckoutResultado {
-  tipo: 'ASSINATURA' | 'COBRANCA_UNICA';
-  initPoint: string;
-}
+export type CheckoutResultado =
+  | { tipo: 'ASSINATURA' | 'COBRANCA_UNICA'; initPoint: string }
+  | { tipo: 'PIX'; qrCode: string; qrCodeBase64: string };
