@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Copy, Check, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { checkoutRequest, statusAssinaturaRequest, verificarPedidoPixRequest } from '@/services/assinatura';
@@ -20,6 +21,7 @@ interface PixGerado {
 // verificar" é uma rede de segurança enquanto o formato do webhook de pedidos não foi
 // validado contra um evento real.
 export default function CheckoutPage() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<AssinaturaStatus | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [ciclo, setCiclo] = useState<'MENSAL' | 'ANUAL'>('ANUAL');
@@ -31,14 +33,24 @@ export default function CheckoutPage() {
   const [copiado, setCopiado] = useState(false);
   const [verificando, setVerificando] = useState(false);
 
+  // Bug relatado pelo dev (2026-09-15): o pagamento confirma via webhook, mas se o produtor
+  // só der F5 nesta tela (em vez de navegar de volta manualmente), ela recarregava do zero e
+  // mostrava o formulário de checkout de novo, como se ainda estivesse pendente — mesmo já
+  // pago. Corrigido checando `vencida` aqui: se o acesso já está liberado, redireciona pra
+  // Início em vez de renderizar o checkout.
   useEffect(() => {
     statusAssinaturaRequest()
       .then((dados) => {
+        if (!dados.vencida) {
+          navigate('/', { replace: true });
+          return;
+        }
         setStatus(dados);
         if (dados.ciclo) setCiclo(dados.ciclo);
       })
       .catch(() => setErro('Não foi possível carregar sua assinatura'))
       .finally(() => setCarregando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function irParaPagamento() {

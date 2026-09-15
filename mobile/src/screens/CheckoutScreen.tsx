@@ -43,14 +43,23 @@ export function CheckoutScreen({ navigation }: Props) {
   const [copiado, setCopiado] = useState(false);
   const [verificando, setVerificando] = useState(false);
 
+  // Bug relatado pelo dev (2026-09-15, equivalente no web): se o pagamento já confirmou via
+  // webhook mas o produtor volta pra esta tela (ou ela recarrega), mostrava o formulário de
+  // checkout de novo como se ainda estivesse pendente. Corrigido checando `vencida`: se o
+  // acesso já está liberado, redireciona pra Início em vez de renderizar o checkout.
   useEffect(() => {
     statusAssinaturaRequest()
       .then((dados) => {
+        if (!dados.vencida) {
+          navigation.replace('Inicio');
+          return;
+        }
         setStatus(dados);
         if (dados.ciclo) setCiclo(dados.ciclo);
       })
       .catch(() => setErro('Não foi possível carregar sua assinatura'))
       .finally(() => setCarregando(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function irParaPagamento() {
