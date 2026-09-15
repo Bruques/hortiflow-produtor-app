@@ -5,8 +5,16 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Clipboard from 'expo-clipboard';
 import { Check, Copy, RefreshCw } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { checkoutRequest, statusAssinaturaRequest, verificarPedidoPixRequest } from '../services/assinatura';
+import {
+  checkoutRequest,
+  escolherPlanoRequest,
+  listarPlanosRequest,
+  statusAssinaturaRequest,
+  verificarPedidoPixRequest,
+  type PlanoCatalogo,
+} from '../services/assinatura';
 import { mensagemErro } from '../lib/erroApi';
+import { formatarMoeda } from '../lib/formatacao';
 import { cores, espacamento, raio } from '../theme';
 import type { AssinaturaStatus } from '../types/assinatura';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -31,8 +39,17 @@ interface PixGerado {
 // mercadopago.service.ts pra entender por que não é a API de Pagamentos nem o Checkout
 // Pro), mostrando o QR Code direto nesta tela. Botão "Já paguei — verificar" é uma rede de
 // segurança enquanto o formato do webhook de pedidos não foi validado contra um evento real.
+//
+// Troca de plano no checkout (2026-09-15): o produtor só via a opção de assinar o plano já
+// atribuído a ele, sem poder mudar pra outro na hora de pagar (gap encontrado durante o uso
+// real, fora do escopo original da spec 25). Reaproveita o mesmo cartão de plano da tela de
+// onboarding (OnboardingPlanoScreen). Se o produtor trocar de plano aqui, confirma via
+// PATCH /assinatura/plano antes do checkout.
 export function CheckoutScreen({ navigation }: Props) {
   const [status, setStatus] = useState<AssinaturaStatus | null>(null);
+  const [planos, setPlanos] = useState<PlanoCatalogo[]>([]);
+  const [planoSelecionadoId, setPlanoSelecionadoId] = useState('');
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [ciclo, setCiclo] = useState<'MENSAL' | 'ANUAL'>('ANUAL');
   const [metodo, setMetodo] = useState<'CARTAO' | 'PIX'>('CARTAO');
@@ -48,13 +65,15 @@ export function CheckoutScreen({ navigation }: Props) {
   // checkout de novo como se ainda estivesse pendente. Corrigido checando `vencida`: se o
   // acesso já está liberado, redireciona pra Início em vez de renderizar o checkout.
   useEffect(() => {
-    statusAssinaturaRequest()
-      .then((dados) => {
+    Promise.all([statusAssinaturaRequest(), listarPlanosRequest()])
+      .then(([dados, catalogo]) => {
         if (!dados.vencida) {
           navigation.replace('Inicio');
           return;
         }
         setStatus(dados);
+        setPlanos(catalogo);
+        if (dados.plano) setPlanoSelecionadoId(dados.plano.id);
         if (dados.ciclo) setCiclo(dados.ciclo);
       })
       .catch(() => setErro('Não foi possível carregar sua assinatura'))
@@ -62,12 +81,20 @@ export function CheckoutScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function alternarExpandido(id: string) {
+    setExpandidoId((atual) => (atual === id ? null : id));
+    setPlanoSelecionadoId(id);
+  }
+
   async function irParaPagamento() {
-    if (!status?.plano) return;
+    if (!planoSelecionadoId) return;
     setProcessando(true);
     setErro(null);
     try {
-      const resultado = await checkoutRequest({ planoId: status.plano.id, ciclo, metodo });
+      if (planoSelecionadoId !== status?.plano?.id) {
+        await escolherPlanoRequest(planoSelecionadoId, ciclo);
+      }
+      const resultado = await checkoutRequest({ planoId: planoSelecionadoId, ciclo, metodo });
 
       if (resultado.tipo === 'PIX') {
         setPix({
@@ -166,13 +193,62 @@ export function CheckoutScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.conteudo}>
-        <Text style={styles.titulo}>Assinar {status?.plano?.nome ?? ''}</Text>
-        <Text style={styles.subtitulo}>Escolha o ciclo e a forma de pagamento pra continuar usando o HortiFlow.</Text>
+        <Text style={styles.titulo}>Assinar {planos.find((p) => p.id === planoSelecionadoId)?.nome ?? ''}</Text>
+        <Text style={styles.subtitulo}>Escolha o plano, o ciclo e a forma de pagamento pra continuar usando o HortiFlow.</Text>
 
         {carregando && <ActivityIndicator />}
 
         {!carregando && (
           <>
+            <View style={styles.grupo}>
+              <Text style={styles.grupoLabel}>Plano</Text>
+              <View style={styles.listaPlanos}>
+                {planos.map((plano) => {
+                  const expandido = expandidoId === plano.id;
+                  const selecionado = planoSelecionadoId === plano.id;
+                  return (
+                    <Pressable
+                      key={plano.id}
+                      style={[styles.cartaoPlano, selecionado && styles.cartaoPlanoSelecionado]}
+                      onPress={() => alternarExpandido(plano.id)}
+                    >
+                      <View style={styles.cartaoPlanoCabecalho}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.cartaoPlanoNome}>{plano.nome}</Text>
+                          {ciclo === 'MENSAL' ? (
+                            <Text style={styles.cartaoPlanoValor}>{formatarMoeda(plano.valorMensal)}/mês</Text>
+                          ) : (
+                            <>
+                              <Text style={styles.cartaoPlanoValor}>{formatarMoeda(plano.valorAnualExibidoPorMes)}/mês</Text>
+                              <Text style={styles.cartaoPlanoValorTotal}>{formatarMoeda(plano.valorAnualTotal)}/ano</Text>
+                            </>
+                          )}
+                        </View>
+                        {selecionado && (
+                          <View style={styles.checkSelecionado}>
+                            <Check size={14} color="#FFFFFF" />
+                          </View>
+                        )}
+                      </View>
+
+                      {expandido && (
+                        <View style={styles.recursosPlano}>
+                          <LinhaRecurso rotulo="Safras ativas" valor={plano.limiteSafrasAtivas === null ? 'Ilimitado' : `Até ${plano.limiteSafrasAtivas}`} />
+                          <LinhaRecurso rotulo="Importação por IA" valor={`Até ${plano.limiteImportacaoIAMes}/mês`} />
+                          <LinhaRecurso rotulo="Despesas pessoais" valor={plano.despesasPessoais ? 'Incluso' : 'Não incluso'} />
+                          <LinhaRecurso rotulo="Suporte prioritário" valor={plano.suportePrioritario ? 'Incluso' : 'Não incluso'} />
+                          <LinhaRecurso
+                            rotulo="Implantação assistida"
+                            valor={ciclo === 'ANUAL' || plano.implantacaoAssistidaMensal ? 'Incluso' : 'Não incluso'}
+                          />
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
             <View style={styles.grupo}>
               <Text style={styles.grupoLabel}>Ciclo</Text>
               <View style={styles.opcoes}>
@@ -216,6 +292,15 @@ function Opcao({ rotulo, ativo, onPress }: { rotulo: string; ativo: boolean; onP
     <Pressable style={[styles.opcao, ativo && styles.opcaoAtiva]} onPress={onPress}>
       <Text style={[styles.opcaoTexto, ativo && styles.opcaoTextoAtivo]}>{rotulo}</Text>
     </Pressable>
+  );
+}
+
+function LinhaRecurso({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <View style={styles.linhaRecurso}>
+      <Text style={styles.linhaRecursoRotulo}>{rotulo}</Text>
+      <Text style={styles.linhaRecursoValor}>{valor}</Text>
+    </View>
   );
 }
 
@@ -275,6 +360,69 @@ const styles = StyleSheet.create({
   },
   opcaoTextoAtivo: {
     color: cores.green[800],
+  },
+  listaPlanos: {
+    gap: espacamento.sm + 2,
+  },
+  cartaoPlano: {
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    borderRadius: raio.lg,
+    padding: espacamento.lg,
+    backgroundColor: '#FFFFFF',
+  },
+  cartaoPlanoSelecionado: {
+    borderColor: cores.green[700],
+    backgroundColor: cores.green[100],
+  },
+  cartaoPlanoCabecalho: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espacamento.sm,
+  },
+  cartaoPlanoNome: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: cores.stone[900],
+  },
+  cartaoPlanoValor: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: cores.green[800],
+    marginTop: 2,
+  },
+  cartaoPlanoValorTotal: {
+    fontSize: 11.5,
+    color: cores.stone[600],
+    marginTop: 1,
+  },
+  checkSelecionado: {
+    width: 22,
+    height: 22,
+    borderRadius: raio.pill,
+    backgroundColor: cores.green[700],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recursosPlano: {
+    marginTop: espacamento.md,
+    paddingTop: espacamento.md,
+    borderTopWidth: 1,
+    borderTopColor: cores.linha,
+    gap: espacamento.xs + 4,
+  },
+  linhaRecurso: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  linhaRecursoRotulo: {
+    fontSize: 12.5,
+    color: cores.stone[600],
+  },
+  linhaRecursoValor: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: cores.stone[900],
   },
   aviso: {
     fontSize: 12,
