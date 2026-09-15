@@ -306,7 +306,6 @@ export async function iniciarCheckout(
       descricao,
       valor,
       externalReference: assinatura.id,
-      notificationUrl: urls.notificationUrl,
     });
     await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
     return {

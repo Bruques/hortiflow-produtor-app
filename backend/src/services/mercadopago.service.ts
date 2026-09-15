@@ -105,12 +105,18 @@ interface MpOrder {
 // Pix via API de Orders (não a de Pagamentos legada, ver aviso no topo do arquivo) — sem
 // redirecionar o pagador, sem exigir conta/login no Mercado Pago. `status: "processed"` é o
 // estado final de "pago" (confirmado via GET, ver buscarPedido).
+//
+// Sem `notification_url` no corpo — a API de Orders não aceita esse campo por requisição
+// (erro `unsupported_properties`, achado em teste real 2026-09-15); webhook por pedido
+// precisa ser configurado a nível de aplicação no painel do Mercado Pago (tópico
+// merchant_order/order), não por chamada. Enquanto isso não é configurado, o botão "Já
+// paguei — verificar" é o único jeito de confirmar o pagamento — não é só uma rede de
+// segurança, é a via principal até o webhook de pedido ser configurado.
 export async function criarPedidoPix(params: {
   usuarioId: string;
   descricao: string;
   valor: number;
   externalReference: string;
-  notificationUrl: string;
 }): Promise<{ orderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string }> {
   const valorFormatado = params.valor.toFixed(2);
 
@@ -125,7 +131,6 @@ export async function criarPedidoPix(params: {
       total_amount: valorFormatado,
       external_reference: params.externalReference,
       processing_mode: 'automatic',
-      notification_url: params.notificationUrl,
       payer: { email: emailSinteticoPara(params.usuarioId) },
       transactions: {
         payments: [{ amount: valorFormatado, payment_method: { id: 'pix', type: 'bank_transfer' } }],
