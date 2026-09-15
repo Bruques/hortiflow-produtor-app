@@ -39,7 +39,13 @@ export interface PlanoCatalogo {
 
 export type CheckoutResultado =
   | { tipo: 'ASSINATURA' | 'COBRANCA_UNICA'; initPoint: string }
-  | { tipo: 'PIX'; qrCode: string; qrCodeBase64: string };
+  | { tipo: 'PIX'; mpPaymentId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
+
+export interface VerificarPixResultado {
+  pagamentoStatus: string;
+  vencida: boolean;
+  dataFimAcesso: string;
+}
 
 export async function listarPlanosRequest(): Promise<PlanoCatalogo[]> {
   const { data } = await apiClient.get<PlanoCatalogo[]>('/assinatura/planos');
@@ -74,5 +80,10 @@ export async function checkoutRequest(dados: {
     ...dados,
     retornoUrl: `${window.location.origin}/assinatura/checkout-retorno`,
   });
+  return data;
+}
+
+export async function verificarPagamentoPixRequest(paymentId: string): Promise<VerificarPixResultado> {
+  const { data } = await apiClient.get<VerificarPixResultado>(`/assinatura/checkout/pix/${paymentId}/status`);
   return data;
 }

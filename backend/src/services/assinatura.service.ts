@@ -279,10 +279,9 @@ export async function escolherPlano(
 type CheckoutResultado =
   | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
   | { erro: 'PLANO_NAO_ENCONTRADO' }
-  | { erro: 'CPF_OBRIGATORIO_PARA_PIX' }
   | { tipo: 'ASSINATURA'; mpSubscriptionId: string; initPoint: string }
   | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string }
-  | { tipo: 'PIX'; mpPaymentId: string; qrCode: string; qrCodeBase64: string };
+  | { tipo: 'PIX'; mpPaymentId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
 
 export async function iniciarCheckout(
   usuarioId: string,
@@ -302,11 +301,9 @@ export async function iniciarCheckout(
   // Pix nunca passa pelo Checkout Pro (redirecionamento hospedado) — descoberto em teste
   // manual (2026-09-15) que ele exige o pagador logar numa conta Mercado Pago, o que não
   // faz sentido pro nosso caso. Em vez disso, gera o QR Code direto via API de Pagamentos,
-  // mostrado dentro do próprio app (ver mercadopago.service.ts). Essa API exige CPF do
-  // pagador, que o Usuario do HortiFlow não tem cadastrado em lugar nenhum — por isso o
-  // checkout pede esse campo só quando Pix é escolhido.
+  // mostrado dentro do próprio app (ver mercadopago.service.ts). CPF é opcional — testado
+  // sem ele e o Mercado Pago aceitou normalmente.
   if (dados.metodo === 'PIX') {
-    if (!dados.cpf) return { erro: 'CPF_OBRIGATORIO_PARA_PIX' };
     const pix = await mercadopagoService.criarPagamentoPix({
       usuarioId,
       descricao,
@@ -316,7 +313,13 @@ export async function iniciarCheckout(
       notificationUrl: urls.notificationUrl,
     });
     await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
-    return { tipo: 'PIX', mpPaymentId: pix.paymentId, qrCode: pix.qrCode, qrCodeBase64: pix.qrCodeBase64 };
+    return {
+      tipo: 'PIX',
+      mpPaymentId: pix.paymentId,
+      qrCode: pix.qrCode,
+      qrCodeBase64: pix.qrCodeBase64,
+      dataExpiracao: pix.dataExpiracao,
+    };
   }
 
   // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — anual +
@@ -575,6 +578,14 @@ export async function confirmarPagamentoWebhookMercadoPago(paymentId: string): P
   if (pagamento.status !== 'approved') return;
   if (!pagamento.external_reference) return;
 
+  // Idempotência: essa função pode ser chamada mais de uma vez pro mesmo pagamento — o
+  // Mercado Pago pode reenviar o mesmo webhook, e agora também existe o botão "Já paguei —
+  // verificar" (verificarPagamentoPix), que chama isso na hora em vez de só esperar o
+  // webhook. Sem essa checagem, cada chamada extra duplicava o Pagamento e estendia
+  // `data_fim_acesso` de novo (bug em potencial, achado ao desenhar o botão de verificar).
+  const jaProcessado = await prisma.pagamento.findFirst({ where: { mp_payment_id: pagamento.id } });
+  if (jaProcessado) return;
+
   // `external_reference` é o id da própria Assinatura, gravado na criação da cobrança/
   // assinatura em `iniciarCheckout` — não precisa de customer id como no Asaas.
   const assinatura = await prisma.assinatura.findUnique({
@@ -606,4 +617,26 @@ export async function confirmarPagamentoWebhookMercadoPago(paymentId: string): P
       data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
     }),
   ]);
+}
+
+// Botão "Já paguei — verificar" (inspirado num concorrente, ver docs/specs/25): checagem
+// ativa do pagador em vez de só esperar o webhook em silêncio — útil se o webhook atrasar
+// ou falhar. Reaproveita `confirmarPagamentoWebhookMercadoPago`, que agora é idempotente.
+export async function verificarPagamentoPix(
+  usuarioId: string,
+  paymentId: string
+): Promise<{ erro: 'ASSINATURA_NAO_ENCONTRADA' } | { pagamentoStatus: string; vencida: boolean; dataFimAcesso: Date }> {
+  const pagamento = await mercadopagoService.buscarPagamento(paymentId);
+  if (pagamento.status === 'approved') {
+    await confirmarPagamentoWebhookMercadoPago(paymentId);
+  }
+
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  return {
+    pagamentoStatus: pagamento.status,
+    vencida: assinatura.data_fim_acesso < new Date(),
+    dataFimAcesso: assinatura.data_fim_acesso,
+  };
 }

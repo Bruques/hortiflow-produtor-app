@@ -36,4 +36,10 @@ export interface PlanoRecomendado {
 
 export type CheckoutResultado =
   | { tipo: 'ASSINATURA' | 'COBRANCA_UNICA'; initPoint: string }
-  | { tipo: 'PIX'; qrCode: string; qrCodeBase64: string };
+  | { tipo: 'PIX'; mpPaymentId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
+
+export interface VerificarPixResultado {
+  pagamentoStatus: string;
+  vencida: boolean;
+  dataFimAcesso: string;
+}

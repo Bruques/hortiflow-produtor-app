@@ -5,6 +5,7 @@ import type {
   FaixaMeeiros,
   LocalizacaoProducao,
   PlanoRecomendado,
+  VerificarPixResultado,
 } from '../types/assinatura';
 
 export async function statusAssinaturaRequest(): Promise<AssinaturaStatus> {
@@ -65,5 +66,10 @@ export async function checkoutRequest(dados: {
     ...dados,
     retornoUrl: 'hortiflowprodutor://checkout-retorno',
   });
+  return data;
+}
+
+export async function verificarPagamentoPixRequest(paymentId: string): Promise<VerificarPixResultado> {
+  const { data } = await apiClient.get<VerificarPixResultado>(`/assinatura/checkout/pix/${paymentId}/status`);
   return data;
 }

@@ -81,6 +81,7 @@ export async function criarCobrancaUnicaCartao(params: {
 interface MpPagamentoPixCriado {
   id: number;
   status: string;
+  date_of_expiration?: string;
   point_of_interaction?: {
     transaction_data?: {
       qr_code?: string; // "copia e cola"
@@ -89,18 +90,24 @@ interface MpPagamentoPixCriado {
   };
 }
 
+const PIX_MINUTOS_EXPIRACAO = 30;
+
 // Pix direto via API de Pagamentos — sem redirecionar o pagador, sem exigir conta/login no
-// Mercado Pago (ver aviso no topo do arquivo). Exige CPF do pagador: é uma exigência da
-// própria API pra Pix no Brasil, por isso o checkout pede esse campo só quando Pix é
-// escolhido (o Usuario do HortiFlow não tem CPF cadastrado em nenhum outro lugar).
+// Mercado Pago (ver aviso no topo do arquivo). CPF é opcional: testado em 2026-09-15 sem
+// CPF nenhum e o Mercado Pago aceitou normalmente — a documentação sugeria ser obrigatório,
+// mas na prática não é (bate com concorrentes que também não pedem). Se um dia a API passar
+// a exigir de verdade, o erro que ela devolve é específico o bastante pra tratar depois.
 export async function criarPagamentoPix(params: {
   usuarioId: string;
   descricao: string;
   valor: number;
-  cpf: string;
+  cpf?: string;
   externalReference: string;
   notificationUrl: string;
-}): Promise<{ paymentId: string; status: string; qrCode: string; qrCodeBase64: string }> {
+}): Promise<{ paymentId: string; status: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string }> {
+  const expiracao = new Date(Date.now() + PIX_MINUTOS_EXPIRACAO * 60 * 1000);
+  const cpfDigitos = params.cpf?.replace(/\D/g, '');
+
   const pagamento = await mpFetch<MpPagamentoPixCriado>('/v1/payments', {
     method: 'POST',
     // Idempotency key: evita criar dois pagamentos Pix se a chamada for repetida (ex: o app
@@ -113,9 +120,10 @@ export async function criarPagamentoPix(params: {
       payment_method_id: 'pix',
       external_reference: params.externalReference,
       notification_url: params.notificationUrl,
+      date_of_expiration: expiracao.toISOString(),
       payer: {
         email: emailSinteticoPara(params.usuarioId),
-        identification: { type: 'CPF', number: params.cpf.replace(/\D/g, '') },
+        ...(cpfDigitos ? { identification: { type: 'CPF', number: cpfDigitos } } : {}),
       },
     }),
   });
@@ -125,6 +133,7 @@ export async function criarPagamentoPix(params: {
     status: pagamento.status,
     qrCode: pagamento.point_of_interaction?.transaction_data?.qr_code ?? '',
     qrCodeBase64: pagamento.point_of_interaction?.transaction_data?.qr_code_base64 ?? '',
+    dataExpiracao: pagamento.date_of_expiration ?? expiracao.toISOString(),
   };
 }
 

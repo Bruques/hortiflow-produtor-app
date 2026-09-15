@@ -3,9 +3,9 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Clipboard from 'expo-clipboard';
-import { Check, Copy } from 'lucide-react-native';
+import { Check, Copy, RefreshCw } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { checkoutRequest, statusAssinaturaRequest } from '../services/assinatura';
+import { checkoutRequest, statusAssinaturaRequest, verificarPagamentoPixRequest } from '../services/assinatura';
 import { mensagemErro } from '../lib/erroApi';
 import { formatarCpf } from '../lib/formatacao';
 import { cores, espacamento, raio } from '../theme';
@@ -17,8 +17,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 const RETORNO_URL = 'hortiflowprodutor://checkout-retorno';
 
 interface PixGerado {
+  paymentId: string;
   qrCode: string;
   qrCodeBase64: string;
+  dataExpiracao: string;
 }
 
 // Spec 25 — checkout pós-trial: plano e ciclo vêm pré-selecionados do que o produtor
@@ -27,8 +29,11 @@ interface PixGerado {
 // Cartão: abre o checkout hospedado do Mercado Pago numa aba de navegador in-app (sem
 // WebView própria) — o produtor paga lá e volta pro app pelo deep link do `expo.scheme`.
 // Pix: NÃO redireciona — testado em 2026-09-15 e o Checkout Pro exige login numa conta
-// Mercado Pago pra pagar via Pix, o que não serve pro nosso caso. Em vez disso, mostra o
-// QR Code direto nesta tela (gerado via API de Pagamentos, que exige CPF do pagador).
+// Mercado Pago pra pagar via Pix, o que não serve pro nosso caso. Mostra o QR Code direto
+// nesta tela (gerado via API de Pagamentos). CPF é opcional (testado sem ele com sucesso).
+// Tela de Pix inspirada num concorrente (print trazido pelo dev, 2026-09-15): expiração,
+// status ao vivo e um botão "Já paguei — verificar" que checa ativamente em vez de só
+// esperar o webhook em silêncio.
 export function CheckoutScreen({ navigation }: Props) {
   const [status, setStatus] = useState<AssinaturaStatus | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -38,7 +43,9 @@ export function CheckoutScreen({ navigation }: Props) {
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pix, setPix] = useState<PixGerado | null>(null);
+  const [pixStatus, setPixStatus] = useState('pending');
   const [copiado, setCopiado] = useState(false);
+  const [verificando, setVerificando] = useState(false);
 
   useEffect(() => {
     statusAssinaturaRequest()
@@ -50,11 +57,8 @@ export function CheckoutScreen({ navigation }: Props) {
       .finally(() => setCarregando(false));
   }, []);
 
-  const cpfValido = cpf.replace(/\D/g, '').length === 11;
-
   async function irParaPagamento() {
     if (!status?.plano) return;
-    if (metodo === 'PIX' && !cpfValido) return;
     setProcessando(true);
     setErro(null);
     try {
@@ -62,11 +66,17 @@ export function CheckoutScreen({ navigation }: Props) {
         planoId: status.plano.id,
         ciclo,
         metodo,
-        cpf: metodo === 'PIX' ? cpf.replace(/\D/g, '') : undefined,
+        cpf: cpf.replace(/\D/g, '').length === 11 ? cpf.replace(/\D/g, '') : undefined,
       });
 
       if (resultado.tipo === 'PIX') {
-        setPix({ qrCode: resultado.qrCode, qrCodeBase64: resultado.qrCodeBase64 });
+        setPix({
+          paymentId: resultado.mpPaymentId,
+          qrCode: resultado.qrCode,
+          qrCodeBase64: resultado.qrCodeBase64,
+          dataExpiracao: resultado.dataExpiracao,
+        });
+        setPixStatus('pending');
         return;
       }
 
@@ -89,7 +99,25 @@ export function CheckoutScreen({ navigation }: Props) {
     setTimeout(() => setCopiado(false), 2000);
   }
 
+  async function jaPagueiVerificar() {
+    if (!pix?.paymentId) return;
+    setVerificando(true);
+    setErro(null);
+    try {
+      const resultado = await verificarPagamentoPixRequest(pix.paymentId);
+      setPixStatus(resultado.pagamentoStatus);
+      if (!resultado.vencida) {
+        navigation.replace('Inicio');
+      }
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível verificar o pagamento'));
+    } finally {
+      setVerificando(false);
+    }
+  }
+
   if (pix) {
+    const horaExpiracao = new Date(pix.dataExpiracao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     return (
       <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.conteudo}>
@@ -103,9 +131,25 @@ export function CheckoutScreen({ navigation }: Props) {
             <Text style={styles.textoBotaoCopiar}>{copiado ? 'Código copiado' : 'Copiar código Pix'}</Text>
           </Pressable>
 
-          <Text style={styles.avisoPix}>
-            Assim que o pagamento for confirmado, seu acesso é liberado automaticamente — não precisa voltar aqui.
-          </Text>
+          <View style={styles.infoPix}>
+            <Text style={styles.infoPixTexto}>Vence em: {horaExpiracao}</Text>
+            <Text style={styles.infoPixTexto}>Status: {pixStatus === 'pending' ? 'aguardando pagamento' : pixStatus}</Text>
+          </View>
+
+          <Pressable style={styles.botaoVerificar} onPress={jaPagueiVerificar} disabled={verificando}>
+            {verificando ? (
+              <ActivityIndicator color={cores.green[800]} />
+            ) : (
+              <>
+                <RefreshCw size={16} color={cores.green[800]} />
+                <Text style={styles.textoBotaoVerificar}>Já paguei — verificar</Text>
+              </>
+            )}
+          </Pressable>
+
+          {erro && <Text style={styles.erro}>{erro}</Text>}
+
+          <Text style={styles.avisoPix}>A confirmação é automática assim que o Mercado Pago aprovar.</Text>
 
           <Pressable style={styles.linkVoltar} onPress={() => navigation.replace('Inicio')}>
             <Text style={styles.textoLinkVoltar}>Voltar pro início</Text>
@@ -143,7 +187,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
             {metodo === 'PIX' && (
               <View style={styles.grupo}>
-                <Text style={styles.grupoLabel}>CPF (exigido pelo Mercado Pago pra gerar o Pix)</Text>
+                <Text style={styles.grupoLabel}>CPF (opcional)</Text>
                 <View style={styles.campo}>
                   <TextInput
                     style={styles.input}
@@ -166,11 +210,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
             {erro && <Text style={styles.erro}>{erro}</Text>}
 
-            <Pressable
-              style={[styles.botaoPrimario, (processando || (metodo === 'PIX' && !cpfValido)) && styles.botaoDesabilitado]}
-              onPress={irParaPagamento}
-              disabled={processando || (metodo === 'PIX' && !cpfValido)}
-            >
+            <Pressable style={[styles.botaoPrimario, processando && styles.botaoDesabilitado]} onPress={irParaPagamento} disabled={processando}>
               {processando ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
@@ -313,6 +353,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: cores.green[700],
+  },
+  infoPix: {
+    borderWidth: 1,
+    borderColor: cores.linha,
+    borderRadius: raio.lg,
+    padding: espacamento.md,
+    gap: 4,
+  },
+  infoPixTexto: {
+    fontSize: 13,
+    color: cores.stone[600],
+    textAlign: 'center',
+  },
+  botaoVerificar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.sm,
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.md,
+    backgroundColor: cores.green[100],
+  },
+  textoBotaoVerificar: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: cores.green[800],
   },
   avisoPix: {
     fontSize: 12.5,
