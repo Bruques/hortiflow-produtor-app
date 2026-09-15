@@ -61,7 +61,7 @@ export default function AssinaturaBloqueadaPage() {
         <button
           type="button"
           onClick={sair}
-          className="mt-2 flex items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-red py-3.5 text-sm font-bold text-hf-red"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-red py-3.5 text-sm font-bold text-hf-red"
         >
           <LogOut className="h-[18px] w-[18px]" />
           Sair

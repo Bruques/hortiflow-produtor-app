@@ -111,8 +111,27 @@ model Usuario {
   eventosAuditoria  EventoAuditoria[]
   sociedadesCriadas Sociedade[]              @relation("SociedadeTitular")
   assinatura        Assinatura?
+  aceitesTermos     AceiteTermos[]
 
   @@map("usuarios")
+}
+
+// Spec 26 — histórico de aceite de Termos de Uso e Política de Privacidade. Nunca é
+// atualizado in-place: cada aceite gera uma linha nova, pra sempre ser possível provar
+// exatamente qual versão de cada documento o usuário tinha diante dele em cada momento.
+// "Está em dia?" é calculado comparando o registro mais recente com as constantes de versão
+// vigente no código (ver lib/termosConfig.ts) — não existe um "status atual" desnormalizado.
+model AceiteTermos {
+  id                 String   @id @default(uuid())
+  usuario_id         String
+  versao_termos      String
+  versao_privacidade String
+  aceito_em          DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+
+  @@index([usuario_id, aceito_em])
+  @@map("aceites_termos")
 }
 
 // Spec 18 — login do painel administrativo, totalmente separado do login de produtor

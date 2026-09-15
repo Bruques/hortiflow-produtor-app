@@ -1,10 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
+import { aceitePendente } from '../services/termos.service';
 
 interface TokenPayload {
   usuarioId: string;
 }
+
+// Spec 26 — as próprias rotas de status/aceite de termos precisam do authMiddleware (pra saber
+// de quem é o usuário) mas não podem cair na checagem de pendência abaixo, senão ninguém
+// consegue nunca chamar POST /termos/aceite pra sair do estado pendente.
+const ROTAS_ISENTAS_DE_TERMOS = ['/api/termos/status', '/api/termos/aceite'];
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const { authorization } = req.headers;
@@ -39,6 +45,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   if (!usuario || usuario.status === 'BLOQUEADO' || usuario.status === 'EXCLUIDO') {
     res.status(401).json({ error: 'Conta suspensa. Entre em contato para reativar.' });
     return;
+  }
+
+  if (!ROTAS_ISENTAS_DE_TERMOS.includes(req.baseUrl + req.path)) {
+    if (await aceitePendente(usuarioId)) {
+      res.status(401).json({ error: 'TERMOS_PENDENTES' });
+      return;
+    }
   }
 
   req.usuarioId = usuarioId;

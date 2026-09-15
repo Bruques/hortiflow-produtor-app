@@ -34,17 +34,23 @@ import CheckoutPage from '@/pages/CheckoutPage';
 import CheckoutRetornoPage from '@/pages/CheckoutRetornoPage';
 import AdminAssinaturasPage from '@/pages/admin/AdminAssinaturasPage';
 import AdminLoginPage from '@/pages/admin/AdminLoginPage';
+import DocumentoLegalPage from '@/pages/DocumentoLegalPage';
+import TermosAceitePage from '@/pages/TermosAceitePage';
+import { TERMOS_DE_USO, POLITICA_DE_PRIVACIDADE } from '@/content/documentosLegais';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/termos/uso" element={<DocumentoLegalPage documento={TERMOS_DE_USO} />} />
+        <Route path="/termos/privacidade" element={<DocumentoLegalPage documento={POLITICA_DE_PRIVACIDADE} />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/admin/assinaturas" element={<AdminAssinaturasPage />} />
         </Route>
         <Route element={<PrivateRoute />}>
+          <Route path="/termos/aceite" element={<TermosAceitePage />} />
           <Route path="/" element={<HomePage />} />
           <Route path="/assinatura" element={<MinhaAssinaturaPage />} />
           <Route path="/assinatura/bloqueio" element={<AssinaturaBloqueadaPage />} />

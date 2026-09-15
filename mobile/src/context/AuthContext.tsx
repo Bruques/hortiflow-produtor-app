@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { clearToken, getToken, getUsuarioSalvo, setToken, setUsuarioSalvo } from '../lib/tokenStorage';
 import { deveDeslogarPorErro } from '../lib/bootstrapSessao';
 import { deveMostrarBloqueioAssinatura } from '../lib/assinaturaGate';
+import { deveMostrarTermosPendentes } from '../lib/termosGate';
 import { navigationRef } from '../lib/navigationRef';
 import { meRequest, logoutRequest } from '../services/auth';
 import apiClient from '../services/apiClient';
@@ -106,6 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           navigationRef.getCurrentRoute()?.name !== 'AssinaturaBloqueio'
         ) {
           navigationRef.navigate('AssinaturaBloqueio');
+        } else if (
+          deveMostrarTermosPendentes(erro) &&
+          navigationRef.isReady() &&
+          navigationRef.getCurrentRoute()?.name !== 'TermosAceite'
+        ) {
+          navigationRef.navigate('TermosAceite');
         }
         return Promise.reject(erro);
       }

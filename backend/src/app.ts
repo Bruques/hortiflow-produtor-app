@@ -12,6 +12,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import Sentry, { initSentry } from './lib/sentry';
 import authRoutes from './routes/auth';
+import termosRoutes from './routes/termos';
 import sociedadesRoutes from './routes/sociedades';
 import safrasRoutes from './routes/safras';
 import despesasRoutes from './routes/despesas';
@@ -71,6 +72,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRoutes);
+app.use('/api/termos', termosRoutes);
 app.use('/api/sociedades', sociedadesRoutes);
 app.use('/api/safras', safrasRoutes);
 app.use('/api/despesas', despesasRoutes);

@@ -162,6 +162,25 @@ export function TrocaSenhaScreen({ navigation }: Props) {
         </View>
 
         <View>
+          <Text style={styles.titulo}>Documentos legais</Text>
+          <Text style={styles.subtitulo}>Consulte a qualquer momento</Text>
+        </View>
+        <View style={{ gap: espacamento.sm }}>
+          <Pressable
+            style={({ pressed }) => [styles.botaoDocumentoLegal, pressed && styles.botaoPressionado]}
+            onPress={() => navigation.navigate('TermosDocumento', { documento: 'uso' })}
+          >
+            <Text style={styles.textoBotaoSecundario}>Termos de Uso</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.botaoDocumentoLegal, pressed && styles.botaoPressionado]}
+            onPress={() => navigation.navigate('TermosDocumento', { documento: 'privacidade' })}
+          >
+            <Text style={styles.textoBotaoSecundario}>Política de Privacidade</Text>
+          </Pressable>
+        </View>
+
+        <View>
           <Text style={styles.tituloPerigo}>Excluir conta</Text>
           <Text style={styles.subtitulo}>
             Ação definitiva e imediata. Se você é o titular de uma sociedade, ela é apagada por completo — safras,
@@ -365,6 +384,13 @@ const styles = StyleSheet.create({
   },
   botaoSecundario: {
     flex: 1,
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    borderRadius: raio.md,
+    paddingVertical: espacamento.sm + 4,
+    alignItems: 'center',
+  },
+  botaoDocumentoLegal: {
     borderWidth: 1.5,
     borderColor: cores.linha,
     borderRadius: raio.md,

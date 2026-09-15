@@ -18,6 +18,16 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Spec 26 — aceite de termos pendente (usuário já cadastrado, versão vigente mudou ou
+    // ele nunca aceitou). Assim como o 402 de assinatura vencida abaixo, não desloga: só
+    // redireciona pra tela que resolve a pendência.
+    if (error.response?.status === 401 && error.response?.data?.error === 'TERMOS_PENDENTES') {
+      if (window.location.pathname !== '/termos/aceite') {
+        window.location.href = '/termos/aceite';
+      }
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && window.location.pathname !== '/login') {
       // Registro de auditoria best-effort (spec 17) — chamado direto por essa instância (não
       // por services/auth.ts) pra não criar import circular entre apiClient e auth.

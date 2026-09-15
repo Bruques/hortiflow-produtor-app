@@ -6,11 +6,14 @@ import prisma from '../lib/prisma';
 import { registrarEvento } from '../services/auditoria.service';
 import { criarAssinaturaTrial } from '../services/assinatura.service';
 import { excluirConta } from '../services/excluirConta.service';
+import { registrarAceite } from '../services/termos.service';
+import { TERMOS_VERSAO_ATUAL, PRIVACIDADE_VERSAO_ATUAL } from '../lib/termosConfig';
 
 const registerSchema = z.object({
   nome: z.string().min(1),
   telefone: z.string().min(1),
   senha: z.string().min(6),
+  aceitouTermos: z.literal(true),
 });
 
 const loginSchema = z.object({
@@ -34,7 +37,12 @@ function gerarToken(usuarioId: string): string {
 export async function register(req: Request, res: Response): Promise<void> {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'Nome, telefone e senha (mínimo 6 caracteres) são obrigatórios' });
+    const aceiteFaltando = parsed.error.issues.some((issue) => issue.path[0] === 'aceitouTermos');
+    res.status(400).json({
+      error: aceiteFaltando
+        ? 'É necessário aceitar os Termos de Uso e a Política de Privacidade'
+        : 'Nome, telefone e senha (mínimo 6 caracteres) são obrigatórios',
+    });
     return;
   }
 
@@ -52,6 +60,11 @@ export async function register(req: Request, res: Response): Promise<void> {
   });
 
   await registrarEvento(usuario.id, 'CONTA_CRIADA');
+  await registrarAceite(usuario.id);
+  await registrarEvento(usuario.id, 'ACEITE_TERMOS', {
+    versaoTermos: TERMOS_VERSAO_ATUAL,
+    versaoPrivacidade: PRIVACIDADE_VERSAO_ATUAL,
+  });
   await criarAssinaturaTrial(usuario.id);
 
   const token = gerarToken(usuario.id);

@@ -28,6 +28,8 @@ import { AssinaturaBloqueioScreen } from '../screens/AssinaturaBloqueioScreen';
 import { OnboardingFormularioScreen } from '../screens/OnboardingFormularioScreen';
 import { OnboardingPlanoScreen } from '../screens/OnboardingPlanoScreen';
 import { CheckoutScreen } from '../screens/CheckoutScreen';
+import { TermosAceiteScreen } from '../screens/TermosAceiteScreen';
+import { TermosDocumentoScreen } from '../screens/TermosDocumentoScreen';
 import { useAuth } from '../context/AuthContext';
 import { navigationRef } from '../lib/navigationRef';
 import type { DespesaLocal, DespesaPessoalLocal } from '../types/despesa';
@@ -69,6 +71,12 @@ export type RootStackParamList = {
   OnboardingFormulario: undefined;
   OnboardingPlano: { planoRecomendadoId: string };
   Checkout: undefined;
+  // Spec 26 — sem parâmetros, mesmo motivo do AssinaturaBloqueio: navegada pelo interceptor
+  // do apiClient (AuthContext.tsx) a partir de um 401 TERMOS_PENDENTES em qualquer chamada.
+  TermosAceite: undefined;
+  // Acessível logado (a partir de TermosAceite ou Conta e Senha) e deslogado (a partir do
+  // cadastro, no LoginScreen) — por isso declarada fora do bloco condicional abaixo.
+  TermosDocumento: { documento: 'uso' | 'privacidade' };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -102,9 +110,11 @@ export function RootNavigator() {
   return (
     <NavigationContainer ref={navigationRef} theme={temaNavegacao}>
       <Stack.Navigator initialRouteName={logado ? 'Inicio' : 'Login'} screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="TermosDocumento" component={TermosDocumentoScreen} />
         {logado ? (
           <>
             <Stack.Screen name="Inicio" component={InicioScreen} />
+            <Stack.Screen name="TermosAceite" component={TermosAceiteScreen} />
             <Stack.Screen name="MinhaAssinatura" component={MinhaAssinaturaScreen} />
             <Stack.Screen name="AssinaturaBloqueio" component={AssinaturaBloqueioScreen} />
             <Stack.Screen name="OnboardingFormulario" component={OnboardingFormularioScreen} />

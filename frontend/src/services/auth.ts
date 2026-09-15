@@ -9,9 +9,15 @@ export interface AuthResponse {
 export async function registerRequest(
   nome: string,
   telefone: string,
-  senha: string
+  senha: string,
+  aceitouTermos: boolean
 ): Promise<AuthResponse> {
-  const { data } = await apiClient.post<AuthResponse>('/auth/register', { nome, telefone, senha });
+  const { data } = await apiClient.post<AuthResponse>('/auth/register', {
+    nome,
+    telefone,
+    senha,
+    aceitouTermos,
+  });
   return data;
 }
 

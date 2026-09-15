@@ -6,8 +6,18 @@ export interface AuthResponse {
   token: string;
 }
 
-export async function registerRequest(nome: string, telefone: string, senha: string): Promise<AuthResponse> {
-  const { data } = await apiClient.post<AuthResponse>('/auth/register', { nome, telefone, senha });
+export async function registerRequest(
+  nome: string,
+  telefone: string,
+  senha: string,
+  aceitouTermos: boolean
+): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>('/auth/register', {
+    nome,
+    telefone,
+    senha,
+    aceitouTermos,
+  });
   return data;
 }
 

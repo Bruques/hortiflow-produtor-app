@@ -7,8 +7,11 @@ import { Phone, Lock, Eye, EyeOff, UserPlus, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BrandLockup } from '@/components/BrandMark';
 import { loginRequest, registerRequest } from '@/services/auth';
+import { statusTermosRequest } from '@/services/termos';
 import { formatarTelefone, somenteDigitos } from '@/lib/telefone';
 import { cn } from '@/lib/utils';
+import DocumentoLegalModal from '@/components/DocumentoLegalModal';
+import { TERMOS_DE_USO, POLITICA_DE_PRIVACIDADE } from '@/content/documentosLegais';
 
 const loginSchema = z.object({
   nome: z.string().optional(),
@@ -23,6 +26,8 @@ export default function LoginPage() {
   const [modo, setModo] = useState<'login' | 'cadastro'>('login');
   const [erro, setErro] = useState<string | null>(null);
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [documentoAberto, setDocumentoAberto] = useState<'uso' | 'privacidade' | null>(null);
 
   const {
     register,
@@ -34,13 +39,31 @@ export default function LoginPage() {
 
   async function onSubmit(data: LoginForm) {
     setErro(null);
+
+    if (modo === 'cadastro' && !aceitouTermos) {
+      setErro('É necessário aceitar os Termos de Uso e a Política de Privacidade');
+      return;
+    }
+
     const telefone = somenteDigitos(data.telefone);
     try {
       const response =
         modo === 'login'
           ? await loginRequest(telefone, data.senha)
-          : await registerRequest(data.nome ?? '', telefone, data.senha);
+          : await registerRequest(data.nome ?? '', telefone, data.senha, true);
       localStorage.setItem('token', response.token);
+
+      // Spec 26 — cadastro novo já nasce em dia (aceite registrado no backend na hora da
+      // criação); só um usuário que já tinha conta antes dessa funcionalidade existir (ou
+      // depois de uma nova versão publicada) pode estar pendente aqui.
+      if (modo === 'login') {
+        const { pendente } = await statusTermosRequest();
+        if (pendente) {
+          navigate('/termos/aceite');
+          return;
+        }
+      }
+
       navigate('/');
     } catch {
       setErro(modo === 'login' ? 'Telefone ou senha incorretos' : 'Não foi possível cadastrar');
@@ -133,11 +156,41 @@ export default function LoginPage() {
             {errors.senha && <p className="mt-1 text-sm text-hf-red">{errors.senha.message}</p>}
           </div>
 
+          {modo === 'cadastro' && (
+            <label className="flex items-start gap-2.5 text-[13px] leading-snug text-hf-stone-600">
+              <input
+                type="checkbox"
+                checked={aceitouTermos}
+                onChange={(e) => setAceitouTermos(e.target.checked)}
+                className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-hf-green-800"
+              />
+              <span>
+                Li e concordo com os{' '}
+                <button
+                  type="button"
+                  onClick={() => setDocumentoAberto('uso')}
+                  className="font-bold text-hf-green-700 underline"
+                >
+                  Termos de Uso
+                </button>{' '}
+                e a{' '}
+                <button
+                  type="button"
+                  onClick={() => setDocumentoAberto('privacidade')}
+                  className="font-bold text-hf-green-700 underline"
+                >
+                  Política de Privacidade
+                </button>
+                .
+              </span>
+            </label>
+          )}
+
           {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || (modo === 'cadastro' && !aceitouTermos)}
             className={cn(
               'mt-1.5 h-auto rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white hover:bg-hf-green-900'
             )}
@@ -176,6 +229,13 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {documentoAberto && (
+        <DocumentoLegalModal
+          documento={documentoAberto === 'uso' ? TERMOS_DE_USO : POLITICA_DE_PRIVACIDADE}
+          onClose={() => setDocumentoAberto(null)}
+        />
+      )}
     </div>
   );
 }

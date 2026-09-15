@@ -5,6 +5,13 @@ import axios from 'axios';
 // caso desloga o usuário. É o ponto mais fácil de implementar errado (bibliotecas de HTTP
 // tratam timeout e 401 de forma parecida se não for checado explicitamente), por isso é
 // isolado numa função pura e testado à parte (docs/specs/mobile/01-auth.md).
+//
+// Spec 26 — exclui o 401 de aceite de termos pendente (mesmo status HTTP, corpo diferente):
+// esse caso não invalida a sessão, só bloqueia até o usuário aceitar de novo (ver termosGate.ts).
 export function deveDeslogarPorErro(erro: unknown): boolean {
-  return axios.isAxiosError(erro) && erro.response?.status === 401;
+  return (
+    axios.isAxiosError(erro) &&
+    erro.response?.status === 401 &&
+    (erro.response.data as { error?: string } | undefined)?.error !== 'TERMOS_PENDENTES'
+  );
 }

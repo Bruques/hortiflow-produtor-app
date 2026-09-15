@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Eye, EyeOff, Lock, Phone, ShieldCheck, UserPlus } from 'lucide-react-native';
+import { Eye, EyeOff, Lock, Phone, ShieldCheck, Square, SquareCheck, UserPlus } from 'lucide-react-native';
 import { AxiosError } from 'axios';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { loginRequest, registerRequest } from '../services/auth';
 import { formatarTelefone, somenteDigitos } from '../lib/telefone';
 import { useAuth } from '../context/AuthContext';
 import { BrandLockup } from '../components/BrandMark';
 import { TelaComTeclado } from '../components/TelaComTeclado';
 import { cores, espacamento, raio } from '../theme';
+import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Modo = 'login' | 'cadastro';
 
@@ -18,11 +21,13 @@ type Modo = 'login' | 'cadastro';
 // entrar() muda `logado`, e o RootNavigator troca de stack sozinho.
 export function LoginScreen() {
   const { entrar } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Login'>>();
   const [modo, setModo] = useState<Modo>('login');
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -33,13 +38,19 @@ export function LoginScreen() {
 
   async function handleEnviar() {
     setErro(null);
+
+    if (modo === 'cadastro' && !aceitouTermos) {
+      setErro('É necessário aceitar os Termos de Uso e a Política de Privacidade');
+      return;
+    }
+
     setCarregando(true);
     const telefoneDigitos = somenteDigitos(telefone);
     try {
       const resposta =
         modo === 'login'
           ? await loginRequest(telefoneDigitos, senha)
-          : await registerRequest(nome, telefoneDigitos, senha);
+          : await registerRequest(nome, telefoneDigitos, senha, true);
       await entrar(resposta.token, resposta.usuario);
     } catch (err) {
       if (modo === 'login') {
@@ -57,7 +68,9 @@ export function LoginScreen() {
   }
 
   const camposObrigatoriosPreenchidos =
-    telefone.length > 0 && senha.length > 0 && (modo === 'login' || nome.trim().length > 0);
+    telefone.length > 0 &&
+    senha.length > 0 &&
+    (modo === 'login' || (nome.trim().length > 0 && aceitouTermos));
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
@@ -131,6 +144,33 @@ export function LoginScreen() {
               </Pressable>
             </View>
           </View>
+
+          {modo === 'cadastro' && (
+            <Pressable style={styles.linhaCheckbox} onPress={() => setAceitouTermos((v) => !v)}>
+              {aceitouTermos ? (
+                <SquareCheck size={19} color={cores.green[800]} />
+              ) : (
+                <Square size={19} color={cores.stone[400]} />
+              )}
+              <Text style={styles.textoCheckbox}>
+                Li e concordo com os{' '}
+                <Text
+                  style={styles.linkCheckbox}
+                  onPress={() => navigation.navigate('TermosDocumento', { documento: 'uso' })}
+                >
+                  Termos de Uso
+                </Text>{' '}
+                e a{' '}
+                <Text
+                  style={styles.linkCheckbox}
+                  onPress={() => navigation.navigate('TermosDocumento', { documento: 'privacidade' })}
+                >
+                  Política de Privacidade
+                </Text>
+                .
+              </Text>
+            </Pressable>
+          )}
 
           {erro && <Text style={styles.erro}>{erro}</Text>}
 
@@ -229,6 +269,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '500',
+  },
+  linhaCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espacamento.sm,
+  },
+  textoCheckbox: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: cores.stone[600],
+  },
+  linkCheckbox: {
+    fontWeight: '700',
+    color: cores.green[700],
+    textDecorationLine: 'underline',
   },
   botaoPrimario: {
     marginTop: espacamento.xs,

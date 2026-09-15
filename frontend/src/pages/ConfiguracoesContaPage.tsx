@@ -151,6 +151,31 @@ export default function ConfiguracoesContaPage() {
 
         <div className="flex flex-col gap-3.5">
           <div>
+            <h3 className="m-0 text-[15px] font-extrabold text-hf-stone-900">Documentos legais</h3>
+            <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">Consulte a qualquer momento</p>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            <a
+              href="/termos/uso"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-900"
+            >
+              Termos de Uso
+            </a>
+            <a
+              href="/termos/privacidade"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-900"
+            >
+              Política de Privacidade
+            </a>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3.5">
+          <div>
             <h3 className="m-0 text-[15px] font-extrabold text-hf-red">Excluir conta</h3>
             <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">
               Ação definitiva e imediata. Se você é o titular de uma sociedade, ela é apagada por completo — safras,
