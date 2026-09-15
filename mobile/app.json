@@ -3,6 +3,7 @@
     "name": "HortiFlow Produtor",
     "slug": "hortiflow-produtor-mobile",
     "version": "1.0.0",
+    "scheme": "hortiflowprodutor",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,7 +13,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "9"
+      "buildNumber": "10"
     },
     "android": {
       "package": "com.hortiflow.produtor",
@@ -54,7 +55,8 @@
           "backgroundColor": "#faf9f4"
         }
       ],
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

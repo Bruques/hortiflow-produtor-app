@@ -22,6 +22,7 @@ import acertosRoutes from './routes/acertos';
 import assinaturaRoutes from './routes/assinatura';
 import adminRoutes from './routes/admin';
 import webhooksAsaasRoutes from './routes/webhooksAsaas';
+import webhooksMercadoPagoRoutes from './routes/webhooksMercadoPago';
 
 initSentry();
 
@@ -80,6 +81,7 @@ app.use('/api/acertos', acertosRoutes);
 app.use('/api/assinatura', assinaturaRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/webhooks/asaas', webhooksAsaasRoutes);
+app.use('/api/webhooks/mercadopago', webhooksMercadoPagoRoutes);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error({

@@ -8,6 +8,7 @@ import { listarMinhasSafrasRequest } from '../services/safras';
 import { obterMinhasSafrasCache, salvarMinhasSafrasCache } from '../lib/safrasCache';
 import { abrirSafraRequest } from '../services/safras';
 import { buscarResumoConsolidadoRequest } from '../services/simulacao';
+import { statusAssinaturaRequest } from '../services/assinatura';
 import { mensagemErro } from '../lib/erroApi';
 import { formatarMoeda } from '../lib/formatacao';
 import { useSafraAtiva } from '../context/SafraContext';
@@ -75,6 +76,33 @@ export function InicioScreen({ navigation }: Props) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // Spec 25 — só manda pro formulário de qualificação quem é conta nova de verdade: 0
+  // safras ainda, sem plano atribuído e sem ter respondido. Sem essas condições, toda
+  // conta criada antes desta spec (sem faixa_meeiros preenchido) ficaria presa no
+  // formulário pra sempre, mesmo já usando o app normalmente (bug encontrado pelo dev,
+  // 2026-09-14) — e conta atribuída manualmente pelo admin (spec 18, caminho que continua
+  // coexistindo) também não deve ser interrompida pelo formulário automático.
+  // Só roda depois que `carregar()` resolve, pra já saber `safras.length`. Quem já
+  // respondeu mas está em trial vê um banner com os dias restantes (sem pedir cartão).
+  // Ignora erro de rede: o banner é informativo, não deve travar a Início se a checagem falhar.
+  const [diasTrialRestantes, setDiasTrialRestantes] = useState<number | null>(null);
+  useEffect(() => {
+    if (carregando) return;
+    statusAssinaturaRequest()
+      .then((dados) => {
+        if (!dados.onboardingRespondido && safras.length === 0 && !dados.plano) {
+          navigation.replace('OnboardingFormulario');
+          return;
+        }
+        if (dados.status === 'TRIAL' && !dados.vencida) {
+          const dias = Math.ceil((new Date(dados.dataFimAcesso).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          setDiasTrialRestantes(Math.max(dias, 0));
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carregando]);
 
   useEffect(() => {
     if (!carregando && !erro && safras.length === 1) {
@@ -156,6 +184,7 @@ export function InicioScreen({ navigation }: Props) {
     return (
       <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
         <BannerSemConexao />
+        {diasTrialRestantes !== null && <BannerTrial dias={diasTrialRestantes} />}
         <View style={styles.conteudo}>
           <View style={styles.marca}>
             <BrandLockup />
@@ -226,6 +255,7 @@ export function InicioScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <BannerSemConexao />
+      {diasTrialRestantes !== null && <BannerTrial dias={diasTrialRestantes} />}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.conteudo}
@@ -275,10 +305,31 @@ export function InicioScreen({ navigation }: Props) {
   );
 }
 
+// Spec 25 — banner fixo de trial, sem pedir cartão em nenhum momento antes do fim dos 14 dias.
+function BannerTrial({ dias }: { dias: number }) {
+  return (
+    <View style={styles.bannerTrial}>
+      <Text style={styles.bannerTrialTexto}>
+        {dias === 0 ? 'Seu teste grátis termina hoje' : `Teste grátis · ${dias} ${dias === 1 ? 'dia restante' : 'dias restantes'}`}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   tela: {
     flex: 1,
     backgroundColor: cores.cream[50],
+  },
+  bannerTrial: {
+    backgroundColor: cores.green[100],
+    paddingVertical: espacamento.sm,
+    alignItems: 'center',
+  },
+  bannerTrialTexto: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: cores.green[800],
   },
   centralizado: {
     flex: 1,

@@ -25,6 +25,9 @@ import { RelatorioScreen } from '../screens/RelatorioScreen';
 import { RelatorioCompletoScreen } from '../screens/RelatorioCompletoScreen';
 import { MinhaAssinaturaScreen } from '../screens/MinhaAssinaturaScreen';
 import { AssinaturaBloqueioScreen } from '../screens/AssinaturaBloqueioScreen';
+import { OnboardingFormularioScreen } from '../screens/OnboardingFormularioScreen';
+import { OnboardingPlanoScreen } from '../screens/OnboardingPlanoScreen';
+import { CheckoutScreen } from '../screens/CheckoutScreen';
 import { useAuth } from '../context/AuthContext';
 import { navigationRef } from '../lib/navigationRef';
 import type { DespesaLocal, DespesaPessoalLocal } from '../types/despesa';
@@ -62,6 +65,10 @@ export type RootStackParamList = {
   // Sem parâmetros de propósito — navegada pelo interceptor do apiClient (AuthContext.tsx),
   // que não tem contexto nenhum sobre qual sociedade/safra disparou o 402.
   AssinaturaBloqueio: undefined;
+  // Spec 25 — fluxo de onboarding automatizado, entre o cadastro e a Início.
+  OnboardingFormulario: undefined;
+  OnboardingPlano: { planoRecomendadoId: string };
+  Checkout: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -100,6 +107,9 @@ export function RootNavigator() {
             <Stack.Screen name="Inicio" component={InicioScreen} />
             <Stack.Screen name="MinhaAssinatura" component={MinhaAssinaturaScreen} />
             <Stack.Screen name="AssinaturaBloqueio" component={AssinaturaBloqueioScreen} />
+            <Stack.Screen name="OnboardingFormulario" component={OnboardingFormularioScreen} />
+            <Stack.Screen name="OnboardingPlano" component={OnboardingPlanoScreen} />
+            <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="EntrarSociedade" component={EntrarSociedadeScreen} />
             <Stack.Screen name="Safra" component={SafraTabsScreen} />
             <Stack.Screen name="Safras" component={SafrasScreen} />

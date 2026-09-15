@@ -17,12 +17,17 @@ interface Item {
   bloqueado?: boolean;
 }
 
-// Planos com acesso à importação por IA (docs/specs/24, adendo 2026-09-09) — checagem via
-// `/assinatura/status`, que devolve o plano de quem está logado, não o do titular da
-// sociedade. Funciona certo pro financiador (~98% de quem usa o Menu, ver CLAUDE.md); um
-// meeiro pode ver o card bloqueado mesmo com a sociedade tendo Plano 2/3 — imprecisão aceita
-// pelo dev por ora (o bloqueio de verdade, no backend, sempre olha o titular certo).
-const PLANOS_COM_IMPORTACAO_IA = ['Plano 2', 'Plano 3'];
+// Checagem via `/assinatura/status`, que devolve o plano de quem está logado, não o do
+// titular da sociedade. Funciona certo pro financiador (~98% de quem usa o Menu, ver
+// CLAUDE.md); um meeiro pode ver os cards bloqueados mesmo com a sociedade tendo o plano
+// certo — imprecisão aceita pelo dev por ora (o bloqueio de verdade, no backend, sempre
+// olha o titular certo).
+//
+// Spec 25 — importação por IA passou a valer pra qualquer plano atribuído (antes era só
+// "Plano 2"/"Plano 3" por nome; os planos foram renomeados, então a lista antiga quebraria
+// e bloquearia todo mundo). Despesas pessoais é gate NOVO desta spec — só Profissional/
+// Gestão (`plano.despesasPessoais`); é só um gate de UI (esconde o card), sem bloqueio no
+// backend ainda, porque as rotas de despesa pessoal não ganharam checagem própria nesta spec.
 
 // Grid única com tudo que não coube nas 4 abas da bottom nav v2 (Resumo/Despesas/Vendas/Menu):
 // ações da safra (Despesas pessoais, Acertos, Abrir nova safra) e ajustes da sociedade
@@ -36,6 +41,7 @@ export default function MenuPage() {
   // Default true (não bloqueado) até a checagem responder — evita mostrar o card já travado
   // por um instante pra quem tem acesso, só por causa da latência dessa chamada extra.
   const [podeImportarPorIA, setPodeImportarPorIA] = useState(true);
+  const [temDespesasPessoais, setTemDespesasPessoais] = useState(true);
 
   useEffect(() => {
     if (!sociedadeId) return;
@@ -48,7 +54,10 @@ export default function MenuPage() {
       })
       .catch(() => {});
     statusAssinaturaRequest()
-      .then((status) => setPodeImportarPorIA(!!status.plano && PLANOS_COM_IMPORTACAO_IA.includes(status.plano.nome)))
+      .then((status) => {
+        setPodeImportarPorIA(!!status.plano);
+        setTemDespesasPessoais(!!status.plano?.despesasPessoais);
+      })
       .catch(() => {});
   }, [sociedadeId]);
 
@@ -56,15 +65,16 @@ export default function MenuPage() {
     {
       href: `/safras/${safraId}/despesas-pessoais`,
       titulo: 'Despesas pessoais',
-      subtitulo: 'Seus gastos privados',
+      subtitulo: temDespesasPessoais ? 'Seus gastos privados' : 'Recurso do Profissional/Gestão',
       Icone: PiggyBank,
-      bg: 'bg-hf-blue-bg',
-      cor: 'text-hf-blue',
+      bg: temDespesasPessoais ? 'bg-hf-blue-bg' : 'bg-hf-cream-100',
+      cor: temDespesasPessoais ? 'text-hf-blue' : 'text-hf-stone-400',
+      bloqueado: !temDespesasPessoais,
     },
     {
       href: `/safras/${safraId}/importacao`,
       titulo: 'Importar lançamentos',
-      subtitulo: podeImportarPorIA ? 'Foto, PDF ou planilha' : 'Recurso do Plano 2+',
+      subtitulo: podeImportarPorIA ? 'Foto, PDF ou planilha' : 'Assine pra liberar',
       Icone: Sparkles,
       bg: podeImportarPorIA ? 'bg-hf-blue-bg' : 'bg-hf-cream-100',
       cor: podeImportarPorIA ? 'text-hf-blue' : 'text-hf-stone-400',

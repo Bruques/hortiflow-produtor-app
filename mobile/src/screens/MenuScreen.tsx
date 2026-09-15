@@ -30,7 +30,12 @@ interface ItemMenu {
 // Mesma checagem/mesma ressalva do web (frontend/src/pages/MenuPage.tsx): `/assinatura/status`
 // devolve o plano de quem está logado, não o do titular da sociedade — funciona certo pro
 // financiador (~98% de quem usa o Menu), imprecisão aceita pro caso raro do meeiro por ora.
-const PLANOS_COM_IMPORTACAO_IA = ['Plano 2', 'Plano 3'];
+//
+// Spec 25 — importação por IA passou a valer pra qualquer plano atribuído (antes era só
+// "Plano 2"/"Plano 3" por nome; os planos foram renomeados, então essa lista quebraria e
+// bloquearia todo mundo). Despesas pessoais é gate NOVO desta spec — só Profissional/Gestão
+// (`plano.despesasPessoais`); é só um gate de UI (esconde o card), sem bloqueio no backend
+// ainda, porque as rotas de despesa pessoal não ganharam checagem própria nesta spec.
 
 // Grade de navegação (aba "Menu" da casca), equivalente a frontend/src/pages/MenuPage.tsx —
 // mesma checagem de papel pro card "Unidades de Venda" (FINANCIADOR/MISTO, mesma regra da
@@ -40,9 +45,10 @@ export function MenuScreen({ navigation }: Props) {
   const { safraAtiva } = useSafraAtiva();
   const { usuario, sair } = useAuth();
   const [souFinanciador, setSouFinanciador] = useState(false);
-  // Default true (não bloqueado) até a checagem responder — evita mostrar o card já travado
-  // por um instante pra quem tem acesso, só por causa da latência dessa chamada extra.
+  // Default true (não bloqueado) até a checagem responder — evita mostrar os cards já
+  // travados por um instante pra quem tem acesso, só por causa da latência dessa chamada.
   const [podeImportarPorIA, setPodeImportarPorIA] = useState(true);
+  const [temDespesasPessoais, setTemDespesasPessoais] = useState(true);
 
   useEffect(() => {
     if (!safraAtiva || !usuario) return;
@@ -53,7 +59,10 @@ export function MenuScreen({ navigation }: Props) {
       })
       .catch(() => {});
     statusAssinaturaRequest()
-      .then((status) => setPodeImportarPorIA(!!status.plano && PLANOS_COM_IMPORTACAO_IA.includes(status.plano.nome)))
+      .then((status) => {
+        setPodeImportarPorIA(!!status.plano);
+        setTemDespesasPessoais(!!status.plano?.despesasPessoais);
+      })
       .catch(() => {});
   }, [safraAtiva, usuario]);
 
@@ -64,16 +73,16 @@ export function MenuScreen({ navigation }: Props) {
     {
       chave: 'despesas-pessoais',
       titulo: 'Despesas pessoais',
-      subtitulo: 'Seus gastos privados',
+      subtitulo: temDespesasPessoais ? 'Seus gastos privados' : 'Recurso do Profissional/Gestão',
       Icone: PiggyBank,
-      bg: cores.blue.fundo,
-      cor: cores.blue.padrao,
-      aoTocar: () => navigation.navigate('DespesasPessoais', { safraId }),
+      bg: temDespesasPessoais ? cores.blue.fundo : cores.cream[100],
+      cor: temDespesasPessoais ? cores.blue.padrao : cores.stone[400],
+      aoTocar: temDespesasPessoais ? () => navigation.navigate('DespesasPessoais', { safraId }) : undefined,
     },
     {
       chave: 'importacao',
       titulo: 'Importar lançamentos',
-      subtitulo: podeImportarPorIA ? 'Foto, PDF ou planilha' : 'Recurso do Plano 2+',
+      subtitulo: podeImportarPorIA ? 'Foto, PDF ou planilha' : 'Assine pra liberar',
       Icone: Sparkles,
       bg: podeImportarPorIA ? cores.blue.fundo : cores.cream[100],
       cor: podeImportarPorIA ? cores.blue.padrao : cores.stone[400],

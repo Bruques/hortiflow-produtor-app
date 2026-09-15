@@ -1,24 +1,35 @@
+import { useNavigate } from 'react-router-dom';
 import { PhoneCall, Mail } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Spec 18 — mostrada quando qualquer chamada à API retorna 402 (assinatura vencida do
-// titular da sociedade). Contato fixo: manter em sincronia com WHATSAPP_CONTATO/EMAIL_CONTATO
-// no backend (backend/.env) — duplicado aqui só porque o frontend não tem acesso a envs do
+// titular da sociedade). Atualizada pela spec 25: "Assinar agora" (checkout no próprio
+// site) passa a ser a ação principal — o contato manual continua como alternativa
+// secundária. Contato fixo: manter em sincronia com WHATSAPP_CONTATO/EMAIL_CONTATO no
+// backend (backend/.env) — duplicado aqui só porque o frontend não tem acesso a envs do
 // backend, não há endpoint dedicado só pra isso.
 const WHATSAPP_CONTATO = '(35) 99730-2015';
 const EMAIL_CONTATO = 'contato.hortiflow@gmail.com';
 
 export default function AssinaturaBloqueadaPage() {
+  const navigate = useNavigate();
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-[22px] py-[18px]">
       <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-4 text-center">
         <h2 className="font-rounded text-[19px] font-extrabold text-hf-stone-900">
-          Seu acesso ao HortiFlow expirou
+          Seu teste grátis acabou
         </h2>
         <p className="m-0 text-sm text-hf-stone-400">
-          Fale com a gente para continuar usando o app e liberar seu plano.
+          Assine pra continuar usando o app e acompanhar sua safra.
         </p>
 
+        <Button size="lg" className="w-full bg-hf-green-800 hover:bg-hf-green-900" onClick={() => navigate('/assinatura/checkout')}>
+          Assinar agora
+        </Button>
+
         <div className="mt-2 flex w-full flex-col gap-3 rounded-2xl border border-hf-line p-4">
+          <p className="m-0 text-center text-xs font-bold text-hf-stone-400">Prefere ser atendido diretamente?</p>
           <a
             href={`https://wa.me/55${WHATSAPP_CONTATO.replace(/\D/g, '')}`}
             target="_blank"

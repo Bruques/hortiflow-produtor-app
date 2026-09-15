@@ -13,8 +13,21 @@ import type { TitularAdmin, PlanoAdmin } from '@/types/assinatura';
 
 const ROTULO_METODO: Record<string, string> = {
   GATEWAY_ASAAS: 'Cartão (Asaas)',
+  GATEWAY_MP_CARTAO: 'Cartão (Mercado Pago)',
+  GATEWAY_MP_PIX: 'Pix (Mercado Pago)',
   MANUAL_PIX: 'PIX manual',
   MANUAL_DINHEIRO: 'Dinheiro manual',
+};
+
+const ROTULO_FAIXA_MEEIROS: Record<string, string> = {
+  UM_A_TRES: '1 a 3 meeiros',
+  QUATRO_A_DEZ: '4 a 10 meeiros',
+  DEZ_OU_MAIS: '10 ou mais meeiros',
+};
+
+const ROTULO_LOCALIZACAO: Record<string, string> = {
+  BOM_REPOUSO: 'Bom Repouso',
+  OUTRA_CIDADE: 'Outra cidade',
 };
 
 function formatarData(data: string | null): string {
@@ -257,6 +270,15 @@ function TitularRow({
 
       {expandido && (
         <div className="flex flex-col gap-4 border-t border-hf-line p-4">
+          {titular.faixaMeeiros && (
+            <p className="m-0 text-xs text-hf-stone-400">
+              Formulário de qualificação: {ROTULO_FAIXA_MEEIROS[titular.faixaMeeiros]}
+              {titular.quantidadePes !== null && ` · ${titular.quantidadePes} pés de morango`}
+              {titular.localizacaoProducao === 'OUTRA_CIDADE' && titular.localizacaoProducaoOutra
+                ? ` · ${titular.localizacaoProducaoOutra}`
+                : titular.localizacaoProducao && ` · ${ROTULO_LOCALIZACAO[titular.localizacaoProducao]}`}
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <select value={planoId} onChange={(e) => setPlanoId(e.target.value)} className="h-9 rounded-lg border border-hf-line px-2 text-sm">
               <option value="">Selecione um plano</option>

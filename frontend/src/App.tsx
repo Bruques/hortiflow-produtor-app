@@ -28,6 +28,10 @@ import RelatorioCompletoPage from '@/pages/RelatorioCompletoPage';
 import ImportarLancamentosPage from '@/pages/ImportarLancamentosPage';
 import AssinaturaBloqueadaPage from '@/pages/AssinaturaBloqueadaPage';
 import MinhaAssinaturaPage from '@/pages/MinhaAssinaturaPage';
+import OnboardingFormularioPage from '@/pages/OnboardingFormularioPage';
+import OnboardingPlanoPage from '@/pages/OnboardingPlanoPage';
+import CheckoutPage from '@/pages/CheckoutPage';
+import CheckoutRetornoPage from '@/pages/CheckoutRetornoPage';
 import AdminAssinaturasPage from '@/pages/admin/AdminAssinaturasPage';
 import AdminLoginPage from '@/pages/admin/AdminLoginPage';
 
@@ -44,6 +48,10 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/assinatura" element={<MinhaAssinaturaPage />} />
           <Route path="/assinatura/bloqueio" element={<AssinaturaBloqueadaPage />} />
+          <Route path="/assinatura/checkout" element={<CheckoutPage />} />
+          <Route path="/assinatura/checkout-retorno" element={<CheckoutRetornoPage />} />
+          <Route path="/onboarding" element={<OnboardingFormularioPage />} />
+          <Route path="/onboarding/plano" element={<OnboardingPlanoPage />} />
           <Route path="/despesas/compartilhada" element={<NovaDespesaCompartilhadaPage />} />
           <Route path="/sociedades/entrar" element={<EntrarSociedadePage />} />
           <Route path="/sociedades/:id/safras" element={<SafrasPage />} />

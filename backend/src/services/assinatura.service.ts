@@ -1,8 +1,17 @@
-import { MetodoPagamento, StatusAssinatura, StatusSafra } from '@prisma/client';
+import { CicloAssinatura, FaixaMeeiros, LocalizacaoProducao, MetodoPagamento, StatusAssinatura, StatusSafra } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as asaasService from './asaas.service';
+import * as mercadopagoService from './mercadopago.service';
 
 const TRIAL_DIAS = Number(process.env.TRIAL_DIAS || 14);
+
+// Spec 25 — a resposta de quantidade de meeiros no formulário de qualificação mapeia
+// direto pro plano recomendado, por nome (nomes fixos, ver migration spec25_onboarding_e_checkout).
+const PLANO_POR_FAIXA_MEEIROS: Record<FaixaMeeiros, string> = {
+  UM_A_TRES: 'Essencial',
+  QUATRO_A_DEZ: 'Profissional',
+  DEZ_OU_MAIS: 'Gestão',
+};
 
 export function mensagemAssinaturaVencida(): string {
   return `Seu acesso ao HortiFlow expirou. Fale com a gente pelo WhatsApp ${process.env.WHATSAPP_CONTATO} ou e-mail ${process.env.EMAIL_CONTATO} para continuar.`;
@@ -78,20 +87,19 @@ export async function acessoLiberadoParaSafra(safraId: string): Promise<boolean>
   return acessoLiberadoParaTitular(safra.sociedade.criado_por_usuario_id);
 }
 
-// Task 24, adendo 2026-09-09 — importação de lançamentos por IA é recurso exclusivo de quem
-// tem "Plano 2" ou "Plano 3" atribuído (decisão do dev): quem ainda está em trial (sem plano
-// atribuído ainda, `assinatura.plano` null) ou está no "Plano 1" não tem acesso. Comparação
-// pelo campo `nome` do Plano, não por `valor_mensal`/ranking: `editarPlano` (admin) só permite
-// mudar valor e limite de safras, nunca o nome — então o nome é o único campo garantidamente
-// estável pra identificar qual dos 3 planos fixos é qual, mesmo que o preço seja reajustado.
-const PLANOS_COM_IMPORTACAO_IA = ['Plano 2', 'Plano 3'];
-
+// Task 24, adendo 2026-09-09 — importação de lançamentos por IA era exclusiva de "Plano 2"/
+// "Plano 3". Spec 25 muda isso: a nova tabela de preços dá acesso a TODOS os planos, só com
+// limite mensal diferente (Essencial 40, Profissional 100, Gestão 150 — `limite_importacao_ia_mes`
+// do Plano). O que esta função ainda NÃO faz é contar quantas importações o titular já usou
+// no mês e comparar com esse limite — a spec 25 não define essa contagem (sem critério de
+// aceite sobre isso), então por ora o gate é só "tem algum plano atribuído", igual ao texto
+// da spec. Ver docs/specs/25-onboarding-e-checkout-automatizados.md.
 export async function planoPermiteImportacaoPorIA(titularUsuarioId: string): Promise<boolean> {
   const assinatura = await prisma.assinatura.findUnique({
     where: { usuario_id: titularUsuarioId },
     include: { plano: true },
   });
-  return !!assinatura?.plano && PLANOS_COM_IMPORTACAO_IA.includes(assinatura.plano.nome);
+  return !!assinatura?.plano;
 }
 
 export async function planoPermiteImportacaoPorIAParaSafra(safraId: string): Promise<boolean> {
@@ -122,16 +130,28 @@ export async function statusDoUsuario(usuarioId: string) {
   return {
     plano: assinatura.plano
       ? {
+          id: assinatura.plano.id,
           nome: assinatura.plano.nome,
           valorMensal: Number(assinatura.plano.valor_mensal),
+          valorAnualTotal: Number(assinatura.plano.valor_anual),
           limiteSafrasAtivas: assinatura.plano.limite_safras_ativas,
+          despesasPessoais: assinatura.plano.despesas_pessoais,
+          suportePrioritario: assinatura.plano.suporte_prioritario,
+          // Regra da spec 25: anual libera em qualquer plano; mensal só em quem já tem
+          // `implantacao_assistida_mensal` (Profissional/Gestão).
+          implantacaoAssistida: assinatura.ciclo === CicloAssinatura.ANUAL || assinatura.plano.implantacao_assistida_mensal,
         }
       : null,
+    ciclo: assinatura.ciclo,
     status: assinatura.status,
     dataFimAcesso: assinatura.data_fim_acesso,
     vencida: assinatura.data_fim_acesso < new Date(),
     safrasAtivas: emAndamento,
-    podeCancelar: !!assinatura.asaas_subscription_id && assinatura.status === StatusAssinatura.ATIVA,
+    podeCancelar:
+      (!!assinatura.asaas_subscription_id || !!assinatura.mp_preapproval_id) && assinatura.status === StatusAssinatura.ATIVA,
+    // Spec 25 — `faixa_meeiros` só é gravado por `responderOnboarding`, então não nulo
+    // significa "já respondeu o formulário uma vez".
+    onboardingRespondido: assinatura.faixa_meeiros !== null,
   };
 }
 
@@ -139,11 +159,15 @@ type CancelarResultado = { erro: 'SEM_ASSINATURA_ATIVA' } | { dataFimAcesso: Dat
 
 export async function cancelarAssinaturaDoUsuario(usuarioId: string): Promise<CancelarResultado> {
   const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
-  if (!assinatura?.asaas_subscription_id) {
+  if (!assinatura?.asaas_subscription_id && !assinatura?.mp_preapproval_id) {
     return { erro: 'SEM_ASSINATURA_ATIVA' };
   }
 
-  await asaasService.cancelarAssinatura(assinatura.asaas_subscription_id);
+  if (assinatura.mp_preapproval_id) {
+    await mercadopagoService.cancelarAssinatura(assinatura.mp_preapproval_id);
+  } else if (assinatura.asaas_subscription_id) {
+    await asaasService.cancelarAssinatura(assinatura.asaas_subscription_id);
+  }
 
   const atualizada = await prisma.assinatura.update({
     where: { usuario_id: usuarioId },
@@ -151,6 +175,156 @@ export async function cancelarAssinaturaDoUsuario(usuarioId: string): Promise<Ca
   });
 
   return { dataFimAcesso: atualizada.data_fim_acesso };
+}
+
+// --- Spec 25: onboarding automatizado e checkout Mercado Pago ---
+
+type OnboardingResultado =
+  | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
+  | { erro: 'ONBOARDING_JA_RESPONDIDO' }
+  | { erro: 'PLANO_NAO_ENCONTRADO' }
+  | {
+      planoRecomendado: {
+        id: string;
+        nome: string;
+        valorMensal: number;
+        valorAnualExibidoPorMes: number;
+        valorAnualTotal: number;
+      };
+    };
+
+export async function responderOnboarding(
+  usuarioId: string,
+  dados: {
+    faixaMeeiros: FaixaMeeiros;
+    quantidadePes: number;
+    localizacaoProducao: LocalizacaoProducao;
+    localizacaoProducaoOutra?: string;
+  }
+): Promise<OnboardingResultado> {
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+  if (assinatura.faixa_meeiros !== null) return { erro: 'ONBOARDING_JA_RESPONDIDO' };
+
+  const nomePlano = PLANO_POR_FAIXA_MEEIROS[dados.faixaMeeiros];
+  const plano = await prisma.plano.findFirst({ where: { nome: nomePlano } });
+  if (!plano) return { erro: 'PLANO_NAO_ENCONTRADO' };
+
+  await prisma.assinatura.update({
+    where: { usuario_id: usuarioId },
+    data: {
+      faixa_meeiros: dados.faixaMeeiros,
+      quantidade_pes_morango: dados.quantidadePes,
+      localizacao_producao: dados.localizacaoProducao,
+      // null explícito quando não é OUTRA_CIDADE — evita sobrar um valor antigo se o
+      // produtor respondesse de novo depois de um erro (ainda que hoje o formulário só
+      // deixe responder uma vez).
+      localizacao_producao_outra: dados.localizacaoProducao === 'OUTRA_CIDADE' ? (dados.localizacaoProducaoOutra ?? null) : null,
+    },
+  });
+
+  return {
+    planoRecomendado: {
+      id: plano.id,
+      nome: plano.nome,
+      valorMensal: Number(plano.valor_mensal),
+      valorAnualExibidoPorMes: Math.round((Number(plano.valor_anual) / 12) * 100) / 100,
+      valorAnualTotal: Number(plano.valor_anual),
+    },
+  };
+}
+
+// Catálogo público (produtor autenticado) dos 3 planos com todos os recursos — usado pela
+// tela de plano do onboarding pra mostrar as 3 opções, não só a recomendada. Não estava no
+// contrato original da spec 25 (só listava o recomendado); necessidade descoberta na
+// implementação, registrada aqui em vez de decidida silenciosamente.
+export async function listarPlanosPublico() {
+  const planos = await prisma.plano.findMany({ orderBy: { valor_mensal: 'asc' } });
+  return planos.map((p) => ({
+    id: p.id,
+    nome: p.nome,
+    valorMensal: Number(p.valor_mensal),
+    valorAnualExibidoPorMes: Math.round((Number(p.valor_anual) / 12) * 100) / 100,
+    valorAnualTotal: Number(p.valor_anual),
+    limiteSafrasAtivas: p.limite_safras_ativas,
+    limiteImportacaoIAMes: p.limite_importacao_ia_mes,
+    despesasPessoais: p.despesas_pessoais,
+    suportePrioritario: p.suporte_prioritario,
+    implantacaoAssistidaMensal: p.implantacao_assistida_mensal,
+  }));
+}
+
+type EscolherPlanoResultado =
+  | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
+  | { erro: 'PLANO_NAO_ENCONTRADO' }
+  | { plano: { id: string; nome: string }; ciclo: CicloAssinatura };
+
+export async function escolherPlano(
+  usuarioId: string,
+  planoId: string,
+  ciclo: CicloAssinatura
+): Promise<EscolherPlanoResultado> {
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  const plano = await prisma.plano.findUnique({ where: { id: planoId } });
+  if (!plano) return { erro: 'PLANO_NAO_ENCONTRADO' };
+
+  // Confirmar plano/ciclo aqui NÃO cobra nada — só grava a escolha. A cobrança de fato
+  // só acontece em `iniciarCheckout`.
+  await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: planoId, ciclo } });
+  return { plano: { id: plano.id, nome: plano.nome }, ciclo };
+}
+
+type CheckoutResultado =
+  | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
+  | { erro: 'PLANO_NAO_ENCONTRADO' }
+  | { tipo: 'ASSINATURA'; mpSubscriptionId: string; initPoint: string }
+  | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string };
+
+export async function iniciarCheckout(
+  usuarioId: string,
+  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX' },
+  urls: { callbackUrl: string; notificationUrl: string }
+): Promise<CheckoutResultado> {
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  const plano = await prisma.plano.findUnique({ where: { id: dados.planoId } });
+  if (!plano) return { erro: 'PLANO_NAO_ENCONTRADO' };
+
+  const cicloTexto = dados.ciclo === CicloAssinatura.ANUAL ? 'anual' : 'mensal';
+  const descricao = `HortiFlow — ${plano.nome} (${cicloTexto})`;
+
+  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — os outros
+  // três (mensal+Pix, anual+cartão, anual+Pix) são cobrança única (ver spec 25).
+  if (dados.ciclo === CicloAssinatura.MENSAL && dados.metodo === 'CARTAO') {
+    const { preapprovalId, initPoint } = await mercadopagoService.criarAssinaturaRecorrente({
+      usuarioId,
+      descricao,
+      valorMensal: Number(plano.valor_mensal),
+      externalReference: assinatura.id,
+      callbackUrl: urls.callbackUrl,
+    });
+    await prisma.assinatura.update({
+      where: { usuario_id: usuarioId },
+      data: { plano_id: plano.id, ciclo: dados.ciclo, mp_preapproval_id: preapprovalId },
+    });
+    return { tipo: 'ASSINATURA', mpSubscriptionId: preapprovalId, initPoint };
+  }
+
+  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
+  const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnica({
+    usuarioId,
+    descricao,
+    valor,
+    metodo: dados.metodo,
+    externalReference: assinatura.id,
+    callbackUrl: urls.callbackUrl,
+    notificationUrl: urls.notificationUrl,
+  });
+  await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
+  return { tipo: 'COBRANCA_UNICA', mpPaymentId: preferenceId, initPoint };
 }
 
 // --- Admin ---
@@ -193,6 +367,12 @@ export async function listarParaAdmin() {
         safrasAtivas,
         limiteSafrasAtivas: assinatura ? limiteEfetivo(assinatura) : null,
         metodoUltimoPagamento: assinatura?.pagamentos[0]?.metodo ?? null,
+        // Spec 25 — respostas do formulário de qualificação, pra você validar se a
+        // recomendação automática de plano fez sentido pra esse titular.
+        faixaMeeiros: assinatura?.faixa_meeiros ?? null,
+        quantidadePes: assinatura?.quantidade_pes_morango ?? null,
+        localizacaoProducao: assinatura?.localizacao_producao ?? null,
+        localizacaoProducaoOutra: assinatura?.localizacao_producao_outra ?? null,
       };
     })
   );
@@ -363,6 +543,46 @@ export async function confirmarPagamentoWebhook(payload: asaasService.AsaasWebho
         status: StatusAssinatura.ATIVA,
         asaas_subscription_id: assinatura.asaas_subscription_id ?? pagamento.subscription,
       },
+    }),
+  ]);
+}
+
+// --- Webhook Mercado Pago (spec 25) ---
+
+export async function confirmarPagamentoWebhookMercadoPago(paymentId: string): Promise<void> {
+  const pagamento = await mercadopagoService.buscarPagamento(paymentId);
+  if (pagamento.status !== 'approved') return;
+  if (!pagamento.external_reference) return;
+
+  // `external_reference` é o id da própria Assinatura, gravado na criação da cobrança/
+  // assinatura em `iniciarCheckout` — não precisa de customer id como no Asaas.
+  const assinatura = await prisma.assinatura.findUnique({
+    where: { id: pagamento.external_reference },
+  });
+  if (!assinatura) return;
+
+  const agora = new Date();
+  const base = assinatura.status === StatusAssinatura.ATIVA && assinatura.data_fim_acesso > agora
+    ? assinatura.data_fim_acesso
+    : agora;
+  const dias = assinatura.ciclo === CicloAssinatura.ANUAL ? 365 : 30;
+  const novaDataFim = somarDias(base, dias);
+  const metodo = pagamento.payment_type_id === 'credit_card' ? MetodoPagamento.GATEWAY_MP_CARTAO : MetodoPagamento.GATEWAY_MP_PIX;
+
+  await prisma.$transaction([
+    prisma.pagamento.create({
+      data: {
+        assinatura_id: assinatura.id,
+        metodo,
+        valor: pagamento.transaction_amount,
+        periodo_inicio: base,
+        periodo_fim: novaDataFim,
+        mp_payment_id: pagamento.id,
+      },
+    }),
+    prisma.assinatura.update({
+      where: { id: assinatura.id },
+      data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
     }),
   ]);
 }

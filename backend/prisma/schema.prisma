@@ -64,8 +64,34 @@ enum StatusAssinatura {
 
 enum MetodoPagamento {
   GATEWAY_ASAAS
+  // Spec 25 — cobranças pelo novo gateway (Mercado Pago), separadas por forma de
+  // pagamento porque o comportamento de cada uma é diferente (cartão = assinatura
+  // recorrente; Pix = cobrança avulsa que se repete a cada ciclo, sem débito automático).
+  GATEWAY_MP_CARTAO
+  GATEWAY_MP_PIX
   MANUAL_PIX
   MANUAL_DINHEIRO
+}
+
+// Spec 25 — ciclo de cobrança escolhido pelo produtor no fluxo de onboarding/checkout.
+enum CicloAssinatura {
+  MENSAL
+  ANUAL
+}
+
+// Spec 25 — faixa de quantidade de sócios meeiros respondida no formulário de
+// qualificação pós-cadastro; define automaticamente o plano recomendado.
+enum FaixaMeeiros {
+  UM_A_TRES
+  QUATRO_A_DEZ
+  DEZ_OU_MAIS
+}
+
+// Spec 25 — resposta informativa do formulário de qualificação, sem uso funcional
+// além de ficar vinculada ao usuário para uso futuro (ver spec).
+enum LocalizacaoProducao {
+  BOM_REPOUSO
+  OUTRA_CIDADE
 }
 
 model Usuario {
@@ -109,22 +135,35 @@ model AdminUsuario {
 // usuário ganha uma no registro, com trial de 14 dias; o plano só é atribuído
 // manualmente pelo admin depois (ver docs/specs/18-assinatura-e-pagamento.md).
 model Assinatura {
-  id                            String           @id @default(uuid())
+  id                            String               @id @default(uuid())
   // Spec 20 — nullable pra permitir excluir fisicamente um `Usuario` titular mantendo o
   // histórico de `Pagamento` (registro financeiro do desenvolvedor, não dado pessoal do
   // usuário) em vez de apagá-lo junto.
-  usuario_id                    String?          @unique
+  usuario_id                    String?              @unique
   plano_id                      String?
-  status                        StatusAssinatura @default(TRIAL)
-  data_inicio                   DateTime         @default(now())
+  status                        StatusAssinatura     @default(TRIAL)
+  data_inicio                   DateTime             @default(now())
   data_fim_acesso               DateTime
   // Override pontual do limite de safras ativas do plano, só para este titular
   // (negociação fora da régua padrão dos 3 planos) — null = usa o limite do plano.
   limite_safras_ativas_override Int?
   asaas_customer_id             String?
   asaas_subscription_id         String?
-  criado_em                     DateTime         @default(now())
-  atualizado_em                 DateTime         @updatedAt
+  // Spec 25 — respostas do formulário de qualificação (uma vez, pós-cadastro) e escolha
+  // de ciclo/gateway novo. `faixa_meeiros` não nulo é como o backend sabe que o produtor
+  // já respondeu o formulário (ver `onboardingRespondido` em GET /assinatura/status).
+  faixa_meeiros                 FaixaMeeiros?
+  quantidade_pes_morango        Int?
+  localizacao_producao          LocalizacaoProducao?
+  // Preenchido só quando localizacao_producao = OUTRA_CIDADE — nome digitado livremente
+  // pelo produtor (ver docs/specs/25).
+  localizacao_producao_outra    String?
+  ciclo                         CicloAssinatura?
+  // Id da assinatura recorrente no Mercado Pago (ciclo mensal + cartão) — equivalente ao
+  // asaas_subscription_id, usado pra cancelar via API do gateway.
+  mp_preapproval_id             String?
+  criado_em                     DateTime             @default(now())
+  atualizado_em                 DateTime             @updatedAt
 
   usuario    Usuario?    @relation(fields: [usuario_id], references: [id])
   plano      Plano?      @relation(fields: [plano_id], references: [id])
@@ -136,12 +175,21 @@ model Assinatura {
 // Spec 18 — catálogo de planos (fixo em 3, mas valor/limite editáveis pelo admin
 // sem precisar de deploy).
 model Plano {
-  id                   String   @id @default(uuid())
-  nome                 String
-  valor_mensal         Decimal  @db.Decimal(10, 2)
-  limite_safras_ativas Int?
-  criado_em            DateTime @default(now())
-  atualizado_em        DateTime @updatedAt
+  id                           String   @id @default(uuid())
+  nome                         String
+  valor_mensal                 Decimal  @db.Decimal(10, 2)
+  limite_safras_ativas         Int?
+  // Spec 25 — recursos que passaram a variar por plano na nova tabela de preços.
+  valor_anual                  Decimal  @db.Decimal(10, 2)
+  limite_importacao_ia_mes     Int?
+  despesas_pessoais            Boolean  @default(false)
+  suporte_prioritario          Boolean  @default(false)
+  // true = implantação assistida inclusa mesmo no ciclo mensal (Profissional/Gestão);
+  // no ciclo anual todo plano ganha implantação assistida, independente deste campo
+  // (regra calculada no service, não duplicada aqui).
+  implantacao_assistida_mensal Boolean  @default(false)
+  criado_em                    DateTime @default(now())
+  atualizado_em                DateTime @updatedAt
 
   assinaturas Assinatura[]
 
@@ -158,6 +206,7 @@ model Pagamento {
   periodo_inicio          DateTime
   periodo_fim             DateTime
   asaas_payment_id        String?
+  mp_payment_id           String?
   registrado_por_admin_id String?
   criado_em               DateTime        @default(now())
 

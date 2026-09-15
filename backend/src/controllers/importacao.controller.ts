@@ -31,7 +31,7 @@ export async function extrair(req: Request, res: Response): Promise<void> {
   const planoPermite = await assinaturaService.planoPermiteImportacaoPorIAParaSafra(id);
   if (!planoPermite) {
     res.status(403).json({
-      error: `A importação de lançamentos por IA está disponível a partir do Plano 2. Fale com a gente pelo WhatsApp ${process.env.WHATSAPP_CONTATO} ou e-mail ${process.env.EMAIL_CONTATO} para fazer upgrade.`,
+      error: `A importação de lançamentos por IA precisa de um plano atribuído. Fale com a gente pelo WhatsApp ${process.env.WHATSAPP_CONTATO} ou e-mail ${process.env.EMAIL_CONTATO} para assinar.`,
     });
     return;
   }
