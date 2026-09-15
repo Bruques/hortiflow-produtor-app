@@ -216,6 +216,14 @@ export async function responderOnboarding(
       faixa_meeiros: dados.faixaMeeiros,
       quantidade_pes_morango: dados.quantidadePes,
       localizacao_producao: dados.localizacaoProducao,
+      // Já grava o plano recomendado aqui, não só na confirmação da tela seguinte (bug
+      // encontrado no uso real, 2026-09-15): sem isso, quem respondia o formulário mas saía
+      // antes de confirmar um plano ficava com `plano_id` nulo — e `limiteEfetivo` trata
+      // plano nulo como SEM LIMITE de safras ativas, então o trial ficava ilimitado até o
+      // produtor eventualmente confirmar (ou nunca confirmar) um plano. Definir aqui garante
+      // que o trial sempre respeita o limite de algum plano real desde a primeira resposta.
+      // A tela de plano (`escolherPlano`) continua podendo sobrescrever se o produtor trocar.
+      plano_id: plano.id,
       // null explícito quando não é OUTRA_CIDADE — evita sobrar um valor antigo se o
       // produtor respondesse de novo depois de um erro (ainda que hoje o formulário só
       // deixe responder uma vez).
