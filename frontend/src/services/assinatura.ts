@@ -37,9 +37,14 @@ export interface PlanoCatalogo {
   implantacaoAssistidaMensal: boolean;
 }
 
-export interface CheckoutResultado {
-  tipo: 'ASSINATURA' | 'COBRANCA_UNICA';
-  initPoint: string;
+export type CheckoutResultado =
+  | { tipo: 'ASSINATURA' | 'COBRANCA_UNICA'; initPoint: string }
+  | { tipo: 'PIX'; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
+
+export interface VerificarPixResultado {
+  pedidoStatus: string;
+  vencida: boolean;
+  dataFimAcesso: string;
 }
 
 export async function listarPlanosRequest(): Promise<PlanoCatalogo[]> {
@@ -74,5 +79,10 @@ export async function checkoutRequest(dados: {
     ...dados,
     retornoUrl: `${window.location.origin}/assinatura/checkout-retorno`,
   });
+  return data;
+}
+
+export async function verificarPedidoPixRequest(orderId: string): Promise<VerificarPixResultado> {
+  const { data } = await apiClient.get<VerificarPixResultado>(`/assinatura/checkout/pix/${orderId}/status`);
   return data;
 }

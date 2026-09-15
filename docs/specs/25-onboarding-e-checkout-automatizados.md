@@ -92,9 +92,9 @@ Esta spec implementa o **Fluxo A** já validado em wireframe com o desenvolvedor
 
 - Quando `dataFimAcesso < agora` (gate 402 já existente, spec 18), a tela de bloqueio agora mostra, como ação principal, **"Assinar agora"**, levando ao checkout — o link/contato manual (WhatsApp/e-mail) continua disponível como ação secundária, pro caso de o produtor preferir ser atendido diretamente
 - No checkout: plano e ciclo vêm pré-selecionados do que o produtor escolheu na tela de plano, mas podem ser trocados ali; depois escolhe a forma de pagamento (Pix ou cartão)
-- **Cartão e Pix (mensal ou anual)**: o app **redireciona pro checkout hospedado do Mercado Pago** (abre em navegador/WebView) — o produtor sai do app nesse momento, paga na página do Mercado Pago, e volta depois. Cartão mensal cria assinatura recorrente (cobrança automática todo mês); as outras três combinações (cartão anual, Pix mensal, Pix anual) são cobrança única do valor correspondente, à vista — o parcelamento em até 12x no cartão, se o banco do produtor oferecer, acontece do lado da operadora do cartão dele, não é uma assinatura recorrente nossa
-- **Tentamos um desenho melhor pro Pix e revertemos (2026-09-15)**: o ideal seria o Pix não precisar de redirecionamento nem de conta Mercado Pago — testamos gerar o QR Code direto via API de Pagamentos (`POST /v1/payments`), mostrando na própria tela, sem sair do app. Funcionou tecnicamente (payload, CPF opcional, tudo certo), mas a conta usada pra testar bate em erro de autorização do Mercado Pago ("Unauthorized use of live credentials") em **toda** tentativa de criar um pagamento por essa API, mesmo com credenciais de uma conta de vendedor de teste separada — não conseguimos identificar a causa raiz nem com várias combinações testadas. Registrado como pendência (ver "Perguntas em aberto"); por ora, Pix aceita o mesmo requisito de login numa conta Mercado Pago que o cartão
-- Webhook do Mercado Pago confirmando pagamento: estende `dataFimAcesso` (30 dias pra mensal, 365 dias pra anual), muda `status` pra `ATIVA`, grava o identificador da assinatura/cobrança do Mercado Pago. Idempotente — reprocessar o mesmo pagamento (reenvio do Mercado Pago, por exemplo) não duplica o registro de `Pagamento` nem estende o acesso duas vezes
+- **Cartão (mensal ou anual)**: o app **redireciona pro checkout hospedado do Mercado Pago** (abre em navegador/WebView, via Checkout Pro / API de Preferências) — o produtor sai do app nesse momento, paga na página do Mercado Pago, e volta depois. Mensal cria assinatura recorrente (cobrança automática todo mês); anual é cobrança única, à vista — o parcelamento em até 12x, se o banco do produtor oferecer, acontece do lado da operadora do cartão dele, não é uma assinatura recorrente nossa
+- **Pix (mensal ou anual) — não redireciona**: mostra um **QR Code + código copia-e-cola direto na tela**, sem sair do app e sem exigir conta/login no Mercado Pago do pagador. Jornada até chegar nessa solução (2026-09-15): Checkout Pro funciona pra cartão sem exigir login, mas **exige** login pra Pix especificamente; a API de Pagamentos legada (`POST /v1/payments`) bateu em erro de autorização ("Unauthorized use of live credentials") em toda tentativa, sem causa identificada; a solução que funcionou foi a **API de Orders** (`POST /v1/orders`, a mais nova, recomendada pelo próprio Mercado Pago) — gera o Pix sem pedir login, testado com sucesso. Tem um botão **"Já paguei — verificar"** como rede de segurança, já que o formato exato do webhook de pedidos (diferente do webhook de pagamento usado pro cartão) ainda não foi validado contra um evento real (ver "Perguntas em aberto")
+- Webhook do Mercado Pago confirmando pagamento/pedido: estende `dataFimAcesso` (30 dias pra mensal, 365 dias pra anual), muda `status` pra `ATIVA`, grava o identificador da cobrança do Mercado Pago. Idempotente — reprocessar a mesma confirmação (reenvio do Mercado Pago, ou o botão "Já paguei — verificar" chegando depois do webhook) não duplica o registro de `Pagamento` nem estende o acesso duas vezes
 
 ### Painel admin (mantido da spec 18, sem remoção)
 
@@ -128,14 +128,23 @@ PATCH /assinatura/plano
 
 POST /assinatura/checkout
   Body: { planoId, ciclo: "MENSAL"|"ANUAL", metodo: "CARTAO"|"PIX", retornoUrl?: string }
-    // `retornoUrl` é pra onde o Mercado Pago volta depois do pagamento — cada cliente manda
-    // a sua (deep link do app mobile, URL do próprio site no web), pra manter a API
-    // agnóstica de cliente (ver CLAUDE.md); sem o campo, cai no deep link do app mobile
-    // por compatibilidade.
+    // `retornoUrl` é pra onde o Mercado Pago volta depois do pagamento (só usado por
+    // cartão, que redireciona) — cada cliente manda a sua (deep link do app mobile, URL do
+    // próprio site no web), pra manter a API agnóstica de cliente (ver CLAUDE.md); sem o
+    // campo, cai no deep link do app mobile por compatibilidade.
+  200 (Pix, mensal ou anual): { tipo: "PIX", mpOrderId, qrCode, qrCodeBase64, dataExpiracao }
+    // qrCode = código copia-e-cola; qrCodeBase64 = imagem do QR Code em base64, pra mostrar
+    // direto na tela (sem redirecionar o pagador pra lugar nenhum)
   200 (mensal + cartão, assinatura recorrente): { tipo: "ASSINATURA", mpSubscriptionId, initPoint }
-  200 (demais combinações — cartão anual, Pix mensal, Pix anual — cobrança única): { tipo: "COBRANCA_UNICA", mpPaymentId, initPoint }
+  200 (cartão anual, cobrança única): { tipo: "COBRANCA_UNICA", mpPaymentId, initPoint }
   400: { error: "Plano ou ciclo inválido" }
   — `initPoint` é a URL do checkout hospedado do Mercado Pago; o app abre em navegador/WebView
+
+GET /assinatura/checkout/pix/:orderId/status
+  200: { pedidoStatus, vencida, dataFimAcesso }
+  — botão "Já paguei — verificar": consulta o status do pedido direto no Mercado Pago e, se
+    já `processed` (pago), confirma na hora (mesma lógica do webhook, idempotente — chamar
+    duas vezes pro mesmo pedido não duplica nem estende o acesso de novo)
 
 GET /assinatura/status  (já existe na spec 18, ganha campos novos)
   200: {
@@ -182,8 +191,9 @@ Rotas e gates já existentes na spec 18 (402 por tempo vencido, 403 por limite d
 6. Dado um usuário que confirma um plano, quando consulta seu status logo em seguida, então `status` continua `TRIAL` e nenhum `Pagamento` foi criado — confirmar plano não cobra
 7. Dado um usuário com trial vencido, quando abre o app, então vê a tela de bloqueio com "Assinar agora" como ação principal e uma opção secundária de contato manual
 8. Dado um usuário que escolhe plano mensal + cartão no checkout, quando confirma, então uma assinatura recorrente é criada no Mercado Pago e `POST /assinatura/checkout` retorna `tipo: "ASSINATURA"`
-9. Dado um usuário que escolhe plano anual + Pix, quando confirma, então recebe o link do checkout hospedado do Mercado Pago (`initPoint`) de uma cobrança única no valor total anual, sem opção de parcelamento
-9b. Dado um webhook do Mercado Pago reenviando a confirmação do mesmo pagamento (retentativa deles, por exemplo), quando processado de novo, então não cria um segundo registro de `Pagamento` nem estende `data_fim_acesso` uma segunda vez (idempotência)
+9. Dado um usuário que escolhe plano anual + Pix, quando confirma, então recebe um QR Code + código copia-e-cola (`tipo: "PIX"`) no valor total anual, sem ser redirecionado nem precisar de conta Mercado Pago
+9b. Dado um usuário que já pagou o Pix mas o webhook ainda não chegou, quando toca em "Já paguei — verificar", então o backend consulta o pedido direto no Mercado Pago, confirma o pagamento e libera o acesso, sem esperar o webhook
+9c. Dado uma confirmação (webhook ou botão verificar) processada mais de uma vez pro mesmo pagamento/pedido, então não cria um segundo registro de `Pagamento` nem estende `data_fim_acesso` uma segunda vez (idempotência)
 10. Dado um webhook do Mercado Pago confirmando uma cobrança, quando processado, então `dataFimAcesso` é estendido (30 dias se mensal, 365 dias se anual) e `status` vira `ATIVA`
 11. Dado um usuário no plano Essencial mensal, quando consulta os recursos do seu plano, então não vê acesso a despesas pessoais, suporte prioritário nem implantação assistida
 12. Dado esse mesmo usuário, quando muda pra Essencial **anual**, então passa a ter direito a implantação assistida (mas despesas pessoais e suporte prioritário continuam fora, exclusivos de Profissional/Gestão)
@@ -194,4 +204,6 @@ Rotas e gates já existentes na spec 18 (402 por tempo vencido, 403 por limite d
 
 ## Perguntas em aberto
 
-- **Pix sem redirecionar (QR Code direto no app)**: seria a experiência ideal — evita o requisito de login numa conta Mercado Pago que o Checkout Pro exige pra Pix. Tentamos implementar via API de Pagamentos (`POST /v1/payments`) em 2026-09-15, mas a conta de teste usada bate em "Unauthorized use of live credentials" em toda tentativa de criar um pagamento por essa API — testado com e-mail sintético, e-mail de usuário de teste comprador, e até credenciais de uma conta de vendedor de teste separada, todos com o mesmo erro. Como `/users/me` funciona normal com essas credenciais (só a criação de pagamento falha), a causa provável é alguma etapa de ativação de conta específica pra essa API que não identificamos — precisa de contato com o suporte do Mercado Pago pra esclarecer. Enquanto isso, Pix usa o mesmo Checkout Pro do cartão (código de `criarPagamentoPix` removido; se for retomado, `git log` tem a versão que chegou a gerar QR Code e status via botão "Já paguei — verificar" — só a chamada de criação de pagamento falhava)
+- **Formato real do webhook de pedidos Pix**: a API de Orders usa um recurso diferente ("pedido", não "pagamento") das cobranças de cartão, e o formato exato da notificação que o Mercado Pago manda pra pedidos (`type=order`? `type=merchant_order`? outro nome?) não foi confirmado contra um evento real nesta sessão — só a criação do pedido foi testada com sucesso via chamada direta. O código aceita `order` e `merchant_order` como palpites razoáveis (`extrairNotificacaoWebhook` em `mercadopago.service.ts`), e loga a notificação bruta recebida (`console.log` no controller do webhook) pra conferir/ajustar assim que o primeiro Pix real for pago em staging ou produção. O botão "Já paguei — verificar" cobre esse período de validação, consultando o pedido direto em vez de depender só do webhook
+- **E-mail do pagador em produção**: em modo sandbox, a API de Orders exige que o e-mail do pagador termine em `@testuser.com` (erro `invalid_email_for_sandbox` se não for) — o e-mail sintético que já usamos (`usuarioId@usuarios.hortiflow-produtor.com.br`) não bate com isso, mas não travou a criação do pedido nos testes porque usamos um e-mail de usuário de teste real pra validar. Assumimos que essa exigência é só do ambiente sandbox e que credenciais de produção aceitam o e-mail sintético normalmente — não dá pra confirmar sem uma conta de produção real
+- **Checkout Transparente pra cartão via API de Orders**: como a API de Orders resolveu o Pix sem redirecionar, pode fazer sentido migrar o cartão pra ela também no futuro (formulário de cartão dentro do próprio app, em vez de redirecionar pro Checkout Pro) — não fizemos isso agora porque o Checkout Pro pro cartão já funciona bem e não tem a mesma urgência do problema do Pix

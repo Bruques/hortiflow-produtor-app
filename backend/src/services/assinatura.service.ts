@@ -280,7 +280,8 @@ type CheckoutResultado =
   | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
   | { erro: 'PLANO_NAO_ENCONTRADO' }
   | { tipo: 'ASSINATURA'; mpSubscriptionId: string; initPoint: string }
-  | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string };
+  | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string }
+  | { tipo: 'PIX'; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
 
 export async function iniciarCheckout(
   usuarioId: string,
@@ -295,13 +296,31 @@ export async function iniciarCheckout(
 
   const cicloTexto = dados.ciclo === CicloAssinatura.ANUAL ? 'anual' : 'mensal';
   const descricao = `HortiFlow — ${plano.nome} (${cicloTexto})`;
+  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
 
-  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — os outros
-  // três (mensal+Pix, anual+cartão, anual+Pix) são cobrança única, todos via Checkout Pro
-  // (redirecionamento hospedado). Tentamos Pix direto via API de Pagamentos (sem
-  // redirecionar), mas essa conta bate em erro de autorização do lado do Mercado Pago que
-  // não conseguimos resolver — ver aviso no topo de mercadopago.service.ts.
-  if (dados.ciclo === CicloAssinatura.MENSAL && dados.metodo === 'CARTAO') {
+  // Pix usa a API de Orders (sem redirecionar, sem exigir conta Mercado Pago do pagador) —
+  // ver aviso no topo de mercadopago.service.ts sobre o caminho até chegar nessa solução.
+  if (dados.metodo === 'PIX') {
+    const pedido = await mercadopagoService.criarPedidoPix({
+      usuarioId,
+      descricao,
+      valor,
+      externalReference: assinatura.id,
+      notificationUrl: urls.notificationUrl,
+    });
+    await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
+    return {
+      tipo: 'PIX',
+      mpOrderId: pedido.orderId,
+      qrCode: pedido.qrCode,
+      qrCodeBase64: pedido.qrCodeBase64,
+      dataExpiracao: pedido.dataExpiracao,
+    };
+  }
+
+  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — anual +
+  // cartão é cobrança única, os dois via Checkout Pro (redirecionamento hospedado).
+  if (dados.ciclo === CicloAssinatura.MENSAL) {
     const { preapprovalId, initPoint } = await mercadopagoService.criarAssinaturaRecorrente({
       usuarioId,
       descricao,
@@ -316,12 +335,10 @@ export async function iniciarCheckout(
     return { tipo: 'ASSINATURA', mpSubscriptionId: preapprovalId, initPoint };
   }
 
-  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
-  const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnica({
+  const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnicaCartao({
     usuarioId,
     descricao,
     valor,
-    metodo: dados.metodo,
     externalReference: assinatura.id,
     callbackUrl: urls.callbackUrl,
     notificationUrl: urls.notificationUrl,
@@ -558,10 +575,8 @@ export async function confirmarPagamentoWebhookMercadoPago(paymentId: string): P
   if (!pagamento.external_reference) return;
 
   // Idempotência: essa função pode ser chamada mais de uma vez pro mesmo pagamento — o
-  // Mercado Pago pode reenviar o mesmo webhook, e agora também existe o botão "Já paguei —
-  // verificar" (verificarPagamentoPix), que chama isso na hora em vez de só esperar o
-  // webhook. Sem essa checagem, cada chamada extra duplicava o Pagamento e estendia
-  // `data_fim_acesso` de novo (bug em potencial, achado ao desenhar o botão de verificar).
+  // Mercado Pago pode reenviar o mesmo webhook. Sem essa checagem, cada chamada extra
+  // duplicava o Pagamento e estendia `data_fim_acesso` de novo.
   const jaProcessado = await prisma.pagamento.findFirst({ where: { mp_payment_id: pagamento.id } });
   if (jaProcessado) return;
 
@@ -596,4 +611,66 @@ export async function confirmarPagamentoWebhookMercadoPago(paymentId: string): P
       data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
     }),
   ]);
+}
+
+// Pix via API de Orders (ver mercadopago.service.ts) — mesma lógica da confirmação de
+// pagamento acima, mas consultando um pedido em vez de um pagamento avulso. `mp_payment_id`
+// no `Pagamento` guarda o id do pedido aqui (nome do campo é genérico o bastante).
+export async function confirmarPedidoPixWebhookMercadoPago(orderId: string): Promise<void> {
+  const pedido = await mercadopagoService.buscarPedido(orderId);
+  if (pedido.status !== 'processed') return;
+  if (!pedido.externalReference) return;
+
+  const jaProcessado = await prisma.pagamento.findFirst({ where: { mp_payment_id: pedido.id } });
+  if (jaProcessado) return;
+
+  const assinatura = await prisma.assinatura.findUnique({ where: { id: pedido.externalReference } });
+  if (!assinatura) return;
+
+  const agora = new Date();
+  const base = assinatura.status === StatusAssinatura.ATIVA && assinatura.data_fim_acesso > agora
+    ? assinatura.data_fim_acesso
+    : agora;
+  const dias = assinatura.ciclo === CicloAssinatura.ANUAL ? 365 : 30;
+  const novaDataFim = somarDias(base, dias);
+
+  await prisma.$transaction([
+    prisma.pagamento.create({
+      data: {
+        assinatura_id: assinatura.id,
+        metodo: MetodoPagamento.GATEWAY_MP_PIX,
+        valor: pedido.valor,
+        periodo_inicio: base,
+        periodo_fim: novaDataFim,
+        mp_payment_id: pedido.id,
+      },
+    }),
+    prisma.assinatura.update({
+      where: { id: assinatura.id },
+      data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
+    }),
+  ]);
+}
+
+// Botão "Já paguei — verificar": checagem ativa do pagador em vez de só esperar o webhook
+// em silêncio — rede de segurança enquanto o formato do webhook de pedidos (API de Orders)
+// ainda não foi validado contra um evento real. Reaproveita `confirmarPedidoPixWebhookMercadoPago`,
+// que é idempotente.
+export async function verificarPedidoPix(
+  usuarioId: string,
+  orderId: string
+): Promise<{ erro: 'ASSINATURA_NAO_ENCONTRADA' } | { pedidoStatus: string; vencida: boolean; dataFimAcesso: Date }> {
+  const pedido = await mercadopagoService.buscarPedido(orderId);
+  if (pedido.status === 'processed') {
+    await confirmarPedidoPixWebhookMercadoPago(orderId);
+  }
+
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  return {
+    pedidoStatus: pedido.status,
+    vencida: assinatura.data_fim_acesso < new Date(),
+    dataFimAcesso: assinatura.data_fim_acesso,
+  };
 }

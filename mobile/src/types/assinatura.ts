@@ -34,7 +34,12 @@ export interface PlanoRecomendado {
   valorAnualTotal: number;
 }
 
-export interface CheckoutResultado {
-  tipo: 'ASSINATURA' | 'COBRANCA_UNICA';
-  initPoint: string;
+export type CheckoutResultado =
+  | { tipo: 'ASSINATURA' | 'COBRANCA_UNICA'; initPoint: string }
+  | { tipo: 'PIX'; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
+
+export interface VerificarPixResultado {
+  pedidoStatus: string;
+  vencida: boolean;
+  dataFimAcesso: string;
 }

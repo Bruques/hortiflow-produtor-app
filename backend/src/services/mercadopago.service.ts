@@ -1,15 +1,20 @@
 // Spec 25 — cliente HTTP do Mercado Pago (gateway de cobrança do onboarding automatizado),
 // no mesmo padrão do asaas.service.ts: fetch nativo, sem dependência nova.
 //
-// Testado contra o Mercado Pago de teste (conta sandbox real) em 2026-09-15. Cartão e Pix
-// vão os dois pelo Checkout Pro (redirecionamento hospedado) — tentamos gerar o Pix direto
-// via API de Pagamentos (`POST /v1/payments`), sem redirecionar o pagador, mas essa conta
-// bate em "Unauthorized use of live credentials" em toda tentativa de criar um pagamento
-// (não é sobre payer/CPF — testamos várias combinações, inclusive credenciais de uma conta
-// de vendedor de teste separada). É provavelmente alguma etapa de ativação de conta que só
-// o suporte do Mercado Pago sabe explicar — fica registrado como pendência pra revisitar
-// (ver "Perguntas em aberto" na spec 25). Por ora, Pix aceita o mesmo requisito de login
-// numa conta Mercado Pago que o Checkout Pro exige — igual ao cartão.
+// Testado contra o Mercado Pago de teste (conta sandbox real) em 2026-09-15. Cartão continua
+// pelo Checkout Pro (redirecionamento hospedado, `/checkout/preferences`) — funciona bem,
+// sem exigir conta do pagador. Pix tentou o mesmo caminho primeiro, mas o Checkout Pro exige
+// login numa conta Mercado Pago pra pagar via Pix especificamente (cartão não tem essa
+// exigência ali). Tentamos então a API de Pagamentos direta (`/v1/payments`), mas essa conta
+// bate em "Unauthorized use of live credentials" em toda tentativa de criar um pagamento por
+// ela, sem causa identificada. A solução que funcionou: a **API de Orders** (`/v1/orders`,
+// mais nova, a que o próprio Mercado Pago recomenda) — gera o Pix (QR Code + copia-e-cola)
+// sem pedir login nenhum, testado com sucesso. Único requisito extra encontrado: em modo
+// sandbox, o e-mail do pagador precisa terminar em `@testuser.com` (erro `invalid_email_
+// for_sandbox`) — assumimos que isso não se aplica com credenciais de produção de verdade,
+// mas não dá pra confirmar sem uma conta real.
+
+import { randomUUID } from 'crypto';
 
 const MP_API_URL = process.env.MP_API_URL || 'https://api.mercadopago.com';
 
@@ -44,25 +49,13 @@ interface MpPreference {
   init_point: string;
 }
 
-type Metodo = 'CARTAO' | 'PIX';
-
-// Tipos de pagamento do Mercado Pago a excluir da preferência pra forçar só cartão ou só Pix.
+// Cobrança única, hospedada (Checkout Pro) — só cartão (anual). Exclui explicitamente
+// boleto/Pix/caixa eletrônico da preferência, pra garantir que só cartão apareça nessa tela.
 // https://www.mercadopago.com.br/developers — payment_methods.excluded_payment_types
-function tiposExcluidosPara(metodo: Metodo): { id: string }[] {
-  if (metodo === 'CARTAO') {
-    return [{ id: 'ticket' }, { id: 'bank_transfer' }, { id: 'atm' }, { id: 'prepaid_card' }];
-  }
-  return [{ id: 'credit_card' }, { id: 'debit_card' }, { id: 'prepaid_card' }, { id: 'ticket' }, { id: 'atm' }];
-}
-
-// Cobrança única, hospedada (Checkout Pro) — usada pra ciclo anual (cartão ou Pix) e pra
-// ciclo mensal + Pix (que não tem débito automático, então "assinatura" não se aplica: cada
-// cobrança é uma preferência nova). Ver docs/specs/25-onboarding-e-checkout-automatizados.md.
-export async function criarCobrancaUnica(params: {
+export async function criarCobrancaUnicaCartao(params: {
   usuarioId: string;
   descricao: string;
   valor: number;
-  metodo: Metodo;
   externalReference: string;
   callbackUrl: string;
   notificationUrl: string;
@@ -76,7 +69,9 @@ export async function criarCobrancaUnica(params: {
       back_urls: { success: params.callbackUrl, failure: params.callbackUrl, pending: params.callbackUrl },
       auto_return: 'approved',
       notification_url: params.notificationUrl,
-      payment_methods: { excluded_payment_types: tiposExcluidosPara(params.metodo) },
+      payment_methods: {
+        excluded_payment_types: [{ id: 'ticket' }, { id: 'bank_transfer' }, { id: 'atm' }, { id: 'prepaid_card' }],
+      },
     }),
   });
 
@@ -85,6 +80,82 @@ export async function criarCobrancaUnica(params: {
     // Quem decide se é um pagamento de teste ou real são as credenciais usadas (o
     // MP_ACCESS_TOKEN), não a URL — por isso um único link (`init_point`) serve pros dois casos.
     initPoint: preference.init_point,
+  };
+}
+
+interface MpOrder {
+  id: string;
+  status: string;
+  status_detail?: string;
+  external_reference?: string;
+  total_amount: string;
+  transactions?: {
+    payments?: Array<{
+      id: string;
+      status: string;
+      date_of_expiration?: string;
+      payment_method?: {
+        qr_code?: string; // "copia e cola"
+        qr_code_base64?: string; // imagem do QR Code, já em base64 (sem o prefixo data:image/...)
+      };
+    }>;
+  };
+}
+
+// Pix via API de Orders (não a de Pagamentos legada, ver aviso no topo do arquivo) — sem
+// redirecionar o pagador, sem exigir conta/login no Mercado Pago. `status: "processed"` é o
+// estado final de "pago" (confirmado via GET, ver buscarPedido).
+export async function criarPedidoPix(params: {
+  usuarioId: string;
+  descricao: string;
+  valor: number;
+  externalReference: string;
+  notificationUrl: string;
+}): Promise<{ orderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string }> {
+  const valorFormatado = params.valor.toFixed(2);
+
+  const pedido = await mpFetch<MpOrder>('/v1/orders', {
+    method: 'POST',
+    // Idempotency key: evita criar duas ordens Pix se a chamada for repetida (ex: o app
+    // reenviar por instabilidade de rede) — cada tentativa de checkout gera uma nova, então
+    // um duplo toque do usuário no botão ainda cria duas ordens distintas de propósito.
+    headers: { 'X-Idempotency-Key': randomUUID() },
+    body: JSON.stringify({
+      type: 'online',
+      total_amount: valorFormatado,
+      external_reference: params.externalReference,
+      processing_mode: 'automatic',
+      notification_url: params.notificationUrl,
+      payer: { email: emailSinteticoPara(params.usuarioId) },
+      transactions: {
+        payments: [{ amount: valorFormatado, payment_method: { id: 'pix', type: 'bank_transfer' } }],
+      },
+    }),
+  });
+
+  const pagamento = pedido.transactions?.payments?.[0];
+  return {
+    orderId: pedido.id,
+    qrCode: pagamento?.payment_method?.qr_code ?? '',
+    qrCodeBase64: pagamento?.payment_method?.qr_code_base64 ?? '',
+    dataExpiracao: pagamento?.date_of_expiration ?? '',
+  };
+}
+
+export interface MpOrderStatus {
+  id: string;
+  status: string;
+  externalReference?: string;
+  valor: number;
+}
+
+export async function buscarPedido(orderId: string): Promise<MpOrderStatus> {
+  const pedido = await mpFetch<MpOrder>(`/v1/orders/${orderId}`);
+  return {
+    id: pedido.id,
+    status: pedido.status,
+    externalReference: pedido.external_reference,
+    valor: Number(pedido.total_amount),
   };
 }
 
@@ -144,14 +215,19 @@ export async function buscarPagamento(paymentId: string): Promise<MpPayment> {
   return mpFetch<MpPayment>(`/v1/payments/${paymentId}`);
 }
 
-// Formato de notificação do Mercado Pago (query string): `?type=payment&data.id=123`.
-// Existe um formato mais antigo (`?topic=payment&id=123`) que algumas integrações antigas
-// ainda recebem — aceitamos os dois por segurança.
-export function extrairPaymentIdDoWebhook(query: Record<string, unknown>): string | null {
-  const tipo = (query.type ?? query.topic) as string | undefined;
-  if (tipo !== 'payment') return null;
+// Formato de notificação do Mercado Pago (query string): `?type=payment&data.id=123` pras
+// cobranças de cartão (Checkout Pro) e algo do tipo `?type=order|merchant_order&data.id=...`
+// pros pedidos Pix (API de Orders) — esse segundo formato ainda não foi confirmado contra um
+// webhook real (só testado a criação via curl, sem notification_url apontando pra algo
+// observável); os logs do backend em produção/staging são a fonte de verdade se precisar
+// ajustar os nomes exatos aceitos aqui.
+export function extrairNotificacaoWebhook(query: Record<string, unknown>): { tipo: 'payment' | 'order'; id: string } | null {
+  const tipoRaw = (query.type ?? query.topic) as string | undefined;
   const id = (query['data.id'] ?? query.id) as string | undefined;
-  return id ?? null;
+  if (!id) return null;
+  if (tipoRaw === 'payment') return { tipo: 'payment', id };
+  if (tipoRaw === 'order' || tipoRaw === 'merchant_order') return { tipo: 'order', id };
+  return null;
 }
 
 // Validação simples por token em query string (`?token=...` no notification_url), no mesmo

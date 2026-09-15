@@ -1,5 +1,12 @@
 import apiClient from './apiClient';
-import type { AssinaturaStatus, CheckoutResultado, FaixaMeeiros, LocalizacaoProducao, PlanoRecomendado } from '../types/assinatura';
+import type {
+  AssinaturaStatus,
+  CheckoutResultado,
+  FaixaMeeiros,
+  LocalizacaoProducao,
+  PlanoRecomendado,
+  VerificarPixResultado,
+} from '../types/assinatura';
 
 export async function statusAssinaturaRequest(): Promise<AssinaturaStatus> {
   const { data } = await apiClient.get<AssinaturaStatus>('/assinatura/status');
@@ -58,5 +65,10 @@ export async function checkoutRequest(dados: {
     ...dados,
     retornoUrl: 'hortiflowprodutor://checkout-retorno',
   });
+  return data;
+}
+
+export async function verificarPedidoPixRequest(orderId: string): Promise<VerificarPixResultado> {
+  const { data } = await apiClient.get<VerificarPixResultado>(`/assinatura/checkout/pix/${orderId}/status`);
   return data;
 }

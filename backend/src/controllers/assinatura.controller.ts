@@ -112,3 +112,13 @@ export async function checkout(req: Request, res: Response): Promise<void> {
 
   res.json(resultado);
 }
+
+export async function verificarPedidoPix(req: Request, res: Response): Promise<void> {
+  const { orderId } = req.params;
+  const resultado = await assinaturaService.verificarPedidoPix(req.usuarioId, orderId);
+  if ('erro' in resultado) {
+    res.status(404).json({ error: 'Assinatura não encontrada' });
+    return;
+  }
+  res.json(resultado);
+}
