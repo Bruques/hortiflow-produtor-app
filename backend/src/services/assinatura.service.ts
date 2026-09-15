@@ -317,23 +317,15 @@ export async function iniciarCheckout(
     };
   }
 
-  // Mensal + cartão é o único caso que vira assinatura recorrente de verdade — anual +
-  // cartão é cobrança única, os dois via Checkout Pro (redirecionamento hospedado).
-  if (dados.ciclo === CicloAssinatura.MENSAL) {
-    const { preapprovalId, initPoint } = await mercadopagoService.criarAssinaturaRecorrente({
-      usuarioId,
-      descricao,
-      valorMensal: Number(plano.valor_mensal),
-      externalReference: assinatura.id,
-      callbackUrl: urls.callbackUrl,
-    });
-    await prisma.assinatura.update({
-      where: { usuario_id: usuarioId },
-      data: { plano_id: plano.id, ciclo: dados.ciclo, mp_preapproval_id: preapprovalId },
-    });
-    return { tipo: 'ASSINATURA', mpSubscriptionId: preapprovalId, initPoint };
-  }
-
+  // Cartão (mensal ou anual) é sempre cobrança única via Checkout Pro — decisão do dev
+  // (2026-09-15): mensal + cartão como assinatura recorrente de verdade (`/preapproval`)
+  // ficou travado numa página do Mercado Pago que não abre ("Esta página não existe"), sem
+  // causa identificada mesmo depois de declarar "Assinaturas" como produto integrado —
+  // provavelmente alguma verificação de conta que só o suporte deles explicaria. Solução
+  // adotada: cartão mensal vira cobrança única igual ao Pix mensal — sem débito automático,
+  // o produtor paga de novo a cada ciclo. `criarAssinaturaRecorrente` continua existindo em
+  // mercadopago.service.ts (não deletada) caso o problema seja resolvido no futuro e valha
+  // reativar a recorrência de verdade.
   const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnicaCartao({
     usuarioId,
     descricao,
