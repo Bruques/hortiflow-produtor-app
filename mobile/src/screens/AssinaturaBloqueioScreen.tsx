@@ -1,7 +1,8 @@
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mail, PhoneCall } from 'lucide-react-native';
+import { LogOut, Mail, PhoneCall } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
 import { cores, espacamento, raio } from '../theme';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -14,7 +15,12 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AssinaturaBloqueio'>;
 const WHATSAPP_CONTATO = '(35) 99730-2015';
 const EMAIL_CONTATO = 'contato.hortiflow@gmail.com';
 
+// Sem esse botão, quem caía nessa tela (acesso vencido) ficava preso sem jeito de trocar de
+// conta — o resto do app só tem "Sair" dentro do Menu, que essa tela substitui por completo
+// (dev relatou, 2026-09-15).
 export function AssinaturaBloqueioScreen({ navigation }: Props) {
+  const { sair } = useAuth();
+
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <View style={styles.conteudo}>
@@ -39,6 +45,11 @@ export function AssinaturaBloqueioScreen({ navigation }: Props) {
             <Text style={styles.textoBotaoSecundario}>{EMAIL_CONTATO}</Text>
           </Pressable>
         </View>
+
+        <Pressable style={styles.botaoSair} onPress={() => sair()}>
+          <LogOut size={18} color={cores.red.padrao} />
+          <Text style={styles.textoBotaoSair}>Sair</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -123,5 +134,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: cores.stone[900],
+  },
+  botaoSair: {
+    marginTop: espacamento.sm,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.sm,
+    borderWidth: 1.5,
+    borderColor: cores.red.padrao,
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.md,
+  },
+  textoBotaoSair: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: cores.red.padrao,
   },
 });
