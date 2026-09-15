@@ -8,6 +8,10 @@ export type TipoDespesa =
   | 'MAO_DE_OBRA'
   | 'EMBALAGEM'
   | 'TRANSPORTE'
+  | 'CUSTEIO'
+  | 'FERTIRRIGACAO'
+  | 'ENERGIA'
+  | 'OLEO_DIESEL'
   | 'OUTRO';
 
 export interface ItemRateio {

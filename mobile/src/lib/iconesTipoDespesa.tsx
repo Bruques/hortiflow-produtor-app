@@ -1,4 +1,4 @@
-import { Sprout, Leaf, Droplet, ShieldAlert, Users, Package, Truck, Receipt } from 'lucide-react-native';
+import { Sprout, Leaf, Droplet, Droplets, ShieldAlert, Users, Package, Truck, Banknote, Zap, Fuel, Receipt } from 'lucide-react-native';
 import type { TipoDespesa } from '../types/despesa';
 
 // Porta de frontend/src/lib/iconesTipoDespesa.tsx — mesmo ícone por categoria do web, só
@@ -11,5 +11,9 @@ export const ICONE_TIPO_DESPESA: Record<TipoDespesa, typeof Sprout> = {
   MAO_DE_OBRA: Users,
   EMBALAGEM: Package,
   TRANSPORTE: Truck,
+  CUSTEIO: Banknote,
+  FERTIRRIGACAO: Droplets,
+  ENERGIA: Zap,
+  OLEO_DIESEL: Fuel,
   OUTRO: Receipt,
 };
