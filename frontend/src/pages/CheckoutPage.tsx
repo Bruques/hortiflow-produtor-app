@@ -11,7 +11,6 @@ import {
   type PlanoCatalogo,
 } from '@/services/assinatura';
 import { logoutRequest } from '@/services/auth';
-import { CartaoTokenForm } from '@/components/CartaoTokenForm';
 import { cn, formatarMoeda } from '@/lib/utils';
 import type { AssinaturaStatus } from '@/types/assinatura';
 
@@ -84,7 +83,7 @@ export default function CheckoutPage() {
     setPlanoSelecionadoId(id);
   }
 
-  async function irParaPagamento(cardTokenId?: string) {
+  async function irParaPagamento() {
     if (!planoSelecionadoId) return;
     setProcessando(true);
     setErro(null);
@@ -92,7 +91,7 @@ export default function CheckoutPage() {
       if (planoSelecionadoId !== status?.plano?.id) {
         await escolherPlanoRequest(planoSelecionadoId, ciclo);
       }
-      const resultado = await checkoutRequest({ planoId: planoSelecionadoId, ciclo, metodo, cardTokenId });
+      const resultado = await checkoutRequest({ planoId: planoSelecionadoId, ciclo, metodo });
 
       if (resultado.tipo === 'PIX') {
         setPix({
@@ -102,13 +101,6 @@ export default function CheckoutPage() {
           dataExpiracao: resultado.dataExpiracao,
         });
         setPixStatus('action_required');
-        return;
-      }
-
-      // Cartão mensal (assinatura recorrente): sem redirecionamento — o cartão já foi
-      // autorizado no tokenização, o acesso já libera na hora (ver assinatura.service.ts).
-      if (resultado.tipo === 'ASSINATURA') {
-        navigate('/', { replace: true });
         return;
       }
 
@@ -302,30 +294,16 @@ export default function CheckoutPage() {
               </p>
             )}
 
-            {ciclo === 'MENSAL' && metodo === 'CARTAO' && (
-              <p className="rounded-xl bg-hf-amber-bg p-3 text-[12px] leading-relaxed text-hf-amber">
-                No cartão mensal a cobrança é automática todo mês — cancele quando quiser em "Minha assinatura".
-              </p>
-            )}
-
             {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 
-            {ciclo === 'MENSAL' && metodo === 'CARTAO' ? (
-              <CartaoTokenForm
-                processando={processando}
-                onErro={setErro}
-                onToken={(cardTokenId) => irParaPagamento(cardTokenId)}
-              />
-            ) : (
-              <Button
-                size="lg"
-                className="w-full bg-hf-green-800 hover:bg-hf-green-900"
-                onClick={() => irParaPagamento()}
-                disabled={processando}
-              >
-                {processando ? 'Processando...' : metodo === 'PIX' ? 'Gerar QR Code' : 'Ir para pagamento'}
-              </Button>
-            )}
+            <Button
+              size="lg"
+              className="w-full bg-hf-green-800 hover:bg-hf-green-900"
+              onClick={irParaPagamento}
+              disabled={processando}
+            >
+              {processando ? 'Processando...' : metodo === 'PIX' ? 'Gerar QR Code' : 'Ir para pagamento'}
+            </Button>
 
             <div className="mt-1 flex w-full flex-col gap-3 rounded-2xl border border-hf-line p-4">
               <p className="m-0 text-center text-xs font-bold text-hf-stone-400">Prefere ser atendido diretamente?</p>

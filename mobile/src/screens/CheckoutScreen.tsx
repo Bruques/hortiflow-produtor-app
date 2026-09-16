@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Clipboard from 'expo-clipboard';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
-import { Check, Copy, RefreshCw, X } from 'lucide-react-native';
+import { Check, Copy, RefreshCw } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   checkoutRequest,
@@ -23,13 +22,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 
 const RETORNO_URL = 'hortiflowprodutor://checkout-retorno';
-
-// Cartão mensal recorrente (débito automático) tokeniza o cartão numa página do nosso
-// próprio frontend web, carregada aqui dentro de uma WebView — não existe SDK React Native
-// oficial do Mercado Pago pra fazer isso nativamente (ver docs/specs/25 e
-// mercadopago.service.ts no backend sobre a escolha dessa abordagem).
-const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL || 'https://hortiflow-produtor-develop.vercel.app';
-const URL_TOKENIZACAO_CARTAO = `${WEB_BASE_URL}/assinatura/tokenizar-cartao`;
 
 interface PixGerado {
   orderId: string;
@@ -67,7 +59,6 @@ export function CheckoutScreen({ navigation }: Props) {
   const [pixStatus, setPixStatus] = useState('action_required');
   const [copiado, setCopiado] = useState(false);
   const [verificando, setVerificando] = useState(false);
-  const [mostrarTokenizacaoCartao, setMostrarTokenizacaoCartao] = useState(false);
 
   // Bug relatado pelo dev (2026-09-15, equivalente no web): se o pagamento já confirmou via
   // webhook mas o produtor volta pra esta tela (ou ela recarrega), mostrava o formulário de
@@ -95,7 +86,7 @@ export function CheckoutScreen({ navigation }: Props) {
     setPlanoSelecionadoId(id);
   }
 
-  async function irParaPagamento(cardTokenId?: string) {
+  async function irParaPagamento() {
     if (!planoSelecionadoId) return;
     setProcessando(true);
     setErro(null);
@@ -103,7 +94,7 @@ export function CheckoutScreen({ navigation }: Props) {
       if (planoSelecionadoId !== status?.plano?.id) {
         await escolherPlanoRequest(planoSelecionadoId, ciclo);
       }
-      const resultado = await checkoutRequest({ planoId: planoSelecionadoId, ciclo, metodo, cardTokenId });
+      const resultado = await checkoutRequest({ planoId: planoSelecionadoId, ciclo, metodo });
 
       if (resultado.tipo === 'PIX') {
         setPix({
@@ -116,13 +107,6 @@ export function CheckoutScreen({ navigation }: Props) {
         return;
       }
 
-      // Cartão mensal (assinatura recorrente): sem redirecionamento — o cartão já foi
-      // autorizado na tokenização, o acesso já libera na hora (ver assinatura.service.ts).
-      if (resultado.tipo === 'ASSINATURA') {
-        navigation.replace('Inicio');
-        return;
-      }
-
       await WebBrowser.openAuthSessionAsync(resultado.initPoint, RETORNO_URL);
       // A confirmação de pagamento chega por webhook (assíncrona) — não sabemos aqui se já
       // foi processada. Volta pra Início; se o pagamento ainda não confirmou, o próximo 402
@@ -132,22 +116,6 @@ export function CheckoutScreen({ navigation }: Props) {
       setErro(mensagemErro(err, 'Não foi possível iniciar o pagamento'));
     } finally {
       setProcessando(false);
-    }
-  }
-
-  function aoReceberMensagemTokenizacao(evento: WebViewMessageEvent) {
-    try {
-      const dados = JSON.parse(evento.nativeEvent.data) as
-        | { tipo: 'CARD_TOKEN'; cardTokenId: string }
-        | { tipo: 'CARD_TOKEN_ERRO'; mensagem: string };
-      if (dados.tipo === 'CARD_TOKEN') {
-        setMostrarTokenizacaoCartao(false);
-        irParaPagamento(dados.cardTokenId);
-      } else {
-        setErro(dados.mensagem);
-      }
-    } catch {
-      // Mensagem inesperada da WebView — ignora, o produtor pode tentar de novo.
     }
   }
 
@@ -303,19 +271,9 @@ export function CheckoutScreen({ navigation }: Props) {
               </Text>
             )}
 
-            {ciclo === 'MENSAL' && metodo === 'CARTAO' && (
-              <Text style={styles.aviso}>
-                No cartão mensal a cobrança é automática todo mês — cancele quando quiser em "Minha assinatura".
-              </Text>
-            )}
-
             {erro && <Text style={styles.erro}>{erro}</Text>}
 
-            <Pressable
-              style={[styles.botaoPrimario, processando && styles.botaoDesabilitado]}
-              onPress={() => (ciclo === 'MENSAL' && metodo === 'CARTAO' ? setMostrarTokenizacaoCartao(true) : irParaPagamento())}
-              disabled={processando}
-            >
+            <Pressable style={[styles.botaoPrimario, processando && styles.botaoDesabilitado]} onPress={irParaPagamento} disabled={processando}>
               {processando ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
@@ -325,17 +283,6 @@ export function CheckoutScreen({ navigation }: Props) {
           </>
         )}
       </ScrollView>
-
-      <Modal visible={mostrarTokenizacaoCartao} animationType="slide" onRequestClose={() => setMostrarTokenizacaoCartao(false)}>
-        <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
-          <View style={styles.cabecalhoWebView}>
-            <Pressable onPress={() => setMostrarTokenizacaoCartao(false)} style={styles.botaoFecharWebView}>
-              <X size={20} color={cores.stone[900]} />
-            </Pressable>
-          </View>
-          <WebView source={{ uri: URL_TOKENIZACAO_CARTAO }} onMessage={aoReceberMensagemTokenizacao} startInLoadingState />
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -570,19 +517,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: cores.green[700],
-  },
-  cabecalhoWebView: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: espacamento.lg,
-    paddingVertical: espacamento.sm,
-  },
-  botaoFecharWebView: {
-    width: 36,
-    height: 36,
-    borderRadius: raio.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: cores.cream[100],
   },
 });

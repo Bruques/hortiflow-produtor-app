@@ -35,7 +35,6 @@ export interface PlanoRecomendado {
 }
 
 export type CheckoutResultado =
-  | { tipo: 'ASSINATURA'; mpPreapprovalId: string; status: string }
   | { tipo: 'COBRANCA_UNICA'; initPoint: string }
   | { tipo: 'PIX'; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
 
