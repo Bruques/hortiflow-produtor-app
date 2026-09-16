@@ -56,12 +56,12 @@ Esta spec implementa o **Fluxo A** já validado em wireframe com o desenvolvedor
 
 | Plano | Meeiros | Limite de safras ativas | Preço mensal | Preço anual (exibido) | Preço anual (cobrado) | Importação por IA/mês | Despesas pessoais | Suporte prioritário | Implantação assistida |
 |---|---|---|---|---|---|---|---|---|---|
-| Essencial | 1 a 3 | 3 | R$ 49,90/mês | R$ 44,91/mês | R$ 538,92/ano | 40 | — | — | Só se anual |
-| Profissional | 4 a 10 | 10 | R$ 89,90/mês | R$ 80,91/mês | R$ 970,92/ano | 100 | ✓ | ✓ | Sempre (mensal ou anual) |
-| Gestão | 10+ | ilimitado | R$ 129,90/mês | R$ 116,91/mês | R$ 1.402,92/ano | 150 | ✓ | ✓ | Sempre (mensal ou anual) |
+| Essencial | 1 a 3 | 3 | R$ 49,90/mês | R$ 39,92/mês | R$ 479,04/ano | 40 | — | — | Só se anual |
+| Profissional | 4 a 10 | 10 | R$ 89,90/mês | R$ 71,92/mês | R$ 863,04/ano | 100 | ✓ | ✓ | Sempre (mensal ou anual) |
+| Gestão | 10+ | ilimitado | R$ 129,90/mês | R$ 103,92/mês | R$ 1.247,04/ano | 150 | ✓ | ✓ | Sempre (mensal ou anual) |
 
-- Valor anual = 12x o valor mensal com **10% de desconto** (reduzido de ~17%/10x a pedido do desenvolvedor, 2026-09-15)
-- Na tela de plano, o ciclo anual **nunca mostra o total (R$ 538,92) como número principal** — mostra o valor equivalente por mês (R$ 44,91) em destaque, com o total anual abaixo, em fonte menor, como complemento
+- Valor anual = 12x o valor mensal com **20% de desconto** (era ~17%/10x → 10%/12x em 2026-09-15 → 20%/12x em 2026-09-16, sempre a pedido do desenvolvedor)
+- Na tela de plano, o ciclo anual **nunca mostra o total (R$ 479,04) como número principal** — mostra o valor equivalente por mês (R$ 39,92) em destaque, com o total anual abaixo, em fonte menor, como complemento
 - **Implantação assistida**: quem paga anual ganha em qualquer plano (inclusive Essencial); quem paga mensal só tem no Profissional e no Gestão — nunca no Essencial mensal
 - Recursos que já eram de todos os planos na spec 18 (foto de despesas/vendas/anotações antigas, importação de PDF/print/planilha, painel de despesas e vendas, resultado da safra) continuam valendo pra todos os planos, sem mudança
 - **Limite de safras ativas = teto da faixa de meeiros do plano** (decisão do desenvolvedor, substitui os números antigos da spec 18): Essencial permite até 3 safras ativas simultâneas (mesmo teto da faixa "1 a 3" meeiros), Profissional até 10, Gestão ilimitado. A régua visível pro produtor na tabela de recursos é "quantidade de meeiros", mas o gate técnico (403) passa a usar esse novo número, não mais o 1/3/ilimitado herdado da spec 18
@@ -185,7 +185,7 @@ Rotas e gates já existentes na spec 18 (402 por tempo vencido, 403 por limite d
 1. Dado um usuário recém-cadastrado que ainda não respondeu o formulário, quando abre o app, então vê a tela de formulário antes de chegar na Home
 2. Dado um usuário que responde "1 a 3" meeiros, quando envia o formulário, então recebe o plano Essencial como recomendado
 3. Dado um usuário que responde "10 ou mais" meeiros, quando envia o formulário, então recebe o plano Gestão como recomendado
-4. Dado um usuário na tela de plano, quando alterna pra "Anual", então vê o valor mensal equivalente em destaque (ex: R$ 44,91) e o total anual (R$ 538,92) como texto secundário abaixo — nunca o total como número principal
+4. Dado um usuário na tela de plano, quando alterna pra "Anual", então vê o valor mensal equivalente em destaque (ex: R$ 39,92) e o total anual (R$ 479,04) como texto secundário abaixo — nunca o total como número principal
 5. Dado um usuário que confirma um plano diferente do recomendado, quando consulta `GET /assinatura/status`, então vê o plano que ele escolheu, não o sugerido
 6. Dado um usuário que confirma um plano, quando consulta seu status logo em seguida, então `status` continua `TRIAL` e nenhum `Pagamento` foi criado — confirmar plano não cobra
 7. Dado um usuário com trial vencido, quando abre o app, então vê a tela de bloqueio com "Assinar agora" como ação principal e uma opção secundária de contato manual

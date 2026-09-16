@@ -64,7 +64,7 @@ export function OnboardingPlanoScreen({ route, navigation }: Props) {
             <Text style={[styles.toggleTexto, ciclo === 'MENSAL' && styles.toggleTextoAtivo]}>Mensal</Text>
           </Pressable>
           <Pressable style={[styles.toggleOpcao, ciclo === 'ANUAL' && styles.toggleOpcaoAtiva]} onPress={() => setCiclo('ANUAL')}>
-            <Text style={[styles.toggleTexto, ciclo === 'ANUAL' && styles.toggleTextoAtivo]}>Anual — 10% de desconto</Text>
+            <Text style={[styles.toggleTexto, ciclo === 'ANUAL' && styles.toggleTextoAtivo]}>Anual — 20% de desconto</Text>
           </Pressable>
         </View>
 

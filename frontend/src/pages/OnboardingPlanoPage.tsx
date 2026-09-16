@@ -69,7 +69,7 @@ export default function OnboardingPlanoPage() {
             onClick={() => setCiclo('ANUAL')}
             className={cn('flex-1 rounded-xl py-2.5 text-[13px] font-bold text-hf-stone-600', ciclo === 'ANUAL' && 'bg-white text-hf-green-800')}
           >
-            Anual — 10% de desconto
+            Anual — 20% de desconto
           </button>
         </div>
 
