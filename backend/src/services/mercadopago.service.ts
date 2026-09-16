@@ -186,37 +186,49 @@ export async function buscarPedido(orderId: string): Promise<MpOrderStatus> {
 
 interface MpPreapproval {
   id: string;
-  init_point: string;
+  status: string;
+  init_point?: string;
 }
 
-// Assinatura recorrente (Preapproval) — só existe no ciclo mensal + cartão. O produtor
-// autoriza o cartão na página hospedada do Mercado Pago; cobranças seguintes são
-// automáticas, confirmadas por webhook (igual ao Asaas).
+// Assinatura recorrente (Preapproval) — só existe no ciclo mensal + cartão. Retomada em
+// 2026-09-16 com uma abordagem diferente da original (histórico abaixo, e em docs/specs/25):
+// em vez de gerar um `init_point` que redireciona pra uma página hospedada do Mercado Pago
+// (`/subscriptions/checkout?preapproval_id=...`, que dava "Esta página não existe" nessa
+// conta, causa nunca identificada — ver 'Perguntas em aberto' na spec), o cartão é tokenizado
+// no nosso próprio checkout (SDK do Mercado Pago no front, número do cartão nunca passa pelo
+// nosso servidor) e a assinatura é criada direto com `card_token_id` + `status: authorized` —
+// sem redirecionamento nenhum. Documentado em "Assinaturas sem plano associado — pagamento
+// autorizado" (developers.mercadopago.com). Cada cobrança do ciclo chega como um webhook de
+// pagamento normal (`type=payment`), reaproveitando `confirmarPagamentoWebhookMercadoPago`
+// sem nenhuma mudança — por isso não existe uma função de "confirmar assinatura" separada.
 export async function criarAssinaturaRecorrente(params: {
   usuarioId: string;
   descricao: string;
   valorMensal: number;
   externalReference: string;
-  callbackUrl: string;
-}): Promise<{ preapprovalId: string; initPoint: string }> {
+  cardTokenId: string;
+}): Promise<{ preapprovalId: string; status: string }> {
   const preapproval = await mpFetch<MpPreapproval>('/preapproval', {
     method: 'POST',
     body: JSON.stringify({
       reason: params.descricao,
       external_reference: params.externalReference,
       payer_email: emailPagadorSandbox(params.usuarioId),
-      back_url: params.callbackUrl,
+      card_token_id: params.cardTokenId,
+      // Obrigatório pelo contrato da API mesmo sem uso real, já que não há redirecionamento
+      // nesse fluxo — qualquer URL válida do nosso domínio serve.
+      back_url: `${process.env.BACKEND_PUBLIC_URL || 'https://hortiflow-produtor.com.br'}/api/health`,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
         transaction_amount: params.valorMensal,
         currency_id: 'BRL',
       },
-      status: 'pending',
+      status: 'authorized',
     }),
   });
 
-  return { preapprovalId: preapproval.id, initPoint: preapproval.init_point };
+  return { preapprovalId: preapproval.id, status: preapproval.status };
 }
 
 export async function cancelarAssinatura(preapprovalId: string): Promise<void> {

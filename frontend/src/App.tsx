@@ -32,6 +32,7 @@ import OnboardingFormularioPage from '@/pages/OnboardingFormularioPage';
 import OnboardingPlanoPage from '@/pages/OnboardingPlanoPage';
 import CheckoutPage from '@/pages/CheckoutPage';
 import CheckoutRetornoPage from '@/pages/CheckoutRetornoPage';
+import TokenizarCartaoPage from '@/pages/TokenizarCartaoPage';
 import AdminAssinaturasPage from '@/pages/admin/AdminAssinaturasPage';
 import AdminLoginPage from '@/pages/admin/AdminLoginPage';
 import DocumentoLegalPage from '@/pages/DocumentoLegalPage';
@@ -46,6 +47,10 @@ export default function App() {
         <Route path="/termos/uso" element={<DocumentoLegalPage documento={TERMOS_DE_USO} />} />
         <Route path="/termos/privacidade" element={<DocumentoLegalPage documento={POLITICA_DE_PRIVACIDADE} />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
+        {/* Pública de propósito — aberta só dentro de uma WebView pelo app mobile pra
+            tokenizar cartão (ver TokenizarCartaoPage.tsx). Sem PrivateRoute porque a WebView
+            não carrega o token JWT do app. */}
+        <Route path="/assinatura/tokenizar-cartao" element={<TokenizarCartaoPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/admin/assinaturas" element={<AdminAssinaturasPage />} />
         </Route>

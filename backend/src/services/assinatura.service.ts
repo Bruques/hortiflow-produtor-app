@@ -287,13 +287,14 @@ export async function escolherPlano(
 type CheckoutResultado =
   | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
   | { erro: 'PLANO_NAO_ENCONTRADO' }
-  | { tipo: 'ASSINATURA'; mpSubscriptionId: string; initPoint: string }
+  | { erro: 'CARTAO_TOKEN_OBRIGATORIO' }
+  | { tipo: 'ASSINATURA'; mpPreapprovalId: string; status: string }
   | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string }
   | { tipo: 'PIX'; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
 
 export async function iniciarCheckout(
   usuarioId: string,
-  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX' },
+  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX'; cardTokenId?: string },
   urls: { callbackUrl: string; notificationUrl: string }
 ): Promise<CheckoutResultado> {
   const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
@@ -325,15 +326,39 @@ export async function iniciarCheckout(
     };
   }
 
-  // Cartão (mensal ou anual) é sempre cobrança única via Checkout Pro — decisão do dev
-  // (2026-09-15): mensal + cartão como assinatura recorrente de verdade (`/preapproval`)
-  // ficou travado numa página do Mercado Pago que não abre ("Esta página não existe"), sem
-  // causa identificada mesmo depois de declarar "Assinaturas" como produto integrado —
-  // provavelmente alguma verificação de conta que só o suporte deles explicaria. Solução
-  // adotada: cartão mensal vira cobrança única igual ao Pix mensal — sem débito automático,
-  // o produtor paga de novo a cada ciclo. `criarAssinaturaRecorrente` continua existindo em
-  // mercadopago.service.ts (não deletada) caso o problema seja resolvido no futuro e valha
-  // reativar a recorrência de verdade.
+  // Cartão mensal = assinatura recorrente de verdade (débito automático), retomada em
+  // 2026-09-16 com token de cartão em vez de redirecionamento (ver aviso em
+  // mercadopago.service.ts). Cartão anual continua cobrança única via Checkout Pro — não faz
+  // sentido debitar automático num ciclo que já é pago à vista uma vez por ano.
+  if (dados.ciclo === CicloAssinatura.MENSAL) {
+    if (!dados.cardTokenId) return { erro: 'CARTAO_TOKEN_OBRIGATORIO' };
+    const { preapprovalId, status } = await mercadopagoService.criarAssinaturaRecorrente({
+      usuarioId,
+      descricao,
+      valorMensal: valor,
+      externalReference: assinatura.id,
+      cardTokenId: dados.cardTokenId,
+    });
+    // Libera o acesso já aqui, sem esperar o webhook da primeira cobrança — a documentação
+    // do Mercado Pago avisa que a primeira cobrança de uma assinatura recorrente só acontece
+    // ~1h depois de autorizada, e o produtor não pode ficar barrado no gate 402 durante essa
+    // hora tendo acabado de autorizar o cartão. `status: authorized` já significa que o
+    // Mercado Pago validou o cartão o suficiente pra tentar cobrar — quando o webhook da
+    // primeira cobrança chegar de fato, `confirmarPagamentoWebhookMercadoPago` soma mais 30
+    // dias em cima (mesma lógica idempotente de qualquer renovação), sem duplicar Pagamento.
+    const agora = new Date();
+    await prisma.assinatura.update({
+      where: { usuario_id: usuarioId },
+      data: {
+        plano_id: plano.id,
+        ciclo: dados.ciclo,
+        mp_preapproval_id: preapprovalId,
+        ...(status === 'authorized' ? { status: StatusAssinatura.ATIVA, data_fim_acesso: somarDias(agora, 30) } : {}),
+      },
+    });
+    return { tipo: 'ASSINATURA', mpPreapprovalId: preapprovalId, status };
+  }
+
   const { preferenceId, initPoint } = await mercadopagoService.criarCobrancaUnicaCartao({
     usuarioId,
     descricao,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, RefreshCw } from 'lucide-react';
+import { Copy, Check, RefreshCw, PhoneCall, Mail, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   checkoutRequest,
@@ -10,8 +10,16 @@ import {
   verificarPedidoPixRequest,
   type PlanoCatalogo,
 } from '@/services/assinatura';
+import { logoutRequest } from '@/services/auth';
+import { CartaoTokenForm } from '@/components/CartaoTokenForm';
 import { cn, formatarMoeda } from '@/lib/utils';
 import type { AssinaturaStatus } from '@/types/assinatura';
+
+// Contato fixo: mesmo dado de AssinaturaBloqueadaPage.tsx — manter em sincronia com
+// WHATSAPP_CONTATO/EMAIL_CONTATO no backend (backend/.env), duplicado aqui pelo mesmo
+// motivo (frontend sem acesso a envs do backend).
+const WHATSAPP_CONTATO = '(35) 99730-2015';
+const EMAIL_CONTATO = 'contato.hortiflow@gmail.com';
 
 interface PixGerado {
   orderId: string;
@@ -76,7 +84,7 @@ export default function CheckoutPage() {
     setPlanoSelecionadoId(id);
   }
 
-  async function irParaPagamento() {
+  async function irParaPagamento(cardTokenId?: string) {
     if (!planoSelecionadoId) return;
     setProcessando(true);
     setErro(null);
@@ -84,7 +92,7 @@ export default function CheckoutPage() {
       if (planoSelecionadoId !== status?.plano?.id) {
         await escolherPlanoRequest(planoSelecionadoId, ciclo);
       }
-      const resultado = await checkoutRequest({ planoId: planoSelecionadoId, ciclo, metodo });
+      const resultado = await checkoutRequest({ planoId: planoSelecionadoId, ciclo, metodo, cardTokenId });
 
       if (resultado.tipo === 'PIX') {
         setPix({
@@ -94,6 +102,13 @@ export default function CheckoutPage() {
           dataExpiracao: resultado.dataExpiracao,
         });
         setPixStatus('action_required');
+        return;
+      }
+
+      // Cartão mensal (assinatura recorrente): sem redirecionamento — o cartão já foi
+      // autorizado no tokenização, o acesso já libera na hora (ver assinatura.service.ts).
+      if (resultado.tipo === 'ASSINATURA') {
+        navigate('/', { replace: true });
         return;
       }
 
@@ -109,6 +124,14 @@ export default function CheckoutPage() {
     await navigator.clipboard.writeText(pix.qrCode);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
+  }
+
+  // Sem esse botão, quem cai no checkout (acesso vencido) ficava preso sem jeito de trocar
+  // de conta — mesmo motivo da AssinaturaBloqueadaPage.tsx.
+  function sair() {
+    logoutRequest(false);
+    localStorage.removeItem('token');
+    navigate('/login');
   }
 
   async function jaPagueiVerificar() {
@@ -279,16 +302,59 @@ export default function CheckoutPage() {
               </p>
             )}
 
+            {ciclo === 'MENSAL' && metodo === 'CARTAO' && (
+              <p className="rounded-xl bg-hf-amber-bg p-3 text-[12px] leading-relaxed text-hf-amber">
+                No cartão mensal a cobrança é automática todo mês — cancele quando quiser em "Minha assinatura".
+              </p>
+            )}
+
             {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 
-            <Button
-              size="lg"
-              className="w-full bg-hf-green-800 hover:bg-hf-green-900"
-              onClick={irParaPagamento}
-              disabled={processando}
+            {ciclo === 'MENSAL' && metodo === 'CARTAO' ? (
+              <CartaoTokenForm
+                processando={processando}
+                onErro={setErro}
+                onToken={(cardTokenId) => irParaPagamento(cardTokenId)}
+              />
+            ) : (
+              <Button
+                size="lg"
+                className="w-full bg-hf-green-800 hover:bg-hf-green-900"
+                onClick={() => irParaPagamento()}
+                disabled={processando}
+              >
+                {processando ? 'Processando...' : metodo === 'PIX' ? 'Gerar QR Code' : 'Ir para pagamento'}
+              </Button>
+            )}
+
+            <div className="mt-1 flex w-full flex-col gap-3 rounded-2xl border border-hf-line p-4">
+              <p className="m-0 text-center text-xs font-bold text-hf-stone-400">Prefere ser atendido diretamente?</p>
+              <a
+                href={`https://wa.me/55${WHATSAPP_CONTATO.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 rounded-xl bg-hf-green-800 py-2.5 text-[13px] font-bold text-white"
+              >
+                <PhoneCall className="h-4 w-4" strokeWidth={2.3} />
+                WhatsApp {WHATSAPP_CONTATO}
+              </a>
+              <a
+                href={`mailto:${EMAIL_CONTATO}`}
+                className="flex items-center justify-center gap-2 rounded-xl border border-hf-line py-2.5 text-[13px] font-bold text-hf-stone-900"
+              >
+                <Mail className="h-4 w-4" strokeWidth={2.3} />
+                {EMAIL_CONTATO}
+              </a>
+            </div>
+
+            <button
+              type="button"
+              onClick={sair}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-red py-3.5 text-sm font-bold text-hf-red"
             >
-              {processando ? 'Processando...' : metodo === 'PIX' ? 'Gerar QR Code' : 'Ir para pagamento'}
-            </Button>
+              <LogOut className="h-[18px] w-[18px]" />
+              Sair
+            </button>
           </>
         )}
       </div>

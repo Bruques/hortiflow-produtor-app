@@ -60,6 +60,7 @@ export async function checkoutRequest(dados: {
   planoId: string;
   ciclo: 'MENSAL' | 'ANUAL';
   metodo: 'CARTAO' | 'PIX';
+  cardTokenId?: string;
 }): Promise<CheckoutResultado> {
   const { data } = await apiClient.post<CheckoutResultado>('/assinatura/checkout', {
     ...dados,

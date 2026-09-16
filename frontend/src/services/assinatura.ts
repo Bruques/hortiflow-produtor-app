@@ -38,7 +38,8 @@ export interface PlanoCatalogo {
 }
 
 export type CheckoutResultado =
-  | { tipo: 'ASSINATURA' | 'COBRANCA_UNICA'; initPoint: string }
+  | { tipo: 'ASSINATURA'; mpPreapprovalId: string; status: string }
+  | { tipo: 'COBRANCA_UNICA'; initPoint: string }
   | { tipo: 'PIX'; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
 
 export interface VerificarPixResultado {
@@ -74,6 +75,7 @@ export async function checkoutRequest(dados: {
   planoId: string;
   ciclo: 'MENSAL' | 'ANUAL';
   metodo: 'CARTAO' | 'PIX';
+  cardTokenId?: string;
 }): Promise<CheckoutResultado> {
   const { data } = await apiClient.post<CheckoutResultado>('/assinatura/checkout', {
     ...dados,

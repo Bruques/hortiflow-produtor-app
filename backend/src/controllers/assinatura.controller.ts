@@ -92,6 +92,10 @@ const checkoutSchema = z.object({
   // origem) — o backend não deve fixar isso. Cai pro deep link do app mobile só por
   // compatibilidade com uma chamada antiga sem esse campo.
   retornoUrl: z.string().url().optional(),
+  // Obrigatório só quando ciclo=MENSAL e metodo=CARTAO (validado no service, não aqui, pra
+  // manter a mensagem de erro específica) — token gerado no cliente ao tokenizar o cartão
+  // (ver mercadopago.service.ts sobre por que esse fluxo não redireciona).
+  cardTokenId: z.string().optional(),
 });
 
 export async function checkout(req: Request, res: Response): Promise<void> {
@@ -106,6 +110,10 @@ export async function checkout(req: Request, res: Response): Promise<void> {
 
   const resultado = await assinaturaService.iniciarCheckout(req.usuarioId, parsed.data, { callbackUrl, notificationUrl });
   if ('erro' in resultado) {
+    if (resultado.erro === 'CARTAO_TOKEN_OBRIGATORIO') {
+      res.status(400).json({ error: 'Dados do cartão inválidos ou ausentes' });
+      return;
+    }
     res.status(404).json({ error: resultado.erro === 'PLANO_NAO_ENCONTRADO' ? 'Plano não encontrado' : 'Assinatura não encontrada' });
     return;
   }
