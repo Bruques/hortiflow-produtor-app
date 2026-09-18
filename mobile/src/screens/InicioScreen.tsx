@@ -87,6 +87,11 @@ export function InicioScreen({ navigation }: Props) {
   // respondeu mas está em trial vê um banner com os dias restantes (sem pedir cartão).
   // Ignora erro de rede: o banner é informativo, não deve travar a Início se a checagem falhar.
   const [diasTrialRestantes, setDiasTrialRestantes] = useState<number | null>(null);
+  // Enquanto isso não resolve, a tela de "criar primeira safra" fica em espera (ver o `if`
+  // de loading mais abaixo) — sem isso, uma conta com safra só escondida por estar vencida
+  // via aparecer por um instante como se nunca tivesse criado nada, antes do redirecionamento
+  // pro bloqueio (confuso, dev relatou 2026-09-18: "achei que tinha perdido meus dados").
+  const [checandoAssinatura, setChecandoAssinatura] = useState(true);
   useEffect(() => {
     if (carregando) return;
     statusAssinaturaRequest()
@@ -110,7 +115,8 @@ export function InicioScreen({ navigation }: Props) {
           setDiasTrialRestantes(Math.max(dias, 0));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setChecandoAssinatura(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregando]);
 
@@ -167,7 +173,7 @@ export function InicioScreen({ navigation }: Props) {
     }
   }
 
-  if (carregando && safras.length === 0) {
+  if (safras.length === 0 && (carregando || checandoAssinatura)) {
     return (
       <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
         <View style={styles.centralizado}>

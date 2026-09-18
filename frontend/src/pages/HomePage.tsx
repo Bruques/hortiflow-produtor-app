@@ -74,6 +74,11 @@ export default function HomePage() {
   // está em trial vê um banner com os dias restantes (sem pedir cartão). Ignora erro de
   // rede: o banner é informativo, não deve travar a Home se a checagem falhar.
   const [diasTrialRestantes, setDiasTrialRestantes] = useState<number | null>(null);
+  // Enquanto isso não resolve, a tela de "criar primeira safra" fica em espera (ver o `if`
+  // de loading mais abaixo) — sem isso, uma conta com lavoura só escondida por estar vencida
+  // via aparecer por um instante como se nunca tivesse criado nada, antes do redirecionamento
+  // pro bloqueio (confuso, dev relatou 2026-09-18: "achei que tinha perdido meus dados").
+  const [checandoAssinatura, setChecandoAssinatura] = useState(true);
   useEffect(() => {
     if (carregando) return;
     statusAssinaturaRequest()
@@ -98,7 +103,8 @@ export default function HomePage() {
           setDiasTrialRestantes(Math.max(dias, 0));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setChecandoAssinatura(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregando]);
 
@@ -133,7 +139,7 @@ export default function HomePage() {
     navigate('/login');
   }
 
-  if (carregando || (!erro && safras.length === 1)) {
+  if (carregando || (!erro && safras.length === 1) || (!erro && safras.length === 0 && checandoAssinatura)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-hf-cream-50">
         <BrandLockup />
