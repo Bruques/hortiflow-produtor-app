@@ -68,6 +68,11 @@ export async function excluirConta(usuarioId: string): Promise<void> {
     } else {
       await tx.assinatura.updateMany({ where: { usuario_id: usuarioId }, data: { usuario_id: null } });
       await tx.eventoAuditoria.updateMany({ where: { usuario_id: usuarioId }, data: { usuario_id: null } });
+      // AceiteTermos tem usuario_id obrigatório e sem onDelete definido (vira RESTRICT no
+      // Postgres) — sem apagar essa linha primeiro, o delete do usuário abaixo falha com
+      // violação de FK e sobe como 500. Histórico de aceite de termos não tem valor de
+      // auditoria financeira (diferente de Assinatura/Pagamento), então apagar é seguro.
+      await tx.aceiteTermos.deleteMany({ where: { usuario_id: usuarioId } });
       await tx.usuario.delete({ where: { id: usuarioId } });
     }
   });

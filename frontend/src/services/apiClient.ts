@@ -28,7 +28,14 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    // Rotas onde um 401 significa "senha incorreta" numa segunda checagem (não sessão
+    // expirada) — excluir conta e trocar senha. Sem essa exceção, o redirect abaixo dispara
+    // antes do componente conseguir mostrar o erro na tela: por fora parece que o app fechou.
+    const url = error.config?.url ?? '';
+    const isSenhaLocal =
+      (error.config?.method === 'delete' && url.includes('/auth/me')) || url.includes('/auth/senha');
+
+    if (error.response?.status === 401 && !isSenhaLocal && window.location.pathname !== '/login') {
       // Registro de auditoria best-effort (spec 17) — chamado direto por essa instância (não
       // por services/auth.ts) pra não criar import circular entre apiClient e auth.
       apiClient.post('/auth/logout', { automatico: true }).catch(() => {});
