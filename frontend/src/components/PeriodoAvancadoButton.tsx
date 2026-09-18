@@ -60,7 +60,7 @@ export function PeriodoAvancadoButton({
       <button
         type="button"
         onClick={abrir}
-        aria-label="Mais períodos: safra inteira ou personalizado"
+        aria-label="Mais períodos: lavoura inteira ou personalizado"
         className={cn(
           'flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition-colors',
           ativo ? 'bg-hf-green-800 text-white' : 'bg-hf-cream-100 text-hf-stone-600 hover:text-hf-stone-900'
@@ -84,7 +84,7 @@ export function PeriodoAvancadoButton({
               </div>
               <div>
                 <h3 className="text-[14.5px] font-extrabold text-hf-stone-900">Mais períodos</h3>
-                <p className="text-[11px] text-hf-stone-600">Safra inteira ou um intervalo específico</p>
+                <p className="text-[11px] text-hf-stone-600">Lavoura inteira ou um intervalo específico</p>
               </div>
             </div>
 
@@ -99,7 +99,7 @@ export function PeriodoAvancadoButton({
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-hf-green-100 text-hf-green-800">
                 <Sprout className="h-3.5 w-3.5" strokeWidth={2.4} />
               </span>
-              <span className="flex-1 text-[13px] font-bold text-hf-stone-900">Safra inteira</span>
+              <span className="flex-1 text-[13px] font-bold text-hf-stone-900">Lavoura inteira</span>
               <span
                 className={cn(
                   'h-[17px] w-[17px] shrink-0 rounded-full border-[1.5px]',

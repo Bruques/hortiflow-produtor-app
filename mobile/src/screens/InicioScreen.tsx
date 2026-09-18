@@ -66,7 +66,7 @@ export function InicioScreen({ navigation }: Props) {
       await salvarMinhasSafrasCache(atualizadas);
     } catch {
       if (cache.length === 0) {
-        setErro('Não foi possível carregar suas safras');
+        setErro('Não foi possível carregar suas lavouras');
       }
     } finally {
       setCarregando(false);
@@ -178,7 +178,7 @@ export function InicioScreen({ navigation }: Props) {
       selecionarSafra({ safraId: safra.id, sociedadeId: sociedade.id, safra });
       navigation.replace('Safra');
     } catch (err) {
-      setErroCriacao(mensagemErro(err, 'Não foi possível criar a safra'));
+      setErroCriacao(mensagemErro(err, 'Não foi possível criar a lavoura'));
       criandoRef.current = false;
       setCriando(false);
     }
@@ -220,7 +220,7 @@ export function InicioScreen({ navigation }: Props) {
           <View>
             <Text style={styles.titulo}>{usuario ? `Bem-vindo, ${usuario.nome.split(' ')[0]}!` : 'Vamos começar'}</Text>
             <Text style={styles.subtitulo}>
-              Comece cadastrando a sua propriedade e a safra atual. Depois, se quiser, você convida um
+              Comece cadastrando a sua propriedade e a lavoura atual. Depois, se quiser, você adiciona um
               meeiro pra dividir a produção com você.
             </Text>
           </View>
@@ -237,10 +237,10 @@ export function InicioScreen({ navigation }: Props) {
               />
             </View>
             <View>
-              <Text style={styles.label}>Nome da safra</Text>
+              <Text style={styles.label}>Nome da lavoura</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Safra 2026"
+                placeholder="Lavoura 2026"
                 placeholderTextColor={cores.stone[400]}
                 value={nomeSafra}
                 onChangeText={setNomeSafra}
@@ -289,12 +289,12 @@ export function InicioScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
       >
         <View>
-          <Text style={styles.tituloLista}>{usuario ? `Olá, ${usuario.nome.split(' ')[0]}` : 'Suas safras'}</Text>
-          <Text style={styles.subtituloLista}>Escolha uma safra pra continuar</Text>
+          <Text style={styles.tituloLista}>{usuario ? `Olá, ${usuario.nome.split(' ')[0]}` : 'Suas lavouras'}</Text>
+          <Text style={styles.subtituloLista}>Escolha uma lavoura pra continuar</Text>
         </View>
 
         <View style={styles.cartaoResumo}>
-          <Text style={styles.resumoLabel}>Você recebe (estimado) · todas as safras ativas</Text>
+          <Text style={styles.resumoLabel}>Você recebe (estimado) · todas as lavouras ativas</Text>
           <Text style={styles.resumoValor}>
             {carregandoResumo && !resumo ? '...' : formatarMoeda(resumo?.totalReceber ?? 0)}
           </Text>
@@ -302,7 +302,7 @@ export function InicioScreen({ navigation }: Props) {
             <PeriodToggle valor={periodoResumo} onSelecionar={setPeriodoResumo} />
           </View>
           <Pressable onPress={() => navigation.navigate('DespesaCompartilhada')}>
-            <Text style={styles.linkResumo}>Lançar despesa compartilhada entre safras</Text>
+            <Text style={styles.linkResumo}>Lançar despesa compartilhada entre lavouras</Text>
           </Pressable>
         </View>
 

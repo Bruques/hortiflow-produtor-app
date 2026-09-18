@@ -80,7 +80,7 @@ export default function AcertosPage() {
               {acertos.length > 0 ? (
                 <>Desde o último acerto ({formatarData(acertos[0].data_fim)}): </>
               ) : (
-                <>Nesta safra até agora: </>
+                <>Nesta lavoura até agora: </>
               )}
               <b className="text-hf-stone-900">{formatarMoeda(lucroNaoDividido)}</b> de lucro ainda não dividido
             </p>

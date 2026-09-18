@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useVoltar } from '@/lib/useVoltar';
 import { ArrowLeft } from 'lucide-react';
 import { statusAssinaturaRequest, cancelarAssinaturaRequest } from '@/services/assinatura';
 import type { AssinaturaStatus } from '@/types/assinatura';
@@ -11,18 +11,13 @@ const ROTULO_STATUS: Record<AssinaturaStatus['status'], string> = {
 };
 
 export default function MinhaAssinaturaPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [dados, setDados] = useState<AssinaturaStatus | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [cancelando, setCancelando] = useState(false);
   const [confirmarCancelamento, setConfirmarCancelamento] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/');
-  }
+  const voltar = useVoltar('/');
 
   function carregar() {
     setCarregando(true);
@@ -93,7 +88,7 @@ export default function MinhaAssinaturaPage() {
             </div>
             {dados.plano?.limiteSafrasAtivas !== null && dados.plano !== null && (
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-hf-green-700">Safras ativas</span>
+                <span className="text-[12px] font-bold text-hf-green-700">Lavouras ativas</span>
                 <span className="text-sm font-bold text-hf-stone-900">
                   {dados.safrasAtivas} de {dados.plano?.limiteSafrasAtivas}
                 </span>

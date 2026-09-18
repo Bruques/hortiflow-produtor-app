@@ -232,7 +232,7 @@ export function SociosScreen({ navigation, route }: Props) {
           <ArrowLeft size={18} color={cores.stone[900]} />
         </Pressable>
         <Text style={styles.tituloCabecalho} numberOfLines={1}>
-          Sócios da safra
+          Sócios da lavoura
         </Text>
         <View style={styles.botaoVoltar} />
       </View>
@@ -246,7 +246,7 @@ export function SociosScreen({ navigation, route }: Props) {
       >
         <View>
           <Text style={styles.titulo}>Percentual de lucro</Text>
-          <Text style={styles.legenda}>Vale só pra esta safra — a soma precisa fechar em 100%</Text>
+          <Text style={styles.legenda}>Vale só pra esta lavoura — a soma precisa fechar em 100%</Text>
         </View>
 
         {carregando && socios.length === 0 && <ActivityIndicator />}

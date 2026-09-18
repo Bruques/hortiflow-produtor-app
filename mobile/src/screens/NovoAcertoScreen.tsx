@@ -122,7 +122,7 @@ export function NovoAcertoScreen({ navigation, route }: Props) {
             </Pressable>
             <Pressable style={[styles.chip, tipo === 'FINAL' && styles.chipAtivo]} onPress={() => setTipo('FINAL')}>
               <Text style={[styles.chipTexto, tipo === 'FINAL' && styles.chipTextoAtivo]}>
-                Final (encerra a safra)
+                Final (encerra a lavoura)
               </Text>
             </Pressable>
           </View>
@@ -132,9 +132,9 @@ export function NovoAcertoScreen({ navigation, route }: Props) {
           <View style={styles.aviso}>
             <AlertTriangle size={17} color={cores.amber.padrao} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.avisoTitulo}>Isso também encerra a safra</Text>
+              <Text style={styles.avisoTitulo}>Isso também encerra a lavoura</Text>
               <Text style={styles.avisoTexto}>
-                Depois de um acerto final, não é mais possível lançar despesas ou vendas nessa safra.
+                Depois de um acerto final, não é mais possível lançar despesas ou vendas nessa lavoura.
               </Text>
             </View>
           </View>

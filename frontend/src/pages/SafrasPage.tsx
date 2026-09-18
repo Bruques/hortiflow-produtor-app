@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useVoltar } from '@/lib/useVoltar';
 import { ArrowLeft, ChevronRight, Plus, Sprout, Pencil } from 'lucide-react';
 import {
   atualizarNomeRequest,
@@ -19,14 +20,8 @@ import type { Safra } from '@/types/safra';
 export default function SafrasPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // Volta de verdade no histórico do navegador (chegou aqui a partir do Menu) — só cai
-  // numa rota fixa quando não há histórico (link direto, refresh).
-  function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/');
-  }
+  const voltar = useVoltar('/');
 
   const [nomeSociedade, setNomeSociedade] = useState<string | null>(null);
   const [safras, setSafras] = useState<Safra[]>([]);
@@ -43,7 +38,7 @@ export default function SafrasPage() {
     setCarregando(true);
     listarSafrasRequest(sociedadeId)
       .then((data) => setSafras(data.safras))
-      .catch(() => setErro('Não foi possível carregar as safras'))
+      .catch(() => setErro('Não foi possível carregar as lavouras'))
       .finally(() => setCarregando(false));
   }
 
@@ -68,7 +63,7 @@ export default function SafrasPage() {
   async function salvarEdicao(safra: Safra) {
     const nome = textoNomeEdicao.trim();
     if (!nome) {
-      setErro('O nome da safra não pode ficar vazio');
+      setErro('O nome da lavoura não pode ficar vazio');
       return;
     }
     setSalvandoId(safra.id);
@@ -94,7 +89,7 @@ export default function SafrasPage() {
       await encerrarSafraRequest(safraId);
       carregar();
     } catch {
-      setErro('Não foi possível encerrar a safra');
+      setErro('Não foi possível encerrar a lavoura');
     } finally {
       setEncerrandoId(null);
     }
@@ -112,7 +107,7 @@ export default function SafrasPage() {
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
           </button>
-          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Safras</h2>
+          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Lavouras</h2>
           <div className="h-[38px] w-[38px]" />
         </div>
       </div>
@@ -128,7 +123,7 @@ export default function SafrasPage() {
 
         {carregando && <p className="text-center text-sm text-hf-stone-600">Carregando...</p>}
         {!carregando && safras.length === 0 && (
-          <p className="text-center text-sm text-hf-stone-600">Nenhuma safra ainda.</p>
+          <p className="text-center text-sm text-hf-stone-600">Nenhuma lavoura ainda.</p>
         )}
 
         <div className="flex flex-col gap-2.5">
@@ -227,7 +222,7 @@ export default function SafrasPage() {
                         disabled={encerrandoId === s.id}
                         className="text-[12px] font-bold text-hf-stone-600 underline underline-offset-2 disabled:opacity-50"
                       >
-                        {encerrandoId === s.id ? 'Encerrando...' : 'Encerrar esta safra'}
+                        {encerrandoId === s.id ? 'Encerrando...' : 'Encerrar esta lavoura'}
                       </button>
                     )}
                   </div>
@@ -245,7 +240,7 @@ export default function SafrasPage() {
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white"
         >
           <Plus className="h-[17px] w-[17px]" strokeWidth={2.3} />
-          Nova safra
+          Nova lavoura
         </button>
       </div>
     </div>

@@ -21,7 +21,7 @@ export default function SafraLayout() {
     setErro(null);
     obterSafraRequest(id)
       .then((res) => setContexto({ safraId: id, sociedadeId: res.safra.sociedade_id, safra: res.safra }))
-      .catch(() => setErro('Não foi possível carregar essa safra'));
+      .catch(() => setErro('Não foi possível carregar essa lavoura'));
   }, [id]);
 
   if (erro) {

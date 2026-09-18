@@ -27,7 +27,7 @@ export const ROTULO_PAPEL_SOCIO: Record<PapelSocio, string> = {
 
 export const ROTULO_TIPO_ACERTO: Record<TipoAcerto, string> = {
   PARCIAL: 'Parcial',
-  FINAL: 'Final (encerra a safra)',
+  FINAL: 'Final (encerra a lavoura)',
 };
 
 export const ROTULO_TIPO_GATILHO: Record<TipoGatilhoRegra, string> = {

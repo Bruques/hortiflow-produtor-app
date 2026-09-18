@@ -156,7 +156,7 @@ export default function MenuPage() {
       : []),
     {
       href: `/sociedades/${sociedadeId}/safras`,
-      titulo: 'Abrir nova safra',
+      titulo: 'Abrir nova lavoura',
       subtitulo: 'Nova temporada',
       Icone: Sprout,
       bg: 'bg-hf-amber-bg',

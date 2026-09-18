@@ -186,7 +186,7 @@ export function ResumoScreen({ navigation }: Props) {
       refreshControl={<RefreshControl refreshing={refrescando} onRefresh={aoArrastar} tintColor={cores.green[700]} />}
     >
       <Pressable onPress={() => navigation.navigate('Inicio')} style={styles.cabecalhoSafra}>
-        <Text style={styles.rotuloSafraAtual}>Safra atual</Text>
+        <Text style={styles.rotuloSafraAtual}>Lavoura atual</Text>
         <Text style={styles.tituloSafra}>{safra.nome}</Text>
         <View style={styles.linhaStatus}>
           <View style={styles.dataLinha}>

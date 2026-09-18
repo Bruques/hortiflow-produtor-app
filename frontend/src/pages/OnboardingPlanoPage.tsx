@@ -142,7 +142,7 @@ export default function OnboardingPlanoPage() {
 
                 {expandido && (
                   <div className="mt-3 flex flex-col gap-2 border-t border-hf-line pt-3">
-                    <LinhaRecurso rotulo="Safras ativas" valor={plano.limiteSafrasAtivas === null ? 'Ilimitado' : `Até ${plano.limiteSafrasAtivas}`} />
+                    <LinhaRecurso rotulo="Lavouras ativas" valor={plano.limiteSafrasAtivas === null ? 'Ilimitado' : `Até ${plano.limiteSafrasAtivas}`} />
                     <LinhaRecurso rotulo="Importação por IA" valor={`Até ${plano.limiteImportacaoIAMes}/mês`} />
                     <LinhaRecurso rotulo="Despesas pessoais" valor={plano.despesasPessoais ? 'Incluso' : 'Não incluso'} />
                     <LinhaRecurso rotulo="Suporte prioritário" valor={plano.suportePrioritario ? 'Incluso' : 'Não incluso'} />

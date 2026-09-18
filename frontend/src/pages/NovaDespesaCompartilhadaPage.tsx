@@ -50,7 +50,7 @@ export default function NovaDespesaCompartilhadaPage() {
   useEffect(() => {
     listarMinhasSafrasRequest()
       .then((res) => setSafras(res.safras.filter((s) => s.status === 'EM_ANDAMENTO')))
-      .catch(() => setErro('Não foi possível carregar suas safras'))
+      .catch(() => setErro('Não foi possível carregar suas lavouras'))
       .finally(() => setCarregandoSafras(false));
   }, []);
 
@@ -135,18 +135,18 @@ export default function NovaDespesaCompartilhadaPage() {
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
         <p className="text-[12.5px] text-hf-stone-600">
-          Lance um custo que serve pra mais de uma safra/sociedade ao mesmo tempo (ex: um insumo
+          Lance um custo que serve pra mais de uma lavoura/sociedade ao mesmo tempo (ex: um insumo
           usado na terra toda) — o valor é dividido e vira uma despesa normal em cada uma.
         </p>
 
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">
-            Quais safras participam?
+            Quais lavouras participam?
           </label>
           {carregandoSafras && <p className="text-sm text-hf-stone-600">Carregando...</p>}
           {!carregandoSafras && safras.length < 2 && (
             <p className="text-sm text-hf-stone-600">
-              Você precisa de pelo menos 2 safras ativas em sociedades diferentes pra usar isso.
+              Você precisa de pelo menos 2 lavouras ativas em sociedades diferentes pra usar isso.
             </p>
           )}
           <div className="flex flex-col gap-2">

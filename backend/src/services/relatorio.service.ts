@@ -71,7 +71,7 @@ export interface DadosRelatorio {
 }
 
 function periodoLabel(dados: DadosRelatorio): string {
-  if (!dados.data_inicio && !dados.data_fim) return 'Safra inteira';
+  if (!dados.data_inicio && !dados.data_fim) return 'Lavoura inteira';
   if (dados.data_inicio && dados.data_fim) return `${formatarData(dados.data_inicio)} a ${formatarData(dados.data_fim)}`;
   if (dados.data_inicio) return `A partir de ${formatarData(dados.data_inicio)}`;
   return `Até ${formatarData(dados.data_fim as Date)}`;

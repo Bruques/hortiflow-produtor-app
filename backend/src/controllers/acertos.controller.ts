@@ -15,7 +15,7 @@ export async function criar(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
@@ -39,16 +39,16 @@ export async function criar(req: Request, res: Response): Promise<void> {
   if ('erro' in resultado) {
     switch (resultado.erro) {
       case 'SAFRA_NAO_ENCONTRADA':
-        res.status(404).json({ error: 'Safra não encontrada' });
+        res.status(404).json({ error: 'Lavoura não encontrada' });
         return;
       case 'SAFRA_NAO_EM_ANDAMENTO':
-        res.status(400).json({ error: 'Safra precisa estar em andamento para registrar um acerto' });
+        res.status(400).json({ error: 'Lavoura precisa estar em andamento para registrar um acerto' });
         return;
       case 'PERIODO_INVALIDO':
         res.status(400).json({ error: 'data_inicio não pode ser depois de data_fim' });
         return;
       case 'PERIODO_SOBREPOSTO':
-        res.status(400).json({ error: 'Período sobrepõe o último acerto já registrado dessa safra' });
+        res.status(400).json({ error: 'Período sobrepõe o último acerto já registrado dessa lavoura' });
         return;
     }
   }
@@ -61,7 +61,7 @@ export async function listar(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {

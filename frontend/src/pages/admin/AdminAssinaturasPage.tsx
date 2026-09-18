@@ -152,7 +152,7 @@ function PlanoRow({
         />
       </label>
       <label className="flex items-center gap-1.5 text-xs text-hf-stone-400">
-        Limite safras ativas (vazio = ilimitado)
+        Limite lavouras ativas (vazio = ilimitado)
         <input
           type="number"
           value={limite}
@@ -261,7 +261,7 @@ function TitularRow({
         </span>
         <span className="w-24 text-right text-xs text-hf-stone-400">até {formatarData(titular.dataFimAcesso)}</span>
         <span className="w-24 text-right text-xs text-hf-stone-400">
-          {titular.safrasAtivas}/{titular.limiteSafrasAtivas ?? '∞'} safras
+          {titular.safrasAtivas}/{titular.limiteSafrasAtivas ?? '∞'} lavouras
         </span>
         <span className="w-28 text-right text-xs text-hf-stone-400">
           {titular.metodoUltimoPagamento ? ROTULO_METODO[titular.metodoUltimoPagamento] : '—'}
@@ -295,7 +295,7 @@ function TitularRow({
 
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs text-hf-stone-400">
-              Override de limite de safras ativas (vazio = usa o do plano)
+              Override de limite de lavouras ativas (vazio = usa o do plano)
               <input
                 type="number"
                 value={override}

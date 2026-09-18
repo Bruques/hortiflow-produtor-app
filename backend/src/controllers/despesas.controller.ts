@@ -49,7 +49,7 @@ const atualizarSchema = z
   });
 
 const compartilhadaSchema = z.object({
-  safra_ids: z.array(z.string().min(1)).min(2, 'Informe pelo menos 2 safras'),
+  safra_ids: z.array(z.string().min(1)).min(2, 'Informe pelo menos 2 lavouras'),
   tipo: z.nativeEnum(TipoDespesa),
   valor_total: z.number().positive(),
   data: z.coerce.date(),
@@ -78,7 +78,7 @@ export async function criarCompartilhada(req: Request, res: Response): Promise<v
   const { safra_ids, tipo, valor_total, data, descricao, foto_comprovante, rateio } = parsed.data;
 
   if (new Set(safra_ids).size !== safra_ids.length) {
-    res.status(422).json({ error: 'safra_ids não pode repetir a mesma safra' });
+    res.status(422).json({ error: 'safra_ids não pode repetir a mesma lavoura' });
     return;
   }
 
@@ -88,7 +88,7 @@ export async function criarCompartilhada(req: Request, res: Response): Promise<v
     const mesmoConjunto =
       idsRateio.size === idsInformados.size && [...idsRateio].every((id) => idsInformados.has(id));
     if (!mesmoConjunto) {
-      res.status(422).json({ error: 'rateio.percentuais precisa cobrir exatamente as safras de safra_ids' });
+      res.status(422).json({ error: 'rateio.percentuais precisa cobrir exatamente as lavouras de safra_ids' });
       return;
     }
     const soma = rateio.percentuais.reduce((acc, p) => acc + p.percentual, 0);
@@ -106,7 +106,7 @@ export async function criarCompartilhada(req: Request, res: Response): Promise<v
   );
   if (!todasValidas) {
     res.status(422).json({
-      error: 'Todas as safras precisam ser suas e estar em andamento',
+      error: 'Todas as lavouras precisam ser suas e estar em andamento',
     });
     return;
   }
@@ -134,7 +134,7 @@ export async function criar(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
@@ -174,7 +174,7 @@ export async function listar(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {

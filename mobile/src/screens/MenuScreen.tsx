@@ -101,7 +101,7 @@ export function MenuScreen({ navigation }: Props) {
     },
     {
       chave: 'socios',
-      titulo: 'Sócios da safra',
+      titulo: 'Sócios da lavoura',
       subtitulo: 'Percentual de lucro, convite',
       Icone: Users,
       bg: cores.green[100],
@@ -170,7 +170,7 @@ export function MenuScreen({ navigation }: Props) {
     },
     {
       chave: 'nova-safra',
-      titulo: 'Abrir nova safra',
+      titulo: 'Abrir nova lavoura',
       subtitulo: 'Nova temporada',
       Icone: Sprout,
       bg: cores.amber.fundo,

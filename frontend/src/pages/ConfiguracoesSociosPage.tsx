@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useVoltar } from '@/lib/useVoltar';
 import { ArrowLeft, Minus, Plus, Check, AlertTriangle, Copy, Pencil, Trash2, X } from 'lucide-react';
 import {
   criarSocioNaSafraRequest,
@@ -28,17 +29,10 @@ interface EdicaoSocio {
 // da sociedade (docs/specs/23-socios-por-safra.md).
 export default function ConfiguracoesSociosPage() {
   const { id: safraId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
 
   const [sociedadeId, setSociedadeId] = useState<string | null>(null);
 
-  // Volta de verdade no histórico do navegador (chegou aqui a partir do Menu) — só cai
-  // numa rota fixa quando não há histórico (link direto, refresh).
-  function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate(sociedadeId ? `/sociedades/${sociedadeId}/safras` : '/');
-  }
+  const voltar = useVoltar(sociedadeId ? `/sociedades/${sociedadeId}/safras` : '/');
 
   const [edicoes, setEdicoes] = useState<EdicaoSocio[]>([]);
   const [carregandoSocios, setCarregandoSocios] = useState(true);
@@ -199,7 +193,7 @@ export default function ConfiguracoesSociosPage() {
 
   async function removerSocio(socio: EdicaoSocio) {
     if (!safraId) return;
-    if (!window.confirm(`Remover ${socio.nome} desta safra? Essa ação não pode ser desfeita.`)) return;
+    if (!window.confirm(`Remover ${socio.nome} desta lavoura? Essa ação não pode ser desfeita.`)) return;
     setErroAcaoSocio(null);
     setRemovendoId(socio.id);
     try {
@@ -225,7 +219,7 @@ export default function ConfiguracoesSociosPage() {
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
           </button>
-          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Sócios da safra</h2>
+          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Sócios da lavoura</h2>
           <div className="h-[38px] w-[38px]" />
         </div>
       </div>
@@ -235,7 +229,7 @@ export default function ConfiguracoesSociosPage() {
           <div>
             <h3 className="m-0 text-[15px] font-extrabold text-hf-stone-900">Percentual de lucro</h3>
             <p className="m-0 -mt-0.5 text-xs text-hf-stone-400">
-              Vale só pra esta safra — a soma precisa fechar em 100%
+              Vale só pra esta lavoura — a soma precisa fechar em 100%
             </p>
           </div>
 

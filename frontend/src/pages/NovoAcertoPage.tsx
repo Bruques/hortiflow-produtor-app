@@ -138,7 +138,7 @@ export default function NovoAcertoPage() {
                 tipo === 'FINAL' ? 'border-hf-green-800 bg-hf-green-800 text-white' : 'border-hf-line bg-white text-hf-stone-700'
               )}
             >
-              Final (encerra a safra)
+              Final (encerra a lavoura)
             </button>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function NovoAcertoPage() {
             <div>
               <p className="m-0 text-[12.5px] font-bold text-[#5a3f0e]">Isso também encerra a {safra.nome}</p>
               <p className="m-0 mt-0.5 text-[11.5px] text-hf-amber">
-                Depois de um acerto final, não é mais possível lançar despesas ou vendas nessa safra.
+                Depois de um acerto final, não é mais possível lançar despesas ou vendas nessa lavoura.
               </p>
             </div>
           </div>

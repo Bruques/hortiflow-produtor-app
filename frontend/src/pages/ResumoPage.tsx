@@ -92,7 +92,7 @@ export default function ResumoPage() {
           onClick={() => navigate('/')}
           className="flex flex-col items-start gap-0.5 text-left"
         >
-          <span className="text-legenda text-hf-stone-600">Safra atual</span>
+          <span className="text-legenda text-hf-stone-600">Lavoura atual</span>
           <span className="flex items-center gap-1.5">
             <h2 className="font-rounded text-tituloTela font-extrabold text-hf-stone-900">{safra.nome}</h2>
             <ChevronRight className="h-4 w-4 text-hf-stone-600" />

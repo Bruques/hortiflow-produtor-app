@@ -82,7 +82,7 @@ export default function LoginPage() {
         </h1>
         <p className="text-center text-sm leading-relaxed text-hf-stone-600 max-w-[30ch] mx-auto">
           {modo === 'login'
-            ? 'Faça login para acessar suas sociedades e acompanhar sua safra.'
+            ? 'Faça login para acessar suas sociedades e acompanhar sua lavoura.'
             : 'Cadastre-se para começar a acompanhar sua parceria.'}
         </p>
 

@@ -52,7 +52,7 @@ export function SafrasScreen({ navigation }: Props) {
       await salvarSafrasCache(sociedadeId, atualizadas);
     } catch {
       if (cache.length === 0) {
-        setErro('Não foi possível carregar as safras');
+        setErro('Não foi possível carregar as lavouras');
       }
     } finally {
       setCarregando(false);
@@ -80,7 +80,7 @@ export function SafrasScreen({ navigation }: Props) {
   async function salvarEdicao(safra: Safra) {
     const nome = textoNomeEdicao.trim();
     if (!nome) {
-      setErro('O nome da safra não pode ficar vazio');
+      setErro('O nome da lavoura não pode ficar vazio');
       return;
     }
     setSalvandoId(safra.id);
@@ -106,7 +106,7 @@ export function SafrasScreen({ navigation }: Props) {
       await encerrarSafraRequest(safraId);
       await carregar();
     } catch (err) {
-      setErro(mensagemErro(err, 'Não foi possível encerrar a safra'));
+      setErro(mensagemErro(err, 'Não foi possível encerrar a lavoura'));
     } finally {
       setEncerrandoId(null);
     }
@@ -135,7 +135,7 @@ export function SafrasScreen({ navigation }: Props) {
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
         </Pressable>
-        <Text style={styles.tituloCabecalho}>Safras</Text>
+        <Text style={styles.tituloCabecalho}>Lavouras</Text>
         <View style={styles.botaoVoltar} />
       </View>
 
@@ -146,7 +146,7 @@ export function SafrasScreen({ navigation }: Props) {
       >
         {erro && <Text style={styles.erro}>{erro}</Text>}
         {carregando && safras.length === 0 && <ActivityIndicator />}
-        {!carregando && safras.length === 0 && <Text style={styles.subtitulo}>Nenhuma safra ainda.</Text>}
+        {!carregando && safras.length === 0 && <Text style={styles.subtitulo}>Nenhuma lavoura ainda.</Text>}
 
         <View style={styles.lista}>
           {safras.map((s) => {
@@ -219,7 +219,7 @@ export function SafrasScreen({ navigation }: Props) {
                     {s.status === 'EM_ANDAMENTO' && (
                       <Pressable onPress={() => encerrar(s.id)} disabled={encerrandoId === s.id}>
                         <Text style={styles.acaoTextoLabel}>
-                          {encerrandoId === s.id ? 'Encerrando...' : 'Encerrar esta safra'}
+                          {encerrandoId === s.id ? 'Encerrando...' : 'Encerrar esta lavoura'}
                         </Text>
                       </Pressable>
                     )}
@@ -234,7 +234,7 @@ export function SafrasScreen({ navigation }: Props) {
       <View style={styles.rodape}>
         <Pressable style={styles.botaoPrimario} onPress={() => navigation.navigate('NovaSafra')}>
           <Plus size={17} color="#FFFFFF" />
-          <Text style={styles.textoBotaoPrimario}>Nova safra</Text>
+          <Text style={styles.textoBotaoPrimario}>Nova lavoura</Text>
         </Pressable>
       </View>
     </SafeAreaView>

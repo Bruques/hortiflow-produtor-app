@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useVoltar } from '@/lib/useVoltar';
 import { ArrowLeft, Check, Pencil, Percent, Plus, SlidersHorizontal, User } from 'lucide-react';
 import { meRequest } from '@/services/auth';
 import { listarSociosRequest } from '@/services/sociedades';
@@ -59,15 +60,8 @@ const MODOS_RATEIO: { modo: ModoRateio; titulo: string; sub: string; Icone: type
 
 export default function ConfiguracoesRegrasDespesaPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
 
-  // Volta de verdade no histórico do navegador (chegou aqui a partir do Menu) — só cai
-  // numa rota fixa quando não há histórico (link direto, refresh).
-  function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate(`/sociedades/${sociedadeId}/safras`);
-  }
+  const voltar = useVoltar(`/sociedades/${sociedadeId}/safras`);
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [regras, setRegras] = useState<RegraDespesaRecorrente[]>([]);

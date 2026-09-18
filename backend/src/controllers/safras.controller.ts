@@ -60,7 +60,7 @@ export async function abrir(req: Request, res: Response): Promise<void> {
 
   const parsed = abrirSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'Nome da safra é obrigatório' });
+    res.status(400).json({ error: 'Nome da lavoura é obrigatório' });
     return;
   }
 
@@ -74,7 +74,7 @@ export async function abrir(req: Request, res: Response): Promise<void> {
   if ('erro' in resultado) {
     if (resultado.erro === 'LIMITE_SAFRAS_ATIVAS') {
       res.status(403).json({
-        error: 'Você atingiu o limite de safras ativas do seu plano. Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.',
+        error: 'Você atingiu o limite de lavouras ativas do seu plano. Encerre uma lavoura em andamento ou fale com a gente sobre um plano com mais espaço.',
       });
       return;
     }
@@ -109,7 +109,7 @@ export async function obter(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
@@ -125,11 +125,11 @@ export async function listarSocios(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
-    res.status(403).json({ error: 'Você não é sócio dessa safra' });
+    res.status(403).json({ error: 'Você não é sócio dessa lavoura' });
     return;
   }
 
@@ -142,11 +142,11 @@ export async function criarSocio(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
-    res.status(403).json({ error: 'Você não é sócio dessa safra' });
+    res.status(403).json({ error: 'Você não é sócio dessa lavoura' });
     return;
   }
 
@@ -159,7 +159,7 @@ export async function criarSocio(req: Request, res: Response): Promise<void> {
   const resultado = await safrasService.criarSocioNaSafra(id, safra.sociedade_id, parsed.data);
   if ('erro' in resultado) {
     if (resultado.erro === 'JA_NA_SAFRA') {
-      res.status(409).json({ error: 'Esse sócio já participa dessa safra' });
+      res.status(409).json({ error: 'Esse sócio já participa dessa lavoura' });
       return;
     }
     res.status(404).json({ error: 'Sócio não encontrado nessa sociedade' });
@@ -174,11 +174,11 @@ export async function atualizarPercentuaisSocios(req: Request, res: Response): P
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
-    res.status(403).json({ error: 'Você não é sócio dessa safra' });
+    res.status(403).json({ error: 'Você não é sócio dessa lavoura' });
     return;
   }
 
@@ -191,7 +191,7 @@ export async function atualizarPercentuaisSocios(req: Request, res: Response): P
   const resultado = await safrasService.atualizarPercentuaisDaSafra(id, parsed.data.socios);
   if ('erro' in resultado) {
     if (resultado.erro === 'SOCIOS_FALTANDO') {
-      res.status(422).json({ error: 'A lista precisa cobrir todos os sócios atuais dessa safra' });
+      res.status(422).json({ error: 'A lista precisa cobrir todos os sócios atuais dessa lavoura' });
       return;
     }
     res.status(422).json({
@@ -208,29 +208,29 @@ export async function removerSocio(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
-    res.status(403).json({ error: 'Você não é sócio dessa safra' });
+    res.status(403).json({ error: 'Você não é sócio dessa lavoura' });
     return;
   }
 
   const resultado = await safrasService.removerSocioDaSafra(id, socioId, req.usuarioId);
   if ('erro' in resultado) {
     if (resultado.erro === 'NAO_ENCONTRADO') {
-      res.status(404).json({ error: 'Sócio não encontrado nessa safra' });
+      res.status(404).json({ error: 'Sócio não encontrado nessa lavoura' });
       return;
     }
     if (resultado.erro === 'UNICO_SOCIO') {
-      res.status(409).json({ error: 'Não é possível remover o único sócio da safra' });
+      res.status(409).json({ error: 'Não é possível remover o único sócio da lavoura' });
       return;
     }
     if (resultado.erro === 'AUTO_REMOCAO') {
-      res.status(409).json({ error: 'Você não pode remover a si mesmo da safra — peça a outro sócio' });
+      res.status(409).json({ error: 'Você não pode remover a si mesmo da lavoura — peça a outro sócio' });
       return;
     }
-    res.status(409).json({ error: 'Esse sócio já tem lançamentos vinculados nessa safra e não pode ser removido' });
+    res.status(409).json({ error: 'Esse sócio já tem lançamentos vinculados nessa lavoura e não pode ser removido' });
     return;
   }
 
@@ -242,7 +242,7 @@ export async function atualizarObservacoes(req: Request, res: Response): Promise
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
@@ -265,7 +265,7 @@ export async function atualizarNome(req: Request, res: Response): Promise<void> 
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
@@ -275,7 +275,7 @@ export async function atualizarNome(req: Request, res: Response): Promise<void> 
 
   const parsed = nomeSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'Nome da safra é obrigatório' });
+    res.status(400).json({ error: 'Nome da lavoura é obrigatório' });
     return;
   }
 
@@ -288,7 +288,7 @@ export async function encerrar(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {
@@ -299,10 +299,10 @@ export async function encerrar(req: Request, res: Response): Promise<void> {
   const resultado = await safrasService.encerrarSafra(id);
   if ('erro' in resultado) {
     if (resultado.erro === 'NAO_ENCONTRADA') {
-      res.status(404).json({ error: 'Safra não encontrada' });
+      res.status(404).json({ error: 'Lavoura não encontrada' });
       return;
     }
-    res.status(409).json({ error: 'Safra já está encerrada' });
+    res.status(409).json({ error: 'Lavoura já está encerrada' });
     return;
   }
 

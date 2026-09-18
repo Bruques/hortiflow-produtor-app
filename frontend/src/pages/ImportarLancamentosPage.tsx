@@ -991,7 +991,7 @@ export default function ImportarLancamentosPage() {
         {etapa === 'upload' && (
           <>
             <p className="m-0 text-[13px] leading-snug text-hf-stone-600">
-              Envie foto(s) de página de caderno, print, PDF ou uma planilha com despesas e vendas dessa safra — a
+              Envie foto(s) de página de caderno, print, PDF ou uma planilha com despesas e vendas dessa lavoura — a
               IA vai sugerir os lançamentos, e você revisa e confirma cada um antes de salvar.
             </p>
 

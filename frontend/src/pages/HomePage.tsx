@@ -52,7 +52,7 @@ export default function HomePage() {
         setUsuario(me.usuario);
         setSafras(res.safras);
       })
-      .catch(() => setErro('Não foi possível carregar suas safras'))
+      .catch(() => setErro('Não foi possível carregar suas lavouras'))
       .finally(() => setCarregando(false));
   }
 
@@ -139,7 +139,7 @@ export default function HomePage() {
       navigate(`/safras/${safra.id}`, { replace: true });
     } catch (err) {
       const data = (err as { response?: { data?: { error?: string } } }).response?.data;
-      setErroCriacao(data?.error ?? 'Não foi possível criar a safra');
+      setErroCriacao(data?.error ?? 'Não foi possível criar a lavoura');
       criandoRef.current = false;
       setCriando(false);
     }
@@ -179,8 +179,8 @@ export default function HomePage() {
               {usuario ? `Bem-vindo, ${usuario.nome.split(' ')[0]}!` : 'Vamos começar'}
             </h1>
             <p className="mx-auto mt-1.5 max-w-[30ch] text-sm leading-relaxed text-hf-stone-600">
-              Comece cadastrando a sua propriedade e a safra atual. Depois, se quiser, você
-              convida um meeiro pra dividir a produção com você.
+              Comece cadastrando a sua propriedade e a lavoura atual. Depois, se quiser, você
+              adiciona um meeiro pra dividir a produção com você.
             </p>
           </div>
 
@@ -195,10 +195,10 @@ export default function HomePage() {
               />
             </div>
             <div>
-              <Label htmlFor="nome-safra">Nome da safra</Label>
+              <Label htmlFor="nome-safra">Nome da lavoura</Label>
               <Input
                 id="nome-safra"
-                placeholder="Safra 2026"
+                placeholder="Lavoura 2026"
                 value={nomeSafra}
                 onChange={(e) => setNomeSafra(e.target.value)}
               />
@@ -243,14 +243,14 @@ export default function HomePage() {
         {diasTrialRestantes !== null && <BannerTrial dias={diasTrialRestantes} />}
         <div>
           <h1 className="font-rounded text-xl font-extrabold text-hf-stone-900">
-            {usuario ? `Olá, ${usuario.nome.split(' ')[0]}` : 'Suas safras'}
+            {usuario ? `Olá, ${usuario.nome.split(' ')[0]}` : 'Suas lavouras'}
           </h1>
-          <p className="text-sm text-hf-stone-600">Resumo de tudo, ou escolha uma safra pra continuar</p>
+          <p className="text-sm text-hf-stone-600">Resumo de tudo, ou escolha uma lavoura pra continuar</p>
         </div>
 
         <div className="flex flex-col gap-3 rounded-2xl bg-gradient-to-br from-hf-green-800 to-hf-green-900 p-4 text-white">
           <div>
-            <p className="m-0 mb-1 text-[12.5px] opacity-80">Você recebe (estimado) · todas as safras ativas</p>
+            <p className="m-0 mb-1 text-[12.5px] opacity-80">Você recebe (estimado) · todas as lavouras ativas</p>
             <p className="m-0 text-[26px] font-extrabold tabular-nums tracking-tight">
               {carregandoResumo && !resumo ? '...' : formatarMoeda(resumo?.totalReceber ?? 0)}
             </p>
@@ -261,7 +261,7 @@ export default function HomePage() {
             onClick={() => navigate('/despesas/compartilhada')}
             className="text-left text-[12.5px] font-bold text-white/85 underline underline-offset-2"
           >
-            Lançar despesa compartilhada entre safras
+            Lançar despesa compartilhada entre lavouras
           </button>
         </div>
 

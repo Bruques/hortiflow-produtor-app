@@ -5,7 +5,7 @@ const TODAS_OPCOES: { valor: PeriodoFiltro; label: string }[] = [
   { valor: 'dia', label: 'Hoje' },
   { valor: 'semana', label: 'Semana' },
   { valor: 'mes', label: 'Mês' },
-  { valor: 'safra', label: 'Safra' },
+  { valor: 'safra', label: 'Lavoura' },
 ];
 
 interface PeriodToggleProps {

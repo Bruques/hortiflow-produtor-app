@@ -19,7 +19,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'NovaSafra'>;
 
 function nomeSugerido(): string {
   const ano = new Date().getFullYear();
-  return `Safra ${ano}/${ano + 1}`;
+  return `Lavoura ${ano}/${ano + 1}`;
 }
 
 const TOLERANCIA_SOMA_PERCENTUAL = 0.01;
@@ -166,7 +166,7 @@ export function NovaSafraScreen({ navigation }: Props) {
       selecionarSafra({ safraId: safra.id, sociedadeId, safra });
       navigation.replace('Safra');
     } catch (err) {
-      setErro(mensagemErro(err, 'Não foi possível criar a safra'));
+      setErro(mensagemErro(err, 'Não foi possível criar a lavoura'));
       setSalvando(false);
     }
   }
@@ -178,7 +178,7 @@ export function NovaSafraScreen({ navigation }: Props) {
         <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
         </Pressable>
-        <Text style={styles.tituloCabecalho}>Nova safra</Text>
+        <Text style={styles.tituloCabecalho}>Nova lavoura</Text>
         <View style={styles.botaoVoltar} />
       </View>
 
@@ -190,10 +190,10 @@ export function NovaSafraScreen({ navigation }: Props) {
             <AlertTriangle size={17} color={cores.red.padrao} />
             <View style={styles.avisoTextos}>
               <Text style={styles.avisoLimiteTitulo}>
-                Limite de safras ativas do seu plano atingido ({limiteAtingido.safrasAtivas}/{limiteAtingido.limite})
+                Limite de lavouras ativas do seu plano atingido ({limiteAtingido.safrasAtivas}/{limiteAtingido.limite})
               </Text>
               <Text style={styles.avisoLimiteTexto}>
-                Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.
+                Encerre uma lavoura em andamento ou fale com a gente sobre um plano com mais espaço.
               </Text>
             </View>
           </View>
@@ -205,7 +205,7 @@ export function NovaSafraScreen({ navigation }: Props) {
             <View style={styles.avisoTextos}>
               <Text style={styles.avisoTitulo}>Você já tem a {safraEmAndamento.nome} em andamento</Text>
               <Text style={styles.avisoTexto}>
-                Criar uma nova safra não fecha a atual sozinha — registre um acerto final nela antes, ou os
+                Criar uma nova lavoura não fecha a atual sozinha — registre um acerto final nela antes, ou os
                 dois períodos vão ficar em andamento ao mesmo tempo.
               </Text>
             </View>
@@ -213,12 +213,12 @@ export function NovaSafraScreen({ navigation }: Props) {
         )}
 
         <View>
-          <Text style={styles.label}>Nome da safra</Text>
+          <Text style={styles.label}>Nome da lavoura</Text>
           <View style={styles.campo}>
             <Sprout size={18} color={cores.green[700]} />
             <TextInput
               style={styles.input}
-              placeholder="Ex: Safra 2026/2027"
+              placeholder="Ex: Lavoura 2026/2027"
               placeholderTextColor={cores.stone[400]}
               value={nome}
               onChangeText={setNome}
@@ -231,7 +231,7 @@ export function NovaSafraScreen({ navigation }: Props) {
           <Text style={styles.label}>Observações (opcional)</Text>
           <TextInput
             style={styles.textarea}
-            placeholder="Ex: Estufa | Córrego do Bom Jesus | 20 mil pés | meeiro: João"
+            placeholder="Ex: Estufa | Bom Repouso | 20 mil pés | meeiro: João"
             placeholderTextColor={cores.stone[400]}
             value={observacoes}
             onChangeText={setObservacoes}
@@ -239,11 +239,11 @@ export function NovaSafraScreen({ navigation }: Props) {
             multiline
             numberOfLines={3}
           />
-          <Text style={styles.legenda}>Texto livre, só pra ajudar a identificar a safra — não entra em nenhum cálculo</Text>
+          <Text style={styles.legenda}>Texto livre, só pra ajudar a identificar a lavoura — não entra em nenhum cálculo</Text>
         </View>
 
         <View>
-          <Text style={styles.label}>Esta safra vai ter sócios ou meeiros?</Text>
+          <Text style={styles.label}>Esta lavoura vai ter sócios ou meeiros?</Text>
           <View style={styles.opcoesTemSocios}>
             <Pressable
               style={[styles.opcaoTemSocios, temSocios === false && styles.opcaoTemSociosSelecionada]}
@@ -261,7 +261,7 @@ export function NovaSafraScreen({ navigation }: Props) {
             </Pressable>
           </View>
           <Text style={styles.legenda}>
-            Cada safra tem seus próprios sócios e percentuais — não precisa ser igual a outra safra.
+            Cada lavoura tem seus próprios sócios e percentuais — não precisa ser igual a outra lavoura.
           </Text>
         </View>
 
@@ -440,7 +440,7 @@ export function NovaSafraScreen({ navigation }: Props) {
             )}
 
             {socios.length > 0 && !pctOk && (
-              <Text style={styles.erro}>A soma dos percentuais precisa fechar em 100% pra criar a safra</Text>
+              <Text style={styles.erro}>A soma dos percentuais precisa fechar em 100% pra criar a lavoura</Text>
             )}
           </View>
         )}
@@ -448,7 +448,7 @@ export function NovaSafraScreen({ navigation }: Props) {
         <View style={styles.info}>
           <Info size={17} color={cores.stone[600]} />
           <Text style={styles.infoTexto}>
-            A partir da criação, todo lançamento novo de despesa ou venda passa a pertencer a essa safra.
+            A partir da criação, todo lançamento novo de despesa ou venda passa a pertencer a essa lavoura.
           </Text>
         </View>
       </ScrollView>
@@ -476,7 +476,7 @@ export function NovaSafraScreen({ navigation }: Props) {
           {salvando ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.textoBotaoPrimario}>Criar e iniciar safra</Text>
+            <Text style={styles.textoBotaoPrimario}>Criar e iniciar lavoura</Text>
           )}
         </Pressable>
       </View>

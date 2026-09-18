@@ -10,7 +10,7 @@ export async function simular(req: Request, res: Response): Promise<void> {
 
   const { safra, autorizado } = await safrasService.ehSocioDaSafra(req.usuarioId, id);
   if (!safra) {
-    res.status(404).json({ error: 'Safra não encontrada' });
+    res.status(404).json({ error: 'Lavoura não encontrada' });
     return;
   }
   if (!autorizado) {

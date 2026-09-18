@@ -83,7 +83,7 @@ export function LoginScreen() {
         <Text style={styles.titulo}>{modo === 'login' ? 'Bem-vindo de volta!' : 'Crie sua conta'}</Text>
         <Text style={styles.subtitulo}>
           {modo === 'login'
-            ? 'Faça login para acessar suas sociedades e acompanhar sua safra.'
+            ? 'Faça login para acessar suas sociedades e acompanhar sua lavoura.'
             : 'Cadastre-se para começar a acompanhar sua parceria.'}
         </Text>
 

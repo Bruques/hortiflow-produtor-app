@@ -25,7 +25,7 @@ export function AssinaturaBloqueioScreen({ navigation }: Props) {
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <View style={styles.conteudo}>
         <Text style={styles.titulo}>Seu teste grátis acabou</Text>
-        <Text style={styles.subtitulo}>Assine pra continuar usando o app e acompanhar sua safra.</Text>
+        <Text style={styles.subtitulo}>Assine pra continuar usando o app e acompanhar sua lavoura.</Text>
 
         <Pressable style={styles.botaoAssinar} onPress={() => navigation.navigate('Checkout')}>
           <Text style={styles.textoBotaoAssinar}>Assinar agora</Text>

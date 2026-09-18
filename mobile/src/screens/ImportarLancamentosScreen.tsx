@@ -1026,7 +1026,7 @@ export function ImportarLancamentosScreen({ navigation, route }: Props) {
             {etapa === 'upload' && (
               <>
                 <Text style={styles.introducao}>
-                  Envie foto(s) de página de caderno, PDF ou uma planilha com despesas e vendas dessa safra — a IA
+                  Envie foto(s) de página de caderno, PDF ou uma planilha com despesas e vendas dessa lavoura — a IA
                   vai sugerir os lançamentos, e você revisa e confirma cada um antes de salvar.
                 </Text>
 

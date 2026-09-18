@@ -31,7 +31,7 @@ export default function AssinaturaBloqueadaPage() {
           Seu teste grátis acabou
         </h2>
         <p className="m-0 text-sm text-hf-stone-400">
-          Assine pra continuar usando o app e acompanhar sua safra.
+          Assine pra continuar usando o app e acompanhar sua lavoura.
         </p>
 
         <Button size="lg" className="w-full bg-hf-green-800 hover:bg-hf-green-900" onClick={() => navigate('/assinatura/checkout')}>

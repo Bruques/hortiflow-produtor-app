@@ -47,7 +47,7 @@ export function DespesaCompartilhadaScreen({ navigation }: Props) {
   useEffect(() => {
     listarMinhasSafrasRequest()
       .then((res) => setSafras(res.safras.filter((s) => s.status === 'EM_ANDAMENTO')))
-      .catch(() => setErro('Não foi possível carregar suas safras'))
+      .catch(() => setErro('Não foi possível carregar suas lavouras'))
       .finally(() => setCarregandoSafras(false));
   }, []);
 
@@ -119,15 +119,15 @@ export function DespesaCompartilhadaScreen({ navigation }: Props) {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         {erro && <Text style={styles.erro}>{erro}</Text>}
         <Text style={styles.intro}>
-          Lance um custo que serve pra mais de uma safra ao mesmo tempo (ex: um insumo usado na terra
+          Lance um custo que serve pra mais de uma lavoura ao mesmo tempo (ex: um insumo usado na terra
           toda) — o valor é dividido e vira uma despesa normal em cada uma.
         </Text>
 
         <View>
-          <Text style={styles.label}>Quais safras participam?</Text>
+          <Text style={styles.label}>Quais lavouras participam?</Text>
           {carregandoSafras && <ActivityIndicator style={{ marginTop: espacamento.sm }} />}
           {!carregandoSafras && safras.length < 2 && (
-            <Text style={styles.legenda}>Você precisa de pelo menos 2 safras ativas pra usar isso.</Text>
+            <Text style={styles.legenda}>Você precisa de pelo menos 2 lavouras ativas pra usar isso.</Text>
           )}
           <View style={{ gap: espacamento.sm }}>
             {safras.map((s) => {

@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useVoltar } from '@/lib/useVoltar';
 import { ArrowLeft } from 'lucide-react';
 import type { DocumentoLegal } from '@/content/documentosLegais';
 
@@ -6,13 +6,8 @@ import type { DocumentoLegal } from '@/content/documentosLegais';
 // Privacidade). Usada tanto na tela de aceite/cadastro (acessível sem estar logado) quanto
 // em Configurações → Conta, pra consulta a qualquer momento.
 export default function DocumentoLegalPage({ documento }: { documento: DocumentoLegal }) {
-  const navigate = useNavigate();
-  const location = useLocation();
 
-  function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/login');
-  }
+  const voltar = useVoltar('/login');
 
   return (
     <div className="flex min-h-screen flex-col bg-hf-cream-50">

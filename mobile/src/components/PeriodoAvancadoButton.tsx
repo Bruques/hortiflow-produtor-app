@@ -79,7 +79,7 @@ export function PeriodoAvancadoButton({
       <Pressable
         style={[styles.botaoIcone, ativo && styles.botaoIconeAtivo]}
         onPress={abrir}
-        accessibilityLabel="Mais períodos: safra inteira ou personalizado"
+        accessibilityLabel="Mais períodos: lavoura inteira ou personalizado"
       >
         <Calendar size={16} color={ativo ? '#FFFFFF' : cores.stone[600]} strokeWidth={2} />
       </Pressable>
@@ -93,7 +93,7 @@ export function PeriodoAvancadoButton({
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cabecalhoTitulo}>Mais períodos</Text>
-                <Text style={styles.cabecalhoSubtitulo}>Safra inteira ou um intervalo específico</Text>
+                <Text style={styles.cabecalhoSubtitulo}>Lavoura inteira ou um intervalo específico</Text>
               </View>
             </View>
 
@@ -104,7 +104,7 @@ export function PeriodoAvancadoButton({
               <View style={styles.cartaoSafraIcone}>
                 <Sprout size={14} color={cores.green[800]} strokeWidth={2.4} />
               </View>
-              <Text style={styles.cartaoSafraTexto}>Safra inteira</Text>
+              <Text style={styles.cartaoSafraTexto}>Lavoura inteira</Text>
               <View style={[styles.radio, safraSelecionada && styles.radioAtivo]} />
             </Pressable>
 

@@ -82,7 +82,7 @@ export function MinhaAssinaturaScreen({ navigation }: Props) {
             </View>
             {dados.plano?.limiteSafrasAtivas !== null && dados.plano !== null && (
               <View style={styles.linha}>
-                <Text style={styles.rotulo}>Safras ativas</Text>
+                <Text style={styles.rotulo}>Lavouras ativas</Text>
                 <Text style={styles.valor}>
                   {dados.safrasAtivas} de {dados.plano?.limiteSafrasAtivas}
                 </Text>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useVoltar } from '@/lib/useVoltar';
 import { ArrowLeft, Sprout, AlertTriangle, Info, Users, User, Minus, Plus, X, Check } from 'lucide-react';
 import { abrirSafraRequest, listarSafrasRequest, type SocioSafraInput } from '@/services/safras';
 import { listarSociosCatalogoRequest } from '@/services/sociedades';
@@ -11,7 +12,7 @@ import type { PapelSocio, SocioCatalogo } from '@/types/sociedade';
 
 function nomeSugerido(): string {
   const ano = new Date().getFullYear();
-  return `Safra ${ano}/${ano + 1}`;
+  return `Lavoura ${ano}/${ano + 1}`;
 }
 
 const TOLERANCIA_SOMA_PERCENTUAL = 0.01;
@@ -30,6 +31,7 @@ interface EdicaoSocioSafra {
 export default function NovaSafraPage() {
   const { id: sociedadeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const voltar = useVoltar(`/sociedades/${sociedadeId}/safras`);
 
   const [nome, setNome] = useState(nomeSugerido());
   const [observacoes, setObservacoes] = useState('');
@@ -152,7 +154,7 @@ export default function NovaSafraPage() {
       // Mostra a mensagem real do backend (ex: limite de safras ativas do plano, spec 18) —
       // antes isso ficava sempre com um texto genérico, escondendo o motivo real do bloqueio.
       const data = (err as { response?: { data?: { error?: string } } }).response?.data;
-      setErro(data?.error ?? 'Não foi possível criar a safra');
+      setErro(data?.error ?? 'Não foi possível criar a lavoura');
       setSalvando(false);
     }
   }
@@ -164,12 +166,12 @@ export default function NovaSafraPage() {
           <button
             type="button"
             aria-label="Voltar"
-            onClick={() => navigate(`/sociedades/${sociedadeId}/safras`)}
+            onClick={voltar}
             className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-hf-cream-100 text-hf-stone-900"
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.3} />
           </button>
-          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Nova safra</h2>
+          <h2 className="truncate text-center font-rounded text-[17px] font-extrabold text-hf-stone-900">Nova lavoura</h2>
           <div className="h-[38px] w-[38px]" />
         </div>
       </div>
@@ -182,10 +184,10 @@ export default function NovaSafraPage() {
             <AlertTriangle className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-red" strokeWidth={2} />
             <div>
               <p className="m-0 text-[12.5px] font-bold text-hf-red">
-                Limite de safras ativas do seu plano atingido ({limiteAtingido.safrasAtivas}/{limiteAtingido.limite})
+                Limite de lavouras ativas do seu plano atingido ({limiteAtingido.safrasAtivas}/{limiteAtingido.limite})
               </p>
               <p className="m-0 mt-0.5 text-[11.5px] text-hf-red">
-                Encerre uma safra em andamento ou fale com a gente sobre um plano com mais espaço.
+                Encerre uma lavoura em andamento ou fale com a gente sobre um plano com mais espaço.
               </p>
             </div>
           </div>
@@ -199,7 +201,7 @@ export default function NovaSafraPage() {
                 Você já tem a {safraEmAndamento.nome} em andamento
               </p>
               <p className="m-0 mt-0.5 text-[11.5px] text-hf-amber">
-                Criar uma nova safra não fecha a atual sozinha — registre um acerto final nela antes, ou os
+                Criar uma nova lavoura não fecha a atual sozinha — registre um acerto final nela antes, ou os
                 dois períodos vão ficar em andamento ao mesmo tempo.
               </p>
             </div>
@@ -207,12 +209,12 @@ export default function NovaSafraPage() {
         )}
 
         <div>
-          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Nome da safra</label>
+          <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Nome da lavoura</label>
           <div className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-hf-line px-4 py-3 focus-within:border-hf-green-500 focus-within:ring-2 focus-within:ring-hf-green-100">
             <Sprout className="h-[18px] w-[18px] shrink-0 text-hf-green-700" />
             <input
               type="text"
-              placeholder="Ex: Safra 2026/2027"
+              placeholder="Ex: Lavoura 2026/2027"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               className="w-full bg-transparent text-[15px] text-hf-stone-900 outline-none placeholder:text-hf-stone-400"
@@ -226,7 +228,7 @@ export default function NovaSafraPage() {
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">Observações (opcional)</label>
           <textarea
-            placeholder="Ex: Estufa | Córrego do Bom Jesus | 20 mil pés | meeiro: João"
+            placeholder="Ex: Estufa | Bom Repouso | 20 mil pés | meeiro: João"
             value={observacoes}
             onChange={(e) => setObservacoes(e.target.value)}
             maxLength={500}
@@ -234,13 +236,13 @@ export default function NovaSafraPage() {
             className="w-full resize-none rounded-2xl border-[1.5px] border-hf-line px-4 py-3 text-[14px] text-hf-stone-900 outline-none placeholder:text-hf-stone-400 focus:border-hf-green-500 focus:ring-2 focus:ring-hf-green-100"
           />
           <p className="mt-1.5 text-[11.5px] text-hf-stone-400">
-            Texto livre, só pra ajudar a identificar a safra — não entra em nenhum cálculo
+            Texto livre, só pra ajudar a identificar a lavoura — não entra em nenhum cálculo
           </p>
         </div>
 
         <div>
           <label className="mb-2 block text-[12.5px] font-bold text-hf-green-700">
-            Esta safra vai ter sócios ou meeiros?
+            Esta lavoura vai ter sócios ou meeiros?
           </label>
           <div className="grid grid-cols-2 gap-2.5">
             <button
@@ -267,7 +269,7 @@ export default function NovaSafraPage() {
             </button>
           </div>
           <p className="mt-1.5 text-[11.5px] text-hf-stone-400">
-            Cada safra tem seus próprios sócios e percentuais — não precisa ser igual a outra safra.
+            Cada lavoura tem seus próprios sócios e percentuais — não precisa ser igual a outra lavoura.
           </p>
         </div>
 
@@ -442,7 +444,7 @@ export default function NovaSafraPage() {
 
             {socios.length > 0 && !pctOk && (
               <p className="m-0 text-center text-[11.5px] font-medium text-hf-red">
-                A soma dos percentuais precisa fechar em 100% pra criar a safra
+                A soma dos percentuais precisa fechar em 100% pra criar a lavoura
               </p>
             )}
           </div>
@@ -451,7 +453,7 @@ export default function NovaSafraPage() {
         <div className="flex items-start gap-2.5 rounded-xl bg-hf-cream-100 px-3.5 py-3.5">
           <Info className="mt-0.5 h-[17px] w-[17px] shrink-0 text-hf-stone-600" strokeWidth={2} />
           <p className="m-0 text-[11.5px] leading-relaxed text-hf-stone-600">
-            A partir da criação, todo lançamento novo de despesa ou venda passa a pertencer a essa safra.
+            A partir da criação, todo lançamento novo de despesa ou venda passa a pertencer a essa lavoura.
           </p>
         </div>
       </div>
@@ -469,7 +471,7 @@ export default function NovaSafraPage() {
           }
           className="w-full rounded-2xl bg-hf-green-800 py-4 text-base font-bold text-white disabled:opacity-50"
         >
-          {salvando ? 'Criando...' : 'Criar e iniciar safra'}
+          {salvando ? 'Criando...' : 'Criar e iniciar lavoura'}
         </button>
       </div>
     </div>
