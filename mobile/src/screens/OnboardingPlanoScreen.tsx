@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Check, LogOut } from 'lucide-react-native';
+import { Check, Gift, LogOut } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { escolherPlanoRequest, listarPlanosRequest, type PlanoCatalogo } from '../services/assinatura';
 import { mensagemErro } from '../lib/erroApi';
@@ -59,6 +59,14 @@ export function OnboardingPlanoScreen({ route, navigation }: Props) {
         <View>
           <Text style={styles.titulo}>Plano recomendado pra você</Text>
           <Text style={styles.subtitulo}>Você pode trocar de plano quando quiser.</Text>
+        </View>
+
+        <View style={styles.aviso}>
+          <Gift size={17} color={cores.green[700]} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.avisoTitulo}>14 dias grátis pra testar</Text>
+            <Text style={styles.avisoTexto}>Sem cartão de crédito. Você só paga se quiser continuar depois do teste.</Text>
+          </View>
         </View>
 
         <View style={styles.toggle}>
@@ -135,7 +143,7 @@ export function OnboardingPlanoScreen({ route, navigation }: Props) {
           {confirmando ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.textoBotaoPrimario}>Continuar com {planoSelecionado?.nome ?? '...'}</Text>
+            <Text style={styles.textoBotaoPrimario}>Começar teste grátis com {planoSelecionado?.nome ?? '...'}</Text>
           )}
         </Pressable>
 
@@ -181,6 +189,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: cores.stone[600],
     marginTop: 2,
+  },
+  aviso: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espacamento.sm + 2,
+    backgroundColor: cores.green[100],
+    borderRadius: raio.lg,
+    paddingHorizontal: espacamento.lg,
+    paddingVertical: espacamento.md,
+  },
+  avisoTitulo: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: cores.stone[900],
+  },
+  avisoTexto: {
+    marginTop: 2,
+    fontSize: 11.5,
+    color: cores.stone[600],
   },
   toggle: {
     flexDirection: 'row',

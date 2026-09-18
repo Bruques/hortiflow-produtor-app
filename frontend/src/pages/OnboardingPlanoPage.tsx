@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, LogOut } from 'lucide-react';
+import { Check, Gift, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { escolherPlanoRequest, listarPlanosRequest, type PlanoCatalogo } from '@/services/assinatura';
 import { logoutRequest } from '@/services/auth';
@@ -63,6 +63,16 @@ export default function OnboardingPlanoPage() {
         <div className="text-center">
           <h1 className="font-rounded text-[19px] font-extrabold text-hf-stone-900">Plano recomendado pra você</h1>
           <p className="mt-0.5 text-[13px] text-hf-stone-600">Você pode trocar de plano quando quiser.</p>
+        </div>
+
+        <div className="flex items-start gap-2.5 rounded-2xl bg-hf-green-100 px-4 py-3.5">
+          <Gift className="mt-0.5 h-[18px] w-[18px] shrink-0 text-hf-green-700" strokeWidth={2} />
+          <div>
+            <p className="m-0 text-[12.5px] font-bold text-hf-stone-900">14 dias grátis pra testar</p>
+            <p className="m-0 mt-0.5 text-[11.5px] text-hf-stone-600">
+              Sem cartão de crédito. Você só paga se quiser continuar depois do teste.
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-1 rounded-2xl bg-hf-cream-100 p-1">
@@ -150,7 +160,7 @@ export default function OnboardingPlanoPage() {
         {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
 
         <Button size="lg" className="w-full bg-hf-green-800 hover:bg-hf-green-900" onClick={confirmar} disabled={confirmando}>
-          {confirmando ? 'Confirmando...' : `Continuar com ${planoSelecionado?.nome ?? '...'}`}
+          {confirmando ? 'Confirmando...' : `Começar teste grátis com ${planoSelecionado?.nome ?? '...'}`}
         </Button>
 
         <button
