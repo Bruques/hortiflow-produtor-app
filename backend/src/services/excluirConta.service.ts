@@ -26,6 +26,9 @@ export async function excluirConta(usuarioId: string): Promise<void> {
       await tx.aporteTrabalho.deleteMany({ where: { safra: { sociedade_id: sociedadeId } } });
       await tx.despesaPessoal.deleteMany({ where: { safra: { sociedade_id: sociedadeId } } });
       await tx.acerto.deleteMany({ where: { safra: { sociedade_id: sociedadeId } } });
+      // SocioSafra (percentual_lucro congelado por safra) tem FK obrigatória pra Safra e pra
+      // SocioSociedade, sem cascade — faltava aqui e travava o delete de Safra logo abaixo.
+      await tx.socioSafra.deleteMany({ where: { safra: { sociedade_id: sociedadeId } } });
       await tx.safra.deleteMany({ where: { sociedade_id: sociedadeId } });
       await tx.socioSociedade.deleteMany({ where: { sociedade_id: sociedadeId } });
       await tx.sociedade.delete({ where: { id: sociedadeId } });
