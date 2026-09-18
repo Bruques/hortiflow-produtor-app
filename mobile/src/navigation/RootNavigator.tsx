@@ -96,6 +96,13 @@ const temaNavegacao = {
 // renderiza a casca de navegação (docs/specs/mobile/08-navegacao-resumo-e-menu.md) com suas 4
 // abas (Resumo/Vendas/Despesas/Menu, ver SafraTabs.tsx); Acertos e as demais telas (formulários,
 // configurações) continuam pushes simples deste stack, fora da casca.
+//
+// "TermosDocumento" é acessível dos dois lados (logado e deslogado — spec 26), por isso está
+// duplicada dentro de cada bloco em vez de declarada uma vez só fora do condicional: quando
+// estava fora, era a primeira tela do array de children, e ao logar (a tela ativa "Login"
+// desaparecer do array) o React Navigation recalculava o estado caindo nela em vez de em
+// "Inicio" — travava o usuário com "Cannot read property 'documento' of undefined" logo após
+// o login (bug relatado 2026-09-18). Repetir a tela dentro de cada bloco evita esse reset.
 export function RootNavigator() {
   const { logado, carregando } = useAuth();
 
@@ -110,10 +117,10 @@ export function RootNavigator() {
   return (
     <NavigationContainer ref={navigationRef} theme={temaNavegacao}>
       <Stack.Navigator initialRouteName={logado ? 'Inicio' : 'Login'} screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="TermosDocumento" component={TermosDocumentoScreen} />
         {logado ? (
           <>
             <Stack.Screen name="Inicio" component={InicioScreen} />
+            <Stack.Screen name="TermosDocumento" component={TermosDocumentoScreen} />
             <Stack.Screen name="TermosAceite" component={TermosAceiteScreen} />
             <Stack.Screen name="MinhaAssinatura" component={MinhaAssinaturaScreen} />
             <Stack.Screen name="AssinaturaBloqueio" component={AssinaturaBloqueioScreen} />
@@ -141,7 +148,10 @@ export function RootNavigator() {
             <Stack.Screen name="RelatorioCompleto" component={RelatorioCompletoScreen} />
           </>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="TermosDocumento" component={TermosDocumentoScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

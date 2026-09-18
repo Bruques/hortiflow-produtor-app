@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TERMOS_DE_USO, POLITICA_DE_PRIVACIDADE } from '../content/documentosLegais';
+import { useAuth } from '../context/AuthContext';
 import { cores, espacamento, raio } from '../theme';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -11,13 +12,28 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TermosDocumento'>;
 // Spec 26 — leitura completa de um documento legal. Acessível tanto sem login (a partir do
 // cadastro, antes de aceitar) quanto logado (a partir de Conta e Senha), por isso é declarada
 // fora do bloco condicional logado/deslogado do RootNavigator.
+//
+// `route.params` pode chegar vazio (relatado 2026-09-18: reconciliação do React Navigation
+// ao trocar de stack deslogado→logado pode reabrir essa tela, que é a primeira declarada no
+// RootNavigator, sem os params que os botões normalmente passam) — sem esse fallback, o app
+// quebrava com "Cannot read property 'documento' of undefined" e travava o usuário sem saída,
+// já que essa era a única tela na pilha (goBack() não tinha pra onde voltar).
 export function TermosDocumentoScreen({ route, navigation }: Props) {
-  const documento = route.params.documento === 'uso' ? TERMOS_DE_USO : POLITICA_DE_PRIVACIDADE;
+  const { logado } = useAuth();
+  const documento = route.params?.documento === 'privacidade' ? POLITICA_DE_PRIVACIDADE : TERMOS_DE_USO;
+
+  function voltar() {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.replace(logado ? 'Inicio' : 'Login');
+    }
+  }
 
   return (
     <SafeAreaView style={styles.tela} edges={['top', 'bottom']}>
       <View style={styles.cabecalho}>
-        <Pressable style={styles.botaoVoltar} onPress={() => navigation.goBack()} hitSlop={8}>
+        <Pressable style={styles.botaoVoltar} onPress={voltar} hitSlop={8}>
           <ArrowLeft size={18} color={cores.stone[900]} />
         </Pressable>
         <Text style={styles.tituloCabecalho} numberOfLines={1}>
