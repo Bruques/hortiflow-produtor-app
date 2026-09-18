@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Check, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { escolherPlanoRequest, listarPlanosRequest, type PlanoCatalogo } from '@/services/assinatura';
+import { logoutRequest } from '@/services/auth';
 import { formatarMoeda } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,14 @@ export default function OnboardingPlanoPage() {
       .catch(() => setErro('Não foi possível carregar os planos'))
       .finally(() => setCarregando(false));
   }, []);
+
+  // Mesmo gap já resolvido em AssinaturaBloqueadaPage e OnboardingFormularioPage (dev
+  // relatou, 2026-09-18): sem isso, quem cai aqui fica preso sem jeito de sair.
+  function sair() {
+    logoutRequest(false);
+    localStorage.removeItem('token');
+    navigate('/login');
+  }
 
   function alternarExpandido(id: string) {
     setExpandidoId((atual) => (atual === id ? null : id));
@@ -143,6 +152,15 @@ export default function OnboardingPlanoPage() {
         <Button size="lg" className="w-full bg-hf-green-800 hover:bg-hf-green-900" onClick={confirmar} disabled={confirmando}>
           {confirmando ? 'Confirmando...' : `Continuar com ${planoSelecionado?.nome ?? '...'}`}
         </Button>
+
+        <button
+          type="button"
+          onClick={sair}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-red py-3.5 text-sm font-bold text-hf-red"
+        >
+          <LogOut className="h-[18px] w-[18px]" />
+          Sair
+        </button>
       </div>
     </div>
   );

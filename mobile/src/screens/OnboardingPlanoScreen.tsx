@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Check } from 'lucide-react-native';
+import { Check, LogOut } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { escolherPlanoRequest, listarPlanosRequest, type PlanoCatalogo } from '../services/assinatura';
 import { mensagemErro } from '../lib/erroApi';
 import { formatarMoeda } from '../lib/formatacao';
+import { useAuth } from '../context/AuthContext';
 import { cores, espacamento, raio } from '../theme';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -16,6 +17,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingPlano'>;
 // e nunca mostra o total como número principal — só o valor mensal equivalente em destaque.
 export function OnboardingPlanoScreen({ route, navigation }: Props) {
   const { planoRecomendadoId } = route.params;
+  const { sair } = useAuth();
 
   const [planos, setPlanos] = useState<PlanoCatalogo[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -135,6 +137,13 @@ export function OnboardingPlanoScreen({ route, navigation }: Props) {
           ) : (
             <Text style={styles.textoBotaoPrimario}>Continuar com {planoSelecionado?.nome ?? '...'}</Text>
           )}
+        </Pressable>
+
+        {/* Mesmo gap já resolvido em AssinaturaBloqueioScreen e OnboardingFormularioScreen
+            (dev relatou, 2026-09-18): sem isso, quem cai aqui fica preso sem jeito de sair. */}
+        <Pressable style={styles.botaoSair} onPress={() => sair()}>
+          <LogOut size={18} color={cores.red.padrao} />
+          <Text style={styles.textoBotaoSair}>Sair</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -292,5 +301,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  botaoSair: {
+    marginTop: espacamento.sm,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.sm,
+    borderWidth: 1.5,
+    borderColor: cores.red.padrao,
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.md,
+  },
+  textoBotaoSair: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: cores.red.padrao,
   },
 });

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LogOut } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { onboardingRequest } from '../services/assinatura';
 import { mensagemErro } from '../lib/erroApi';
+import { useAuth } from '../context/AuthContext';
 import { cores, espacamento, raio } from '../theme';
 import type { FaixaMeeiros, LocalizacaoProducao } from '../types/assinatura';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -32,6 +34,7 @@ function formatarMilhar(digitos: string): string {
 // antes de qualquer outra tela. As respostas definem o plano recomendado (quantidade de
 // meeiros) e ficam vinculadas ao usuário pra uso futuro (pés de morango, localização).
 export function OnboardingFormularioScreen({ navigation }: Props) {
+  const { sair } = useAuth();
   const [faixaMeeiros, setFaixaMeeiros] = useState<FaixaMeeiros | null>(null);
   const [quantidadePes, setQuantidadePes] = useState('');
   const [localizacao, setLocalizacao] = useState<LocalizacaoProducao | null>(null);
@@ -141,6 +144,14 @@ export function OnboardingFormularioScreen({ navigation }: Props) {
         >
           {enviando ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.textoBotaoPrimario}>Ver plano recomendado</Text>}
         </Pressable>
+
+        {/* Sem esse botão, quem cai aqui (formulário obrigatório de conta nova) ficava preso
+            sem jeito de trocar de conta — mesmo gap já resolvido em AssinaturaBloqueioScreen
+            (dev relatou, 2026-09-15), encontrado agora aqui também (dev relatou, 2026-09-18). */}
+        <Pressable style={styles.botaoSair} onPress={() => sair()}>
+          <LogOut size={18} color={cores.red.padrao} />
+          <Text style={styles.textoBotaoSair}>Sair</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -236,5 +247,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  botaoSair: {
+    marginTop: espacamento.sm,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espacamento.sm,
+    borderWidth: 1.5,
+    borderColor: cores.red.padrao,
+    borderRadius: raio.lg,
+    paddingVertical: espacamento.md,
+  },
+  textoBotaoSair: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: cores.red.padrao,
   },
 });

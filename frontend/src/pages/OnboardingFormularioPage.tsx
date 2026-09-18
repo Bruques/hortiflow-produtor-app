@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { onboardingRequest, type FaixaMeeiros, type LocalizacaoProducao } from '@/services/assinatura';
+import { logoutRequest } from '@/services/auth';
 import { cn } from '@/lib/utils';
 
 const OPCOES_MEEIROS: { valor: FaixaMeeiros; rotulo: string }[] = [
@@ -35,6 +37,15 @@ export default function OnboardingFormularioPage() {
   const [outraCidadeNome, setOutraCidadeNome] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  // Sem esse botão, quem cai aqui (formulário obrigatório de conta nova) ficava preso sem
+  // jeito de trocar de conta — mesmo gap que existia em AssinaturaBloqueadaPage antes do
+  // dev relatar (2026-09-15), encontrado agora aqui também (dev relatou, 2026-09-18).
+  function sair() {
+    logoutRequest(false);
+    localStorage.removeItem('token');
+    navigate('/login');
+  }
 
   const precisaNomeCidade = localizacao === 'OUTRA_CIDADE';
   const preenchido =
@@ -138,6 +149,15 @@ export default function OnboardingFormularioPage() {
         >
           {enviando ? 'Enviando...' : 'Ver plano recomendado'}
         </Button>
+
+        <button
+          type="button"
+          onClick={sair}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-hf-red py-3.5 text-sm font-bold text-hf-red"
+        >
+          <LogOut className="h-[18px] w-[18px]" />
+          Sair
+        </button>
       </div>
     </div>
   );
