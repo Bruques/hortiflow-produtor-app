@@ -4,6 +4,7 @@ import { TipoDespesa, StatusSafra, StatusPagamento } from '@prisma/client';
 import * as safrasService from '../services/safras.service';
 import * as despesasService from '../services/despesas.service';
 import * as acertosService from '../services/acertos.service';
+import * as assinaturaService from '../services/assinatura.service';
 import { resolverPeriodo, filtroDataPrisma } from '../lib/periodo';
 
 const rateioSchema = z.array(z.object({ socio_id: z.string().min(1), percentual: z.number().positive() }));
@@ -107,6 +108,12 @@ export async function criarCompartilhada(req: Request, res: Response): Promise<v
     res.status(422).json({
       error: 'Todas as safras precisam ser suas e estar em andamento',
     });
+    return;
+  }
+
+  const titularesVencidos = await safrasService.titularesVencidosDasSafras(safra_ids);
+  if (titularesVencidos.length > 0) {
+    res.status(402).json({ error: assinaturaService.mensagemAssinaturaVencida() });
     return;
   }
 

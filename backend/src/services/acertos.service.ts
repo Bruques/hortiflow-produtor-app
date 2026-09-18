@@ -199,6 +199,13 @@ export async function listarAcertos(safraId: string): Promise<AcertoResumo[]> {
   });
 }
 
+// Spec 27 — versão leve de buscarAcertoDetalhado, só pra resolver a qual safra um acerto
+// pertence (usado pelo gate de assinatura, que não precisa do detalhe completo com sócios).
+export async function buscarSafraIdDoAcerto(acertoId: string): Promise<string | null> {
+  const acerto = await prisma.acerto.findUnique({ where: { id: acertoId }, select: { safra_id: true } });
+  return acerto?.safra_id ?? null;
+}
+
 export async function buscarAcertoDetalhado(
   acertoId: string
 ): Promise<{ acerto: AcertoDetalhado; safraId: string } | null> {

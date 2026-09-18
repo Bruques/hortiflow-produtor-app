@@ -95,6 +95,16 @@ export function InicioScreen({ navigation }: Props) {
           navigation.replace('OnboardingFormulario');
           return;
         }
+        // Spec 27 — GET /safras agora filtra safras de titular vencido antes de responder, então
+        // uma lista vazia pode significar "venceu e sumiram todas", não só "nunca criou nenhuma".
+        // Só decide pelo bloqueio quando já existe plano atribuído (financiador de verdade que
+        // deixou de pagar) — sem isso, quem ainda pode estar chegando pra entrar como meeiro via
+        // código (trial pessoal vencido, mas nunca foi o financiador de nada) continua vendo o
+        // formulário normal, com o link de "já tenho código de convite" acessível.
+        if (dados.vencida && dados.plano && safras.length === 0) {
+          navigation.replace('AssinaturaBloqueio');
+          return;
+        }
         if (dados.status === 'TRIAL' && !dados.vencida) {
           const dias = Math.ceil((new Date(dados.dataFimAcesso).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
           setDiasTrialRestantes(Math.max(dias, 0));

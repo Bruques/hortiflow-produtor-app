@@ -87,6 +87,26 @@ export async function acessoLiberadoParaSafra(safraId: string): Promise<boolean>
   return acessoLiberadoParaTitular(safra.sociedade.criado_por_usuario_id);
 }
 
+// Spec 27 — versão em lote de acessoLiberadoParaTitular, para rotas que precisam checar vários
+// titulares de uma vez (ex.: lista de safras/resumo consolidado do usuário, que pode abranger
+// sociedades de titulares diferentes) sem fazer uma query por titular.
+export async function titularesLiberados(titularIds: string[]): Promise<Set<string>> {
+  const unicos = [...new Set(titularIds)];
+  if (unicos.length === 0) return new Set();
+
+  const assinaturas = await prisma.assinatura.findMany({
+    where: { usuario_id: { in: unicos } },
+    select: { usuario_id: true, data_fim_acesso: true },
+  });
+
+  const agora = new Date();
+  return new Set(
+    assinaturas
+      .filter((a): a is typeof a & { usuario_id: string } => a.usuario_id !== null && a.data_fim_acesso >= agora)
+      .map((a) => a.usuario_id)
+  );
+}
+
 // Task 24, adendo 2026-09-09 — importação de lançamentos por IA era exclusiva de "Plano 2"/
 // "Plano 3". Spec 25 muda isso: a nova tabela de preços dá acesso a TODOS os planos, só com
 // limite mensal diferente (Essencial 40, Profissional 100, Gestão 150 — `limite_importacao_ia_mes`

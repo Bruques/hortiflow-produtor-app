@@ -82,6 +82,17 @@ export default function HomePage() {
           navigate('/onboarding', { replace: true });
           return;
         }
+        // Spec 27 — GET /safras filtra silenciosamente safra de titular vencido (nunca devolve
+        // 402, pra não bloquear em bloco uma lista que pode abranger sociedades de titulares
+        // diferentes), então lista vazia aqui pode ser "venceu e sumiram todas", não só "nunca
+        // criou nenhuma". Só decide pelo bloqueio quando já existe plano atribuído (financiador
+        // de verdade que deixou de pagar) — sem isso, quem ainda pode estar chegando pra entrar
+        // como meeiro via código (trial pessoal vencido, mas nunca foi financiador de nada)
+        // continua vendo o formulário normal (mesmo critério aplicado no mobile).
+        if (dados.vencida && dados.plano && safras.length === 0) {
+          navigate('/assinatura/bloqueio', { replace: true });
+          return;
+        }
         if (dados.status === 'TRIAL' && !dados.vencida) {
           const dias = Math.ceil((new Date(dados.dataFimAcesso).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
           setDiasTrialRestantes(Math.max(dias, 0));

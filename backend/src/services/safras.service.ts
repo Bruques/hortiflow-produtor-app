@@ -288,6 +288,11 @@ export async function listarSafras(sociedadeId: string): Promise<Safra[]> {
 // da sociedade de que sou sócio": é toda safra em que tenho um SocioSafra, mais toda safra das
 // sociedades que eu criei (titular sempre vê tudo que criou, mesmo sem estar na lista de sócios
 // daquela safra específica).
+// Spec 27 — GET /safras e GET /safras/resumo não passam por criarGateAssinatura (não têm um
+// único `:id` de Sociedade/Safra pra checar: a lista pode abranger sociedades de titulares
+// diferentes, no caso de um meeiro acompanhar mais de uma). Em vez de bloquear a rota inteira
+// (o que tiraria acesso de sociedades cujo titular está em dia), filtramos aqui: a safra some
+// da lista se o titular dela estiver com assinatura vencida, sem nunca devolver 402.
 export async function listarSafrasDoUsuario(usuarioId: string) {
   const safras = await prisma.safra.findMany({
     where: {
@@ -296,20 +301,41 @@ export async function listarSafrasDoUsuario(usuarioId: string) {
         { sociosSafra: { some: { socioSociedade: { usuario_id: usuarioId } } } },
       ],
     },
-    include: { sociedade: { select: { nome: true } } },
+    include: { sociedade: { select: { nome: true, criado_por_usuario_id: true } } },
     orderBy: { criado_em: 'desc' },
   });
 
-  return safras.map((s) => ({
-    id: s.id,
-    sociedade_id: s.sociedade_id,
-    sociedade_nome: s.sociedade.nome,
-    nome: s.nome,
-    observacoes: s.observacoes,
-    status: s.status,
-    data_inicio: s.data_inicio,
-    data_fim: s.data_fim,
-  }));
+  const titularesIds = safras.map((s) => s.sociedade.criado_por_usuario_id);
+  const liberados = await assinaturaService.titularesLiberados(titularesIds);
+
+  return safras
+    .filter((s) => liberados.has(s.sociedade.criado_por_usuario_id))
+    .map((s) => ({
+      id: s.id,
+      sociedade_id: s.sociedade_id,
+      sociedade_nome: s.sociedade.nome,
+      nome: s.nome,
+      observacoes: s.observacoes,
+      status: s.status,
+      data_inicio: s.data_inicio,
+      data_fim: s.data_fim,
+    }));
+}
+
+// Spec 27 — despesa compartilhada (POST /despesas/compartilhada) lança em várias safras de uma
+// vez, então não dá pra usar o gate de rota única (:id): resolve o titular de cada safra
+// envolvida e devolve quais estão com assinatura vencida, pro controller decidir "tudo ou nada"
+// igual já faz com a checagem de sócio/EM_ANDAMENTO logo acima dessa chamada.
+export async function titularesVencidosDasSafras(safraIds: string[]): Promise<string[]> {
+  const safras = await prisma.safra.findMany({
+    where: { id: { in: safraIds } },
+    select: { id: true, sociedade: { select: { criado_por_usuario_id: true } } },
+  });
+  const titularesIds = safras.map((s) => s.sociedade.criado_por_usuario_id);
+  const liberados = await assinaturaService.titularesLiberados(titularesIds);
+  return safras
+    .filter((s) => !liberados.has(s.sociedade.criado_por_usuario_id))
+    .map((s) => s.id);
 }
 
 // Centraliza a checagem "usuário pode ver/lançar dados dessa safra", usada por despesas,
