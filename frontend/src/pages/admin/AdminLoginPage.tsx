@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     try {
       const { token } = await loginAdminRequest(email, senha);
       localStorage.setItem('adminToken', token);
-      navigate('/admin/assinaturas');
+      navigate('/admin/dashboard');
     } catch (err) {
       const data = (err as { response?: { data?: { error?: string } } }).response?.data;
       setErro(data?.error ?? 'Não foi possível entrar');

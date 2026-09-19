@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   listarAssinaturasRequest,
   listarPlanosRequest,
@@ -70,6 +70,7 @@ export default function AdminAssinaturasPage() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-8">
       <div className="flex items-center justify-between">
         <h1 className="font-rounded text-2xl font-extrabold text-hf-stone-900">Assinaturas</h1>
+        <Link to="/admin/dashboard" className="ml-4 mr-auto text-xs font-bold text-hf-green-700 underline">Voltar ao painel</Link>
         <button
           type="button"
           onClick={() => {

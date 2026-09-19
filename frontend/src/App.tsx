@@ -33,6 +33,7 @@ import OnboardingPlanoPage from '@/pages/OnboardingPlanoPage';
 import CheckoutPage from '@/pages/CheckoutPage';
 import CheckoutRetornoPage from '@/pages/CheckoutRetornoPage';
 import AdminAssinaturasPage from '@/pages/admin/AdminAssinaturasPage';
+import AdminDashboardPage from '@/pages/admin/AdminDashboardPage';
 import AdminLoginPage from '@/pages/admin/AdminLoginPage';
 import DocumentoLegalPage from '@/pages/DocumentoLegalPage';
 import TermosAceitePage from '@/pages/TermosAceitePage';
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/termos/privacidade" element={<DocumentoLegalPage documento={POLITICA_DE_PRIVACIDADE} />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route element={<AdminRoute />}>
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/assinaturas" element={<AdminAssinaturasPage />} />
         </Route>
         <Route element={<PrivateRoute />}>

@@ -1,5 +1,6 @@
 import adminApiClient from './adminApiClient';
 import type { TitularAdmin, PlanoAdmin } from '@/types/assinatura';
+import type { CobrancaGerada, DashboardAdmin, NovaCobranca } from '@/types/adminDashboard';
 
 export interface AdminAuthResponse {
   admin: { id: string; nome: string; email: string };
@@ -48,11 +49,39 @@ export async function gerarCheckoutLinkRequest(usuarioId: string): Promise<{ che
 
 export async function registrarPagamentoManualRequest(
   usuarioId: string,
-  dados: { valor: number; metodo: 'MANUAL_PIX' | 'MANUAL_DINHEIRO'; dias: number }
+  dados: { valor: number; metodo: 'MANUAL_PIX' | 'MANUAL_DINHEIRO' | 'MANUAL_CORTESIA'; dias: number }
 ): Promise<{ dataFimAcesso: string }> {
   const { data } = await adminApiClient.post<{ dataFimAcesso: string }>(
     `/admin/assinaturas/${usuarioId}/pagamento-manual`,
     dados
   );
   return data;
+}
+
+// --- Spec 28: painel do dono ---
+
+export async function dashboardRequest(): Promise<DashboardAdmin> {
+  const { data } = await adminApiClient.get<DashboardAdmin>('/admin/dashboard');
+  return data;
+}
+
+export async function gerarCobrancaRequest(usuarioId: string, dados: NovaCobranca): Promise<CobrancaGerada> {
+  const { data } = await adminApiClient.post<CobrancaGerada>(`/admin/assinaturas/${usuarioId}/cobranca`, dados);
+  return data;
+}
+
+export async function verificarPixRequest(
+  usuarioId: string,
+  orderId: string
+): Promise<{ pedidoStatus: string; pago: boolean; dataFimAcesso: string }> {
+  const { data } = await adminApiClient.post(`/admin/assinaturas/${usuarioId}/pix/${orderId}/verificar`);
+  return data;
+}
+
+export async function cancelarAssinaturaRequest(usuarioId: string): Promise<void> {
+  await adminApiClient.post(`/admin/assinaturas/${usuarioId}/cancelar`);
+}
+
+export async function definirBloqueioRequest(usuarioId: string, bloqueado: boolean): Promise<void> {
+  await adminApiClient.post(`/admin/usuarios/${usuarioId}/bloqueio`, { bloqueado });
 }

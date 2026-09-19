@@ -23,7 +23,10 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const { email, senha } = parsed.data;
+  const { senha } = parsed.data;
+  // Normaliza pra que maiúsculas/espaços ao digitar não derrubem o login (o script que cria o
+  // admin grava o e-mail em minúsculas).
+  const email = parsed.data.email.trim().toLowerCase();
 
   const admin = await prisma.adminUsuario.findUnique({ where: { email } });
   if (!admin) {

@@ -45,6 +45,12 @@ export const ROTAS_ISENTAS: RotaManifesto[] = [
   { arquivo: 'admin.ts', metodo: 'post', caminho: '/assinaturas/:usuarioId/checkout-link' },
   { arquivo: 'admin.ts', metodo: 'post', caminho: '/assinaturas/:usuarioId/pagamento-manual' },
   { arquivo: 'admin.ts', metodo: 'patch', caminho: '/planos/:planoId' },
+  // Spec 28 — painel do dono
+  { arquivo: 'admin.ts', metodo: 'get', caminho: '/dashboard' },
+  { arquivo: 'admin.ts', metodo: 'post', caminho: '/assinaturas/:usuarioId/cobranca' },
+  { arquivo: 'admin.ts', metodo: 'post', caminho: '/assinaturas/:usuarioId/pix/:orderId/verificar' },
+  { arquivo: 'admin.ts', metodo: 'post', caminho: '/assinaturas/:usuarioId/cancelar' },
+  { arquivo: 'admin.ts', metodo: 'post', caminho: '/usuarios/:usuarioId/bloqueio' },
 
   // termos.ts — aceite de Termos de Uso precisa funcionar mesmo com trial/assinatura vencida
   { arquivo: 'termos.ts', metodo: 'get', caminho: '/status' },

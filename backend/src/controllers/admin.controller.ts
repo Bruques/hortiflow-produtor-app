@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as assinaturaService from '../services/assinatura.service';
+import * as dashboardService from '../services/adminDashboard.service';
 
 export async function listarAssinaturas(_req: Request, res: Response): Promise<void> {
   const titulares = await assinaturaService.listarParaAdmin();
@@ -78,16 +79,21 @@ export async function checkoutLink(req: Request, res: Response): Promise<void> {
   res.json({ checkoutUrl: resultado.checkoutUrl });
 }
 
-const pagamentoManualSchema = z.object({
-  valor: z.number().positive(),
-  metodo: z.enum(['MANUAL_PIX', 'MANUAL_DINHEIRO']),
-  dias: z.number().int().positive(),
-});
+// Spec 28 — cortesia é o "liberar sem pagar": só ela pode ter valor 0, e ela nunca tem valor.
+const pagamentoManualSchema = z
+  .object({
+    valor: z.number().nonnegative(),
+    metodo: z.enum(['MANUAL_PIX', 'MANUAL_DINHEIRO', 'MANUAL_CORTESIA']),
+    dias: z.number().int().positive(),
+  })
+  .refine((d) => (d.metodo === 'MANUAL_CORTESIA' ? d.valor === 0 : d.valor > 0), {
+    message: 'Cortesia exige valor 0; Pix e dinheiro exigem valor maior que 0',
+  });
 
 export async function pagamentoManual(req: Request, res: Response): Promise<void> {
   const parsed = pagamentoManualSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'valor, metodo e dias são obrigatórios' });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'valor, metodo e dias são obrigatórios' });
     return;
   }
 
@@ -97,4 +103,83 @@ export async function pagamentoManual(req: Request, res: Response): Promise<void
     return;
   }
   res.json({ dataFimAcesso: resultado.dataFimAcesso });
+}
+
+// --- Spec 28: painel do dono ---
+
+export async function dashboard(_req: Request, res: Response): Promise<void> {
+  res.json(await dashboardService.carregarDashboard());
+}
+
+const cobrancaSchema = z.object({
+  planoId: z.string().min(1),
+  ciclo: z.enum(['MENSAL', 'ANUAL']),
+  metodo: z.enum(['PIX', 'CARTAO']),
+  desconto: z.object({ tipo: z.enum(['PERCENTUAL', 'VALOR']), valor: z.number() }).optional(),
+});
+
+export async function gerarCobranca(req: Request, res: Response): Promise<void> {
+  const parsed = cobrancaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'planoId, ciclo e metodo são obrigatórios' });
+    return;
+  }
+
+  const urls = {
+    callbackUrl: `${process.env.FRONTEND_URL}/assinatura`,
+    notificationUrl: `${process.env.BACKEND_PUBLIC_URL}/api/webhooks/mercadopago?token=${process.env.MP_WEBHOOK_TOKEN}`,
+  };
+  const resultado = await assinaturaService.gerarCobrancaAdmin(req.params.usuarioId, parsed.data, urls);
+
+  if ('erro' in resultado) {
+    const mensagens = {
+      ASSINATURA_NAO_ENCONTRADA: [404, 'Assinatura não encontrada'],
+      PLANO_NAO_ENCONTRADO: [404, 'Plano não encontrado'],
+      DESCONTO_INVALIDO: [400, 'Desconto inválido: use uma porcentagem entre 0 e 100 ou um valor menor que o preço do plano'],
+      VALOR_FINAL_ABAIXO_DO_MINIMO: [400, 'O valor final não pode ser menor que R$ 1,00'],
+    } as const;
+    const [status, error] = mensagens[resultado.erro];
+    res.status(status).json({ error });
+    return;
+  }
+  res.json(resultado);
+}
+
+export async function verificarPix(req: Request, res: Response): Promise<void> {
+  const resultado = await assinaturaService.verificarPixAdmin(req.params.usuarioId, req.params.orderId);
+  if ('erro' in resultado) {
+    res.status(resultado.erro === 'ASSINATURA_NAO_ENCONTRADA' ? 404 : 409).json({
+      error: resultado.erro === 'ASSINATURA_NAO_ENCONTRADA' ? 'Assinatura não encontrada' : 'Esse Pix não pertence a esse produtor',
+    });
+    return;
+  }
+  res.json(resultado);
+}
+
+export async function cancelarAssinatura(req: Request, res: Response): Promise<void> {
+  const resultado = await assinaturaService.cancelarAssinaturaAdmin(req.params.usuarioId);
+  if ('erro' in resultado) {
+    res.status(404).json({ error: 'Assinatura não encontrada' });
+    return;
+  }
+  res.json(resultado);
+}
+
+const bloqueioSchema = z.object({ bloqueado: z.boolean() });
+
+export async function definirBloqueio(req: Request, res: Response): Promise<void> {
+  const parsed = bloqueioSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'bloqueado precisa ser true ou false' });
+    return;
+  }
+
+  const resultado = await assinaturaService.definirBloqueioUsuario(req.params.usuarioId, parsed.data.bloqueado, req.adminId);
+  if ('erro' in resultado) {
+    res.status(resultado.erro === 'USUARIO_NAO_ENCONTRADO' ? 404 : 409).json({
+      error: resultado.erro === 'USUARIO_NAO_ENCONTRADO' ? 'Usuário não encontrado' : 'Conta excluída não pode ser bloqueada ou desbloqueada',
+    });
+    return;
+  }
+  res.json(resultado);
 }

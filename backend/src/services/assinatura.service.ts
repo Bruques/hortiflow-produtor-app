@@ -1,7 +1,9 @@
-import { CicloAssinatura, FaixaMeeiros, LocalizacaoProducao, MetodoPagamento, StatusAssinatura, StatusSafra } from '@prisma/client';
+import { CicloAssinatura, FaixaMeeiros, LocalizacaoProducao, MetodoPagamento, StatusAssinatura, StatusSafra, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma';
 import * as asaasService from './asaas.service';
 import * as mercadopagoService from './mercadopago.service';
+import { calcularValorCobranca, Desconto } from '../lib/desconto';
+import { registrarEvento } from './auditoria.service';
 
 const TRIAL_DIAS = Number(process.env.TRIAL_DIAS || 14);
 
@@ -44,7 +46,7 @@ async function buscarAssinaturaPorUsuario(usuarioId: string) {
 
 // Limite efetivo de safras ativas para um titular: override pontual > limite do plano >
 // sem limite (plano ainda não atribuído, ou Plano 3 com limite null = ilimitado).
-function limiteEfetivo(assinatura: { limite_safras_ativas_override: number | null; plano: { limite_safras_ativas: number | null } | null }): number | null {
+export function limiteEfetivo(assinatura: { limite_safras_ativas_override: number | null; plano: { limite_safras_ativas: number | null } | null }): number | null {
   if (assinatura.limite_safras_ativas_override !== null && assinatura.limite_safras_ativas_override !== undefined) {
     return assinatura.limite_safras_ativas_override;
   }
@@ -304,37 +306,43 @@ export async function escolherPlano(
   return { plano: { id: plano.id, nome: plano.nome }, ciclo };
 }
 
-type CheckoutResultado =
-  | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
-  | { erro: 'PLANO_NAO_ENCONTRADO' }
+type CobrancaCriada =
   | { tipo: 'COBRANCA_UNICA'; mpPaymentId: string; initPoint: string }
   | { tipo: 'PIX'; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string };
 
-export async function iniciarCheckout(
-  usuarioId: string,
-  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX' },
-  urls: { callbackUrl: string; notificationUrl: string }
-): Promise<CheckoutResultado> {
-  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
-  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+type CheckoutResultado =
+  | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
+  | { erro: 'PLANO_NAO_ENCONTRADO' }
+  | CobrancaCriada;
 
-  const plano = await prisma.plano.findUnique({ where: { id: dados.planoId } });
-  if (!plano) return { erro: 'PLANO_NAO_ENCONTRADO' };
-
-  const cicloTexto = dados.ciclo === CicloAssinatura.ANUAL ? 'anual' : 'mensal';
+// Cria a cobrança no Mercado Pago e grava plano/ciclo na Assinatura. Compartilhado entre o
+// checkout do próprio produtor (`iniciarCheckout`) e a cobrança gerada pelo dono no painel
+// admin (`gerarCobrancaAdmin`, spec 28) — a única diferença entre os dois é quem decide o
+// `valor` (tabela do plano vs. tabela com desconto). O ciclo fica gravado porque é ele que
+// diz ao webhook quantos dias liberar (30 ou 365) quando o pagamento for confirmado.
+async function criarCobrancaNoGateway(params: {
+  assinaturaId: string;
+  usuarioId: string;
+  plano: { id: string; nome: string };
+  ciclo: CicloAssinatura;
+  metodo: 'CARTAO' | 'PIX';
+  valor: number;
+  urls: { callbackUrl: string; notificationUrl: string };
+}): Promise<CobrancaCriada> {
+  const { assinaturaId, usuarioId, plano, ciclo, metodo, valor, urls } = params;
+  const cicloTexto = ciclo === CicloAssinatura.ANUAL ? 'anual' : 'mensal';
   const descricao = `HortiFlow — ${plano.nome} (${cicloTexto})`;
-  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
 
   // Pix usa a API de Orders (sem redirecionar, sem exigir conta Mercado Pago do pagador) —
   // ver aviso no topo de mercadopago.service.ts sobre o caminho até chegar nessa solução.
-  if (dados.metodo === 'PIX') {
+  if (metodo === 'PIX') {
     const pedido = await mercadopagoService.criarPedidoPix({
       usuarioId,
       descricao,
       valor,
-      externalReference: assinatura.id,
+      externalReference: assinaturaId,
     });
-    await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
+    await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo } });
     return {
       tipo: 'PIX',
       mpOrderId: pedido.orderId,
@@ -353,12 +361,35 @@ export async function iniciarCheckout(
     usuarioId,
     descricao,
     valor,
-    externalReference: assinatura.id,
+    externalReference: assinaturaId,
     callbackUrl: urls.callbackUrl,
     notificationUrl: urls.notificationUrl,
   });
-  await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo: dados.ciclo } });
+  await prisma.assinatura.update({ where: { usuario_id: usuarioId }, data: { plano_id: plano.id, ciclo } });
   return { tipo: 'COBRANCA_UNICA', mpPaymentId: preferenceId, initPoint };
+}
+
+export async function iniciarCheckout(
+  usuarioId: string,
+  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX' },
+  urls: { callbackUrl: string; notificationUrl: string }
+): Promise<CheckoutResultado> {
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  const plano = await prisma.plano.findUnique({ where: { id: dados.planoId } });
+  if (!plano) return { erro: 'PLANO_NAO_ENCONTRADO' };
+
+  const valor = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
+  return criarCobrancaNoGateway({
+    assinaturaId: assinatura.id,
+    usuarioId,
+    plano,
+    ciclo: dados.ciclo,
+    metodo: dados.metodo,
+    valor,
+    urls,
+  });
 }
 
 // --- Admin ---
@@ -369,6 +400,8 @@ export async function listarPlanos() {
     id: p.id,
     nome: p.nome,
     valorMensal: Number(p.valor_mensal),
+    // Spec 28 — o painel de cobrança mostra o valor final (com desconto) antes de gerar.
+    valorAnual: Number(p.valor_anual),
     limiteSafrasAtivas: p.limite_safras_ativas,
   }));
 }
@@ -499,7 +532,7 @@ export async function gerarCheckoutLink(usuarioId: string, callbackUrl: string):
 
 export async function registrarPagamentoManual(
   usuarioId: string,
-  dados: { valor: number; metodo: Extract<MetodoPagamento, 'MANUAL_PIX' | 'MANUAL_DINHEIRO'>; dias: number },
+  dados: { valor: number; metodo: Extract<MetodoPagamento, 'MANUAL_PIX' | 'MANUAL_DINHEIRO' | 'MANUAL_CORTESIA'>; dias: number },
   adminId: string
 ): Promise<{ erro: 'ASSINATURA_NAO_ENCONTRADA' } | { dataFimAcesso: Date }> {
   const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
@@ -533,6 +566,125 @@ export async function registrarPagamentoManual(
   ]);
 
   return { dataFimAcesso: novaDataFim };
+}
+
+// --- Spec 28: painel do dono ---
+
+type CobrancaAdminResultado =
+  | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
+  | { erro: 'PLANO_NAO_ENCONTRADO' }
+  | { erro: 'DESCONTO_INVALIDO' | 'VALOR_FINAL_ABAIXO_DO_MINIMO' }
+  | { tipo: 'PIX'; valorBase: number; valorFinal: number; mpOrderId: string; qrCode: string; qrCodeBase64: string; dataExpiracao: string }
+  | { tipo: 'CARTAO'; valorBase: number; valorFinal: number; linkPagamento: string };
+
+// Cobrança gerada pelo dono pra um produtor, com desconto opcional. O desconto só existe
+// aqui, no cálculo do valor da cobrança: o Pagamento gravado depois (webhook) guarda o valor
+// efetivamente pago, então receita e histórico já refletem o desconto sem campo novo.
+export async function gerarCobrancaAdmin(
+  usuarioId: string,
+  dados: { planoId: string; ciclo: CicloAssinatura; metodo: 'CARTAO' | 'PIX'; desconto?: Desconto },
+  urls: { callbackUrl: string; notificationUrl: string }
+): Promise<CobrancaAdminResultado> {
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  const plano = await prisma.plano.findUnique({ where: { id: dados.planoId } });
+  if (!plano) return { erro: 'PLANO_NAO_ENCONTRADO' };
+
+  const precoBase = dados.ciclo === CicloAssinatura.ANUAL ? Number(plano.valor_anual) : Number(plano.valor_mensal);
+  const calculo = calcularValorCobranca(precoBase, dados.desconto);
+  // Validação antes de qualquer chamada ao Mercado Pago: desconto inválido não cria nada lá.
+  if ('erro' in calculo) return calculo;
+
+  const cobranca = await criarCobrancaNoGateway({
+    assinaturaId: assinatura.id,
+    usuarioId,
+    plano,
+    ciclo: dados.ciclo,
+    metodo: dados.metodo,
+    valor: calculo.valorFinal,
+    urls,
+  });
+
+  if (cobranca.tipo === 'PIX') {
+    return {
+      tipo: 'PIX',
+      valorBase: calculo.valorBase,
+      valorFinal: calculo.valorFinal,
+      mpOrderId: cobranca.mpOrderId,
+      qrCode: cobranca.qrCode,
+      qrCodeBase64: cobranca.qrCodeBase64,
+      dataExpiracao: cobranca.dataExpiracao,
+    };
+  }
+  return { tipo: 'CARTAO', valorBase: calculo.valorBase, valorFinal: calculo.valorFinal, linkPagamento: cobranca.initPoint };
+}
+
+// Rede de segurança do "verificar pagamento": o webhook normalmente confirma sozinho, isso
+// só cobre atraso/falha dele. Reaproveita a confirmação idempotente do webhook. Confere que o
+// pedido pertence a esta assinatura pra o dono não confirmar, por engano, o Pix de outra pessoa.
+export async function verificarPixAdmin(
+  usuarioId: string,
+  orderId: string
+): Promise<
+  | { erro: 'ASSINATURA_NAO_ENCONTRADA' }
+  | { erro: 'PEDIDO_DE_OUTRA_ASSINATURA' }
+  | { pedidoStatus: string; pago: boolean; dataFimAcesso: Date }
+> {
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  const pedido = await mercadopagoService.buscarPedido(orderId);
+  if (pedido.externalReference !== assinatura.id) return { erro: 'PEDIDO_DE_OUTRA_ASSINATURA' };
+
+  const pago = pedido.status === 'processed';
+  if (pago) await confirmarPedidoPixWebhookMercadoPago(orderId);
+
+  const atualizada = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  return { pedidoStatus: pedido.status, pago, dataFimAcesso: atualizada!.data_fim_acesso };
+}
+
+// Cancelar pelo painel NÃO corta o acesso: só marca a assinatura como cancelada e encerra a
+// recorrência no gateway, se houver. Quem decide o acesso é `data_fim_acesso` (spec 18), que
+// aqui não é tocada — o produtor usa até o fim do que já pagou. Pra cortar na hora, o dono
+// usa o bloqueio. Diferente de `cancelarAssinaturaDoUsuario` (o produtor cancelando a si
+// mesmo), aceita assinatura sem recorrência, que é o caso comum com Pix/cartão avulsos.
+export async function cancelarAssinaturaAdmin(
+  usuarioId: string
+): Promise<{ erro: 'ASSINATURA_NAO_ENCONTRADA' } | { status: StatusAssinatura; dataFimAcesso: Date }> {
+  const assinatura = await prisma.assinatura.findUnique({ where: { usuario_id: usuarioId } });
+  if (!assinatura) return { erro: 'ASSINATURA_NAO_ENCONTRADA' };
+
+  if (assinatura.mp_preapproval_id) {
+    await mercadopagoService.cancelarAssinatura(assinatura.mp_preapproval_id);
+  } else if (assinatura.asaas_subscription_id) {
+    await asaasService.cancelarAssinatura(assinatura.asaas_subscription_id);
+  }
+
+  const atualizada = await prisma.assinatura.update({
+    where: { usuario_id: usuarioId },
+    data: { status: StatusAssinatura.CANCELADA },
+  });
+  return { status: atualizada.status, dataFimAcesso: atualizada.data_fim_acesso };
+}
+
+// Bloqueio (spec 16), agora pelo painel em vez de direto no banco. Conta excluída (spec 20)
+// não é bloqueável nem desbloqueável: reativá-la por aqui a traria de volta anonimizada.
+export async function definirBloqueioUsuario(
+  usuarioId: string,
+  bloqueado: boolean,
+  adminId: string
+): Promise<{ erro: 'USUARIO_NAO_ENCONTRADO' } | { erro: 'CONTA_EXCLUIDA' } | { status: StatusUsuario }> {
+  const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+  if (!usuario) return { erro: 'USUARIO_NAO_ENCONTRADO' };
+  if (usuario.status === StatusUsuario.EXCLUIDO) return { erro: 'CONTA_EXCLUIDA' };
+
+  const novoStatus = bloqueado ? StatusUsuario.BLOQUEADO : StatusUsuario.ATIVO;
+  if (usuario.status !== novoStatus) {
+    await prisma.usuario.update({ where: { id: usuarioId }, data: { status: novoStatus } });
+    await registrarEvento(usuarioId, bloqueado ? 'CONTA_BLOQUEADA' : 'CONTA_DESBLOQUEADA', { origem: 'painel_admin', adminId });
+  }
+  return { status: novoStatus };
 }
 
 // --- Webhook Asaas ---

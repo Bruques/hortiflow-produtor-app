@@ -18,4 +18,11 @@ router.post('/assinaturas/:usuarioId/checkout-link', adminController.checkoutLin
 router.post('/assinaturas/:usuarioId/pagamento-manual', adminController.pagamentoManual);
 router.patch('/planos/:planoId', adminController.editarPlano);
 
+// Spec 28 — painel do dono
+router.get('/dashboard', adminController.dashboard);
+router.post('/assinaturas/:usuarioId/cobranca', adminController.gerarCobranca);
+router.post('/assinaturas/:usuarioId/pix/:orderId/verificar', adminController.verificarPix);
+router.post('/assinaturas/:usuarioId/cancelar', adminController.cancelarAssinatura);
+router.post('/usuarios/:usuarioId/bloqueio', adminController.definirBloqueio);
+
 export default router;

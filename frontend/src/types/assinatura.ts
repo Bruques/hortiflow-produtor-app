@@ -22,6 +22,7 @@ export interface PlanoAdmin {
   id: string;
   nome: string;
   valorMensal: number;
+  valorAnual: number;
   limiteSafrasAtivas: number | null;
 }
 

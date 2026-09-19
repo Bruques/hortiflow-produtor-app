@@ -75,6 +75,8 @@ enum MetodoPagamento {
   GATEWAY_MP_PIX
   MANUAL_PIX
   MANUAL_DINHEIRO
+  // Spec 28 — acesso liberado pelo dono sem pagamento (valor 0). Não entra na receita.
+  MANUAL_CORTESIA
 }
 
 // Spec 25 — ciclo de cobrança escolhido pelo produtor no fluxo de onboarding/checkout.
