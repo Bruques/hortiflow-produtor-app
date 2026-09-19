@@ -735,87 +735,86 @@ export async function confirmarPagamentoWebhook(payload: asaasService.AsaasWebho
 
 // --- Webhook Mercado Pago (spec 25) ---
 
+// Grava um pagamento confirmado pelo Mercado Pago (cartão ou Pix) e estende o acesso.
+//
+// Bug real em produção (2026-09-19): um único Pix de R$ 49,90 virou DUAS linhas de `Pagamento`,
+// com o mesmo `mp_payment_id` e criadas com 1 ms de diferença. Ou seja: o Mercado Pago entregou
+// o MESMO aviso duas vezes ao mesmo tempo, e a checagem "esse pagamento já foi processado?" e a
+// gravação eram passos separados, então as duas entregas passaram na checagem. Período idêntico
+// nas duas linhas (as duas leram a mesma `data_fim_acesso`) confirma a corrida. Aqui tudo
+// acontece numa transação que primeiro TRAVA a linha da assinatura (`FOR UPDATE`): a segunda
+// confirmação espera a primeira terminar, enxerga o `Pagamento` já gravado e sai sem fazer nada.
+async function registrarPagamentoMercadoPago(params: {
+  assinaturaId: string;
+  mpId: string;
+  metodo: MetodoPagamento;
+  valor: number;
+}): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM assinaturas WHERE id = ${params.assinaturaId} FOR UPDATE`;
+
+    const jaProcessado = await tx.pagamento.findFirst({ where: { mp_payment_id: params.mpId } });
+    if (jaProcessado) return;
+
+    const assinatura = await tx.assinatura.findUnique({ where: { id: params.assinaturaId } });
+    if (!assinatura) return;
+
+    const agora = new Date();
+    const base = assinatura.status === StatusAssinatura.ATIVA && assinatura.data_fim_acesso > agora
+      ? assinatura.data_fim_acesso
+      : agora;
+    const dias = assinatura.ciclo === CicloAssinatura.ANUAL ? 365 : 30;
+    const novaDataFim = somarDias(base, dias);
+
+    await tx.pagamento.create({
+      data: {
+        assinatura_id: assinatura.id,
+        metodo: params.metodo,
+        valor: params.valor,
+        periodo_inicio: base,
+        periodo_fim: novaDataFim,
+        mp_payment_id: params.mpId,
+      },
+    });
+    await tx.assinatura.update({
+      where: { id: assinatura.id },
+      data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
+    });
+  });
+}
+
+// Aviso de pagamento (`type=payment`). Em produção esse é o caminho tanto do cartão (Checkout
+// Pro) quanto, na prática, de Pix (o Pix do Luis Miguel, 2026-09-18, chegou por aqui, com o id
+// numérico do pagamento), enquanto o Pix de teste de 2026-09-15 chegou pelo aviso de PEDIDO
+// (`confirmarPedidoPixWebhookMercadoPago`, id `ORD...`). Os dois caminhos precisam continuar
+// ativos. `external_reference` é o id da própria Assinatura, gravado na criação da cobrança.
 export async function confirmarPagamentoWebhookMercadoPago(paymentId: string): Promise<void> {
   const pagamento = await mercadopagoService.buscarPagamento(paymentId);
   if (pagamento.status !== 'approved') return;
   if (!pagamento.external_reference) return;
 
-  // Idempotência: essa função pode ser chamada mais de uma vez pro mesmo pagamento — o
-  // Mercado Pago pode reenviar o mesmo webhook. Sem essa checagem, cada chamada extra
-  // duplicava o Pagamento e estendia `data_fim_acesso` de novo.
-  const jaProcessado = await prisma.pagamento.findFirst({ where: { mp_payment_id: pagamento.id } });
-  if (jaProcessado) return;
-
-  // `external_reference` é o id da própria Assinatura, gravado na criação da cobrança/
-  // assinatura em `iniciarCheckout` — não precisa de customer id como no Asaas.
-  const assinatura = await prisma.assinatura.findUnique({
-    where: { id: pagamento.external_reference },
+  await registrarPagamentoMercadoPago({
+    assinaturaId: pagamento.external_reference,
+    mpId: pagamento.id,
+    metodo: pagamento.payment_type_id === 'credit_card' ? MetodoPagamento.GATEWAY_MP_CARTAO : MetodoPagamento.GATEWAY_MP_PIX,
+    valor: pagamento.transaction_amount,
   });
-  if (!assinatura) return;
-
-  const agora = new Date();
-  const base = assinatura.status === StatusAssinatura.ATIVA && assinatura.data_fim_acesso > agora
-    ? assinatura.data_fim_acesso
-    : agora;
-  const dias = assinatura.ciclo === CicloAssinatura.ANUAL ? 365 : 30;
-  const novaDataFim = somarDias(base, dias);
-  const metodo = pagamento.payment_type_id === 'credit_card' ? MetodoPagamento.GATEWAY_MP_CARTAO : MetodoPagamento.GATEWAY_MP_PIX;
-
-  await prisma.$transaction([
-    prisma.pagamento.create({
-      data: {
-        assinatura_id: assinatura.id,
-        metodo,
-        valor: pagamento.transaction_amount,
-        periodo_inicio: base,
-        periodo_fim: novaDataFim,
-        mp_payment_id: pagamento.id,
-      },
-    }),
-    prisma.assinatura.update({
-      where: { id: assinatura.id },
-      data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
-    }),
-  ]);
 }
 
-// Pix via API de Orders (ver mercadopago.service.ts) — mesma lógica da confirmação de
-// pagamento acima, mas consultando um pedido em vez de um pagamento avulso. `mp_payment_id`
-// no `Pagamento` guarda o id do pedido aqui (nome do campo é genérico o bastante).
+// Pix via API de Orders (ver mercadopago.service.ts) — consulta um pedido em vez de um
+// pagamento avulso. `mp_payment_id` no `Pagamento` guarda o id do pedido aqui (nome do campo
+// é genérico o bastante).
 export async function confirmarPedidoPixWebhookMercadoPago(orderId: string): Promise<void> {
   const pedido = await mercadopagoService.buscarPedido(orderId);
   if (pedido.status !== 'processed') return;
   if (!pedido.externalReference) return;
 
-  const jaProcessado = await prisma.pagamento.findFirst({ where: { mp_payment_id: pedido.id } });
-  if (jaProcessado) return;
-
-  const assinatura = await prisma.assinatura.findUnique({ where: { id: pedido.externalReference } });
-  if (!assinatura) return;
-
-  const agora = new Date();
-  const base = assinatura.status === StatusAssinatura.ATIVA && assinatura.data_fim_acesso > agora
-    ? assinatura.data_fim_acesso
-    : agora;
-  const dias = assinatura.ciclo === CicloAssinatura.ANUAL ? 365 : 30;
-  const novaDataFim = somarDias(base, dias);
-
-  await prisma.$transaction([
-    prisma.pagamento.create({
-      data: {
-        assinatura_id: assinatura.id,
-        metodo: MetodoPagamento.GATEWAY_MP_PIX,
-        valor: pedido.valor,
-        periodo_inicio: base,
-        periodo_fim: novaDataFim,
-        mp_payment_id: pedido.id,
-      },
-    }),
-    prisma.assinatura.update({
-      where: { id: assinatura.id },
-      data: { data_fim_acesso: novaDataFim, status: StatusAssinatura.ATIVA },
-    }),
-  ]);
+  await registrarPagamentoMercadoPago({
+    assinaturaId: pedido.externalReference,
+    mpId: pedido.id,
+    metodo: MetodoPagamento.GATEWAY_MP_PIX,
+    valor: pedido.valor,
+  });
 }
 
 // Botão "Já paguei — verificar": checagem ativa do pagador em vez de só esperar o webhook
