@@ -89,6 +89,8 @@ describe('montarDashboard', () => {
       AGORA
     );
     expect(resumo.receitaMes).toBe(50);
+    expect(resumo.receitaMesContasExcluidas).toBe(50);
+    expect(resumo.receitaTotalContasExcluidas).toBe(50);
     expect(resumo.cadastrados).toBe(0);
     expect(produtores).toHaveLength(0);
   });

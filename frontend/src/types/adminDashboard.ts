@@ -44,6 +44,8 @@ export interface DashboardAdmin {
     receitaMes: number;
     receitaMesAnterior: number;
     receitaTotal: number;
+    receitaMesContasExcluidas: number;
+    receitaTotalContasExcluidas: number;
     recorrenciaMensal: number;
     ativos: number;
     emTrial: number;

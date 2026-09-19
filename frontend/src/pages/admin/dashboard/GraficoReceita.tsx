@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DashboardAdmin } from '@/types/adminDashboard';
-import { brl, brl0, maximoDoEixo, nomeDoMes } from './formatos';
+import { brl, brlEixo, maximoDoEixo, nomeDoMes } from './formatos';
 import { useLargura } from './useLargura';
 
 // Receita por mês em barras (uma série só, então sem legenda). Só a barra do mês corrente
@@ -26,7 +26,7 @@ export default function GraficoReceita({ dados }: { dados: DashboardAdmin['recei
           return (
             <g key={t}>
               <line x1={E} x2={w - D} y1={y(v)} y2={y(v)} stroke="#e6eae2" />
-              <text x={E - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#5c6b5e">{brl0(v)}</text>
+              <text x={E - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#5c6b5e">{brlEixo(v)}</text>
             </g>
           );
         })}
@@ -44,7 +44,7 @@ export default function GraficoReceita({ dados }: { dados: DashboardAdmin['recei
                 />
               )}
               {atual && (
-                <text x={cx} y={topo - 7} textAnchor="middle" fontSize="12" fontWeight="700" fill="#202821">{brl0(m.valor)}</text>
+                <text x={cx} y={topo - 7} textAnchor="middle" fontSize="12" fontWeight="700" fill="#202821">{brl(m.valor)}</text>
               )}
               <text x={cx} y={h - 8} textAnchor="middle" fontSize="11" fill="#5c6b5e">{nomeDoMes(m.mes)}{atual ? ' (em andamento)' : ''}</text>
               <rect

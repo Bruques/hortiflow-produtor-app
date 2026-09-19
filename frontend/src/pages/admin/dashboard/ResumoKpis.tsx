@@ -1,5 +1,5 @@
 import type { DashboardAdmin } from '@/types/adminDashboard';
-import { brl, brl0, nomeDoMes } from './formatos';
+import { brl, nomeDoMes } from './formatos';
 
 const CARTAO = 'min-w-0 rounded-2xl border border-hf-line bg-white px-4 py-3.5';
 
@@ -30,10 +30,15 @@ export default function ResumoKpis({ resumo, mesAtual, mesAnterior }: { resumo: 
             </span>
           )}
           {variacao !== null ? `vs. ${nomeDoMes(mesAnterior)} inteiro · ` : ''}
-          {brl0(resumo.receitaTotal)} desde o início
+          {brl(resumo.receitaTotal)} desde o início
         </div>
+        {resumo.receitaMesContasExcluidas > 0 && (
+          <div className="mt-1 text-auxiliar text-white/80">
+            Inclui {brl(resumo.receitaMesContasExcluidas)} de contas já excluídas, que não aparecem na lista de produtores
+          </div>
+        )}
       </div>
-      <Cartao rotulo="Recorrência mensal" valor={brl0(resumo.recorrenciaMensal)} nota="planos ativos, anuais ÷ 12" />
+      <Cartao rotulo="Recorrência mensal" valor={brl(resumo.recorrenciaMensal)} nota="planos ativos, anuais ÷ 12" />
       <Cartao rotulo="Assinantes ativos" valor={resumo.ativos} nota="com acesso pago em dia" />
       <Cartao rotulo="Em trial" valor={resumo.emTrial} nota="ainda no período grátis" />
       <Cartao rotulo="Cadastrados" valor={resumo.cadastrados} nota={`+${resumo.cadastradosUltimos7Dias} nos últimos 7 dias`} />

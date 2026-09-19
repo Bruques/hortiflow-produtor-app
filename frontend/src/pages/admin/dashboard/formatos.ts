@@ -6,7 +6,9 @@ const FUSO = 'America/Sao_Paulo';
 const DIA_MS = 24 * 60 * 60 * 1000;
 
 export const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-export const brl0 = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+// Eixo do gráfico: inteiro quando o valor é redondo (R$ 40), com centavos quando não é (R$ 62,50),
+// pra nenhum rótulo arredondar pra um valor que o gráfico não tem.
+export const brlEixo = (v: number) => (Number.isInteger(v) ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : brl(v));
 
 export function data(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { timeZone: FUSO });

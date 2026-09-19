@@ -131,6 +131,10 @@ export function montarDashboard(dados: DadosDashboard, agora: Date) {
     receitaMes: somaDoMes(mesAtual),
     receitaMesAnterior: somaDoMes(mesAnterior),
     receitaTotal: todosOsPagamentos.reduce((acc, x) => acc + x.valor, 0),
+    // Parte da receita que veio de contas já excluídas (spec 20): entra nos totais, mas não
+    // aparece na tabela de produtores. Separada aqui pra a tela conseguir explicar a diferença.
+    receitaMesContasExcluidas: pagamentosOrfaos.filter((x) => x.valor > 0 && mesDe(x.criadoEm) === mesAtual).reduce((acc, x) => acc + x.valor, 0),
+    receitaTotalContasExcluidas: pagamentosOrfaos.filter((x) => x.valor > 0).reduce((acc, x) => acc + x.valor, 0),
     recorrenciaMensal,
     ativos: ativos.length,
     emTrial: produtores.filter((p) => situacoes.get(p.id) === 'EM_TRIAL').length,
