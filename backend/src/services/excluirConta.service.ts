@@ -8,6 +8,12 @@ import prisma from '../lib/prisma';
 // quando sobra alguma referência obrigatória em sociedade de outra pessoa (ele foi sócio
 // não-titular em algum lugar) — nesse caso ela é anonimizada em vez de apagada, pra não
 // quebrar o extrato de quem continua na sociedade dele.
+// A exclusão roda ~20 comandos numa transação só. O limite padrão do Prisma pra transação é
+// 5 s, e com o banco remoto (Neon) cada comando leva centenas de ms, então uma conta com um
+// pouco mais de dados pode estourar o tempo e a transação inteira é desfeita, sem apagar nada.
+// Mais folga aqui só amplia o tempo permitido; não muda o que é apagado.
+const TRANSACAO_EXCLUSAO = { maxWait: 10_000, timeout: 60_000 };
+
 export async function excluirConta(usuarioId: string): Promise<void> {
   const sociedadesTitular = await prisma.sociedade.findMany({
     where: { criado_por_usuario_id: usuarioId },
@@ -78,5 +84,5 @@ export async function excluirConta(usuarioId: string): Promise<void> {
       await tx.aceiteTermos.deleteMany({ where: { usuario_id: usuarioId } });
       await tx.usuario.delete({ where: { id: usuarioId } });
     }
-  });
+  }, TRANSACAO_EXCLUSAO);
 }
