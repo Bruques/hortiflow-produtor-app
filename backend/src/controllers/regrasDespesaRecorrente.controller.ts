@@ -10,6 +10,7 @@ const criarSchema = z.object({
   tipo_despesa: z.nativeEnum(TipoDespesa),
   valor: z.number().positive(),
   unidade_id: z.string().min(1).optional(),
+  safra_id: z.string().min(1).optional(),
   rateio: z.array(z.object({ socio_id: z.string().min(1), percentual: z.number().positive() })).optional(),
 });
 
@@ -40,11 +41,26 @@ export async function criar(req: Request, res: Response): Promise<void> {
     }
   }
 
+  if (parsed.data.safra_id) {
+    const safraValida = await regrasService.safraPertenceASociedade(parsed.data.safra_id, id);
+    if (!safraValida) {
+      res.status(404).json({ error: 'Lavoura não encontrada nessa sociedade' });
+      return;
+    }
+  }
+
   if (parsed.data.rateio) {
     const rateioValido = await regrasService.rateioValido(id, parsed.data.rateio);
     if (!rateioValido) {
       res.status(422).json({ error: 'rateio precisa somar 100% entre sócios da mesma sociedade' });
       return;
+    }
+    if (parsed.data.safra_id) {
+      const naSafra = await regrasService.rateioValidoNaSafra(parsed.data.safra_id, parsed.data.rateio);
+      if (!naSafra) {
+        res.status(422).json({ error: 'rateio só pode incluir sócios que participam dessa lavoura' });
+        return;
+      }
     }
   }
 
@@ -61,7 +77,9 @@ export async function listar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const regras = await regrasService.listarRegras(id);
+  // Spec 30 — ?safra_id filtra por "da lavoura + globais"; sem ele, devolve todas (legado)
+  const safraId = typeof req.query.safra_id === 'string' && req.query.safra_id ? req.query.safra_id : undefined;
+  const regras = await regrasService.listarRegras(id, safraId);
   res.json({ regras });
 }
 
@@ -145,6 +163,13 @@ export async function atualizar(req: Request, res: Response): Promise<void> {
     if (!rateioValido) {
       res.status(422).json({ error: 'rateio precisa somar 100% entre sócios da mesma sociedade' });
       return;
+    }
+    if (regraAtual.safra_id) {
+      const naSafra = await regrasService.rateioValidoNaSafra(regraAtual.safra_id, parsed.data.rateio);
+      if (!naSafra) {
+        res.status(422).json({ error: 'rateio só pode incluir sócios que participam dessa lavoura' });
+        return;
+      }
     }
   }
 

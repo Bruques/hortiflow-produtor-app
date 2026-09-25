@@ -92,19 +92,19 @@ export function VendasScreen({ navigation }: Props) {
   }
 
   useEffect(() => {
-    if (!sociedadeId) return;
+    if (!sociedadeId || !safraId) return;
     (async () => {
-      const cache = await obterRegrasCache(sociedadeId);
+      const cache = await obterRegrasCache(sociedadeId, safraId);
       if (cache.length > 0) setValorPorRegraId(Object.fromEntries(cache.map((r) => [r.id, Number(r.valor)])));
       try {
-        const { regras } = await listarRegrasRequest(sociedadeId);
-        await salvarRegrasCache(sociedadeId, regras);
+        const { regras } = await listarRegrasRequest(sociedadeId, safraId);
+        await salvarRegrasCache(sociedadeId, safraId, regras);
         setValorPorRegraId(Object.fromEntries(regras.map((r) => [r.id, Number(r.valor)])));
       } catch {
         // offline: segue com o que já estava em cache (ou vazio, sem selo até conectar)
       }
     })();
-  }, [sociedadeId]);
+  }, [sociedadeId, safraId]);
 
   // Mesmo motivo de DespesasScreen.tsx: uma sincronização em segundo plano precisa atualizar
   // a tela já aberta, sem esperar um próximo foco de navegação.

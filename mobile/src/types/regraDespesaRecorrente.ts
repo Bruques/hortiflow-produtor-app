@@ -13,6 +13,8 @@ export interface RegraDespesaRecorrente {
   valor: string;
   unidade_id: string | null;
   unidade_nome: string | null;
+  // null = regra global (criada antes da spec 30), vale em todas as lavouras da sociedade
+  safra_id: string | null;
   ativo: boolean;
   criado_por: string;
   // null = despesas geradas seguem o rateio padrão; array = rateio definido na criação da

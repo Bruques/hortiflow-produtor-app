@@ -97,7 +97,7 @@ export default function MenuPage() {
       cor: 'text-hf-green-800',
     },
     {
-      href: `/sociedades/${sociedadeId}/configuracoes/regras-despesa`,
+      href: `/safras/${safraId}/configuracoes/regras-despesa`,
       titulo: 'Regras de Despesa',
       subtitulo: 'Despesas automáticas',
       Icone: Repeat,

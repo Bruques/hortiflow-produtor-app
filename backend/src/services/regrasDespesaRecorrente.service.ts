@@ -11,6 +11,9 @@ interface CriarRegraInput {
   tipo_despesa: TipoDespesa;
   valor: number;
   unidade_id?: string;
+  // Spec 30 — ausente = regra global (vale em todas as lavouras da sociedade, comportamento
+  // legado); presente = regra só dessa lavoura.
+  safra_id?: string;
   // Ausente = despesas geradas pela regra seguem o rateio padrão (percentual de lucro
   // vigente); ver docs/specs/13-rateio-de-despesas.md. Definido só na criação — não há
   // endpoint pra editar o rateio de uma regra já existente.
@@ -58,6 +61,27 @@ export async function socioPertenceASociedade(usuarioId: string, sociedadeId: st
   return vinculo !== null;
 }
 
+// Spec 30 — filtro "vale nesta lavoura": regra da própria lavoura OU global (safra_id nulo).
+function valeNaSafra(safraId: string) {
+  return { OR: [{ safra_id: safraId }, { safra_id: null }] };
+}
+
+// Spec 30 — a lavoura da regra precisa ser da sociedade da URL.
+export async function safraPertenceASociedade(safraId: string, sociedadeId: string): Promise<boolean> {
+  const safra = await prisma.safra.findFirst({ where: { id: safraId, sociedade_id: sociedadeId }, select: { id: true } });
+  return safra !== null;
+}
+
+// Spec 30 — regra de lavoura só pode ratear entre sócios que estão naquela lavoura (SocioSafra),
+// senão "só o João paga na A" poderia incluir a Maria, que só existe na B.
+export async function rateioValidoNaSafra(safraId: string, rateio: RateioInput[]): Promise<boolean> {
+  const ids = new Set(rateio.map((r) => r.socio_id));
+  const naSafra = await prisma.socioSafra.count({
+    where: { safra_id: safraId, socio_sociedade_id: { in: [...ids] } },
+  });
+  return naSafra === ids.size;
+}
+
 export async function criarRegra(sociedadeId: string, criadoPor: string, input: CriarRegraInput) {
   const regra = await prisma.regraDespesaRecorrente.create({
     data: {
@@ -66,6 +90,7 @@ export async function criarRegra(sociedadeId: string, criadoPor: string, input: 
       // docs/specs/04-vendas-e-despesa-recorrente.md. Só FINANCIADOR/MISTO criam regra, e
       // esse campo é só auditoria (não afeta calcularDivisao, que usa o rateio).
       socio_id: criadoPor,
+      safra_id: input.safra_id ?? null,
       criado_por: criadoPor,
       tipo_gatilho: input.tipo_gatilho,
       tipo_despesa: input.tipo_despesa,
@@ -84,9 +109,11 @@ export async function criarRegra(sociedadeId: string, criadoPor: string, input: 
   return { ...resto, rateio: mapearRateio(rateios) };
 }
 
-export async function listarRegras(sociedadeId: string) {
+// `safraId` ausente = todas as regras da sociedade (comportamento legado, usado por clientes
+// que ainda não enviam a lavoura); presente = as da lavoura + as globais (spec 30).
+export async function listarRegras(sociedadeId: string, safraId?: string) {
   const regras = await prisma.regraDespesaRecorrente.findMany({
-    where: { sociedade_id: sociedadeId },
+    where: { sociedade_id: sociedadeId, ...(safraId && valeNaSafra(safraId)) },
     include: {
       socio: true,
       unidade: true,
@@ -104,6 +131,7 @@ export async function listarRegras(sociedadeId: string) {
     valor: r.valor,
     unidade_id: r.unidade_id,
     unidade_nome: r.unidade?.nome ?? null,
+    safra_id: r.safra_id,
     ativo: r.ativo,
     criado_por: r.criado_por,
     rateio: mapearRateio(r.rateios),
@@ -164,10 +192,11 @@ export async function atualizarRegra(regraId: string, input: AtualizarRegraInput
 }
 
 // Valida os ids marcados na tela de Venda (`regras_por_venda_aplicadas`) antes de repassar
-// pro service de vendas: todos precisam ser regra POR_VENDA ativa, da Sociedade e da unidade
+// pro service de vendas: todos precisam ser regra POR_VENDA ativa, da Sociedade, da lavoura (ou global, spec 30) e da unidade
 // da venda — evita que um id de outra sociedade/unidade ou desativado passe direto.
 export async function todasRegrasPorVendaValidas(
   sociedadeId: string,
+  safraId: string,
   unidadeId: string,
   ids: string[]
 ): Promise<boolean> {
@@ -177,6 +206,7 @@ export async function todasRegrasPorVendaValidas(
     where: {
       id: { in: ids },
       sociedade_id: sociedadeId,
+      ...valeNaSafra(safraId),
       unidade_id: unidadeId,
       tipo_gatilho: TipoGatilhoRegra.POR_VENDA,
       ativo: true,
@@ -191,7 +221,12 @@ export async function listarSugestoesDoDia(safraId: string, sociedadeId: string)
   inicioDoDia.setHours(0, 0, 0, 0);
 
   const regras = await prisma.regraDespesaRecorrente.findMany({
-    where: { sociedade_id: sociedadeId, tipo_gatilho: TipoGatilhoRegra.POR_PERIODO, ativo: true },
+    where: {
+      sociedade_id: sociedadeId,
+      ...valeNaSafra(safraId),
+      tipo_gatilho: TipoGatilhoRegra.POR_PERIODO,
+      ativo: true,
+    },
     include: { socio: true },
   });
 
@@ -226,7 +261,13 @@ export async function confirmarSugestao(safraId: string, regraId: string): Promi
     where: { id: regraId },
     include: { rateios: true },
   });
-  if (!regra || !regra.ativo || regra.tipo_gatilho !== TipoGatilhoRegra.POR_PERIODO) {
+  // Spec 30 — regra de outra lavoura responde como inexistente (safra_id nulo = global, vale em todas)
+  if (
+    !regra ||
+    !regra.ativo ||
+    regra.tipo_gatilho !== TipoGatilhoRegra.POR_PERIODO ||
+    (regra.safra_id !== null && regra.safra_id !== safraId)
+  ) {
     return { erro: 'NAO_ENCONTRADA' };
   }
 

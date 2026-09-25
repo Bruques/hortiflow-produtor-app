@@ -8,6 +8,8 @@ export interface CriarRegraInput {
   tipo_despesa: TipoDespesa;
   valor: number;
   unidade_id?: string;
+  // Spec 30 — lavoura da regra; ausente = regra global (todas as lavouras)
+  safra_id?: string;
   // Ausente = despesas geradas seguem o rateio padrão
   rateio?: { socio_id: string; percentual: number }[];
 }
@@ -38,8 +40,14 @@ export async function atualizarRegraRequest(
   return data;
 }
 
-export async function listarRegrasRequest(sociedadeId: string): Promise<{ regras: RegraDespesaRecorrente[] }> {
-  const { data } = await apiClient.get(`/sociedades/${sociedadeId}/regras-recorrentes`);
+// Com `safraId`, devolve só as regras dessa lavoura + as globais (spec 30)
+export async function listarRegrasRequest(
+  sociedadeId: string,
+  safraId?: string
+): Promise<{ regras: RegraDespesaRecorrente[] }> {
+  const { data } = await apiClient.get(`/sociedades/${sociedadeId}/regras-recorrentes`, {
+    params: safraId ? { safra_id: safraId } : undefined,
+  });
   return data;
 }
 

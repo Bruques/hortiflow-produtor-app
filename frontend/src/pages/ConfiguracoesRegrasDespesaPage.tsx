@@ -4,6 +4,7 @@ import { useVoltar } from '@/lib/useVoltar';
 import { ArrowLeft, Check, Pencil, Percent, Plus, SlidersHorizontal, User } from 'lucide-react';
 import { meRequest } from '@/services/auth';
 import { listarSociosRequest } from '@/services/sociedades';
+import { listarSociosDaSafraRequest, obterSafraRequest } from '@/services/safras';
 import {
   atualizarAtivoRequest,
   atualizarRegraRequest,
@@ -59,9 +60,12 @@ const MODOS_RATEIO: { modo: ModoRateio; titulo: string; sub: string; Icone: type
 ];
 
 export default function ConfiguracoesRegrasDespesaPage() {
-  const { id: sociedadeId } = useParams<{ id: string }>();
+  // Spec 30 — a tela agora é por lavoura: as regras listadas/criadas aqui são da lavoura da URL
+  // (mais as globais antigas), e o rateio só oferece os sócios dessa lavoura.
+  const { id: safraId } = useParams<{ id: string }>();
+  const [sociedadeId, setSociedadeId] = useState<string | null>(null);
 
-  const voltar = useVoltar(`/sociedades/${sociedadeId}/safras`);
+  const voltar = useVoltar(sociedadeId ? `/sociedades/${sociedadeId}/safras` : '/');
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [regras, setRegras] = useState<RegraDespesaRecorrente[]>([]);
@@ -83,18 +87,25 @@ export default function ConfiguracoesRegrasDespesaPage() {
   const [unidades, setUnidades] = useState<UnidadeVenda[]>([]);
 
   function carregarRegras() {
-    if (!sociedadeId) return;
+    if (!sociedadeId || !safraId) return;
     setCarregandoRegras(true);
-    listarRegrasRequest(sociedadeId)
+    listarRegrasRequest(sociedadeId, safraId)
       .then((res) => setRegras(res.regras))
       .catch(() => setErroRegras('Não foi possível carregar as regras'))
       .finally(() => setCarregandoRegras(false));
   }
 
   useEffect(() => {
-    if (!sociedadeId) return;
+    if (!safraId) return;
+    obterSafraRequest(safraId)
+      .then((res) => setSociedadeId(res.safra.sociedade_id))
+      .catch(() => setErroRegras('Não foi possível carregar a lavoura'));
+  }, [safraId]);
+
+  useEffect(() => {
+    if (!sociedadeId || !safraId) return;
     carregarRegras();
-    listarSociosRequest(sociedadeId).then((res) => {
+    listarSociosDaSafraRequest(safraId).then((res) => {
       setSocios(res.socios);
       if (res.socios.length > 0) setRateioExclusivoId(res.socios[0].id);
     });
@@ -112,7 +123,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sociedadeId]);
+  }, [sociedadeId, safraId]);
 
   async function alternarAtivo(regra: RegraDespesaRecorrente) {
     setErroRegras(null);
@@ -192,7 +203,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
   }
 
   async function salvarRegra() {
-    if (!sociedadeId || !valorRegraCentavos || !rateioValido) return;
+    if (!sociedadeId || !safraId || !valorRegraCentavos || !rateioValido) return;
     if (tipoGatilho === 'POR_VENDA' && !unidadeRegra) return;
     setErroRegras(null);
     setSalvandoRegra(true);
@@ -206,6 +217,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
         });
       } else {
         await criarRegraRequest(sociedadeId, {
+          safra_id: safraId,
           tipo_gatilho: tipoGatilho,
           tipo_despesa: tipoDespesaRegra,
           valor: valorRegraNumero,
@@ -274,6 +286,11 @@ export default function ConfiguracoesRegrasDespesaPage() {
                     >
                       {porVenda ? 'Por venda' : 'Por período · sugestão'}
                     </span>
+                    {r.safra_id === null && (
+                      <span className="rounded-full bg-hf-cream-100 px-2 py-0.5 text-[10px] font-bold text-hf-stone-600">
+                        Todas as lavouras
+                      </span>
+                    )}
                     {r.rateio && (
                       <span className="rounded-full bg-hf-cream-100 px-2 py-0.5 text-[10px] font-bold text-hf-stone-600">
                         {r.rateio.length === 1

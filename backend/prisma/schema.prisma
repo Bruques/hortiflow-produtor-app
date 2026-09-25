@@ -333,6 +333,7 @@ model Safra {
   acertos          Acerto[]
   sociosSafra      SocioSafra[]
   aportesTrabalho  AporteTrabalho[]
+  regrasRecorrentes RegraDespesaRecorrente[]
 
   @@map("safras")
 }
@@ -478,16 +479,21 @@ model RegraDespesaRecorrente {
   tipo_despesa TipoDespesa
   valor        Decimal          @db.Decimal(10, 2)
   unidade_id   String?
+  // Spec 30 — null = regra global (legada), vale em todas as lavouras da sociedade;
+  // preenchido = regra só dessa lavoura. Imutável depois de criada.
+  safra_id     String?
   ativo        Boolean          @default(true)
   criado_em    DateTime         @default(now())
 
   sociedade Sociedade     @relation(fields: [sociedade_id], references: [id])
+  safra     Safra?        @relation(fields: [safra_id], references: [id], onDelete: Restrict)
   socio     Usuario       @relation("RegraSocio", fields: [socio_id], references: [id])
   criador   Usuario       @relation("RegraCriador", fields: [criado_por], references: [id])
   unidade   UnidadeVenda? @relation(fields: [unidade_id], references: [id])
   despesas  Despesa[]
   rateios   RateioRegra[]
 
+  @@index([safra_id])
   @@map("regras_despesa_recorrente")
 }
 

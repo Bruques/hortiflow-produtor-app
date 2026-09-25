@@ -64,12 +64,12 @@ export default function NovaVendaPage() {
       })
       .catch(() => {})
       .finally(() => setCarregandoUnidades(false));
-    listarRegrasRequest(sociedadeId)
+    listarRegrasRequest(sociedadeId, safraId)
       .then((res) => {
         setRegrasPorVenda(res.regras.filter((r) => r.tipo_gatilho === 'POR_VENDA' && r.ativo));
       })
       .catch(() => {});
-  }, [sociedadeId, emEdicao]);
+  }, [sociedadeId, safraId, emEdicao]);
 
   // Regra "por venda" só dispara despesa pra unidade a que foi amarrada (ex: R$1/caixa não se
   // aplica a uma venda em Kg) — só as regras da unidade escolhida viram toggle na tela.

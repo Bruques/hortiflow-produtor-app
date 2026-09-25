@@ -141,7 +141,8 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
           unidade_nome TEXT,
           ativo INTEGER NOT NULL DEFAULT 1,
           criado_por TEXT NOT NULL,
-          rateio TEXT
+          rateio TEXT,
+          safra_id TEXT
         );
 
         CREATE TABLE IF NOT EXISTS sugestoes_cache (
@@ -220,6 +221,9 @@ export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         "ALTER TABLE despesas_cache ADD COLUMN status_pagamento TEXT NOT NULL DEFAULT 'PAGO'",
         'ALTER TABLE despesas_cache ADD COLUMN data_vencimento TEXT',
         'ALTER TABLE despesas_cache ADD COLUMN data_pagamento TEXT',
+        // Spec 30 — regra recorrente por lavoura (NULL = global). Linhas antigas do cache ficam
+        // NULL e são reescritas na próxima vez que o app listar as regras online.
+        'ALTER TABLE regras_recorrentes_cache ADD COLUMN safra_id TEXT',
       ]) {
         try {
           await db.execAsync(alter);

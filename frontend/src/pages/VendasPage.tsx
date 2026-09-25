@@ -63,7 +63,7 @@ export default function VendasPage() {
   }, [safraId, filtro]);
 
   useEffect(() => {
-    listarRegrasRequest(sociedadeId)
+    listarRegrasRequest(sociedadeId, safraId)
       .then((res) => {
         const porId: Record<string, number> = {};
         res.regras.forEach((r) => {
@@ -72,7 +72,7 @@ export default function VendasPage() {
         setValorPorRegraId(porId);
       })
       .catch(() => {});
-  }, [sociedadeId]);
+  }, [sociedadeId, safraId]);
 
   const vendasDoPeriodo = vendas;
 

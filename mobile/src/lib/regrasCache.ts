@@ -15,6 +15,7 @@ interface RegraRow {
   ativo: number;
   criado_por: string;
   rateio: string | null;
+  safra_id: string | null;
 }
 
 function converterLinha(row: RegraRow): RegraDespesaRecorrente {
@@ -27,6 +28,7 @@ function converterLinha(row: RegraRow): RegraDespesaRecorrente {
     valor: row.valor,
     unidade_id: row.unidade_id,
     unidade_nome: row.unidade_nome,
+    safra_id: row.safra_id,
     ativo: row.ativo === 1,
     criado_por: row.criado_por,
     rateio: row.rateio ? (JSON.parse(row.rateio) as ItemRateio[]) : null,
@@ -37,15 +39,26 @@ function converterLinha(row: RegraRow): RegraDespesaRecorrente {
 // unidadesVendaCache.ts: criar/editar regra exige conexão e nunca passa pela fila offline
 // (docs/specs/mobile/06-vendas-e-despesa-recorrente.md); este cache serve só pra montar os
 // toggles de regra `POR_VENDA` ao lançar uma Venda sem internet.
-export async function salvarRegrasCache(sociedadeId: string, regras: RegraDespesaRecorrente[]): Promise<void> {
+//
+// Spec 30 — o cache é por lavoura: "substitui tudo" vale só pro que aquela lavoura enxerga
+// (regras dela + globais, `safra_id` nulo). Regras de OUTRAS lavouras ficam intactas, senão abrir
+// a lavoura B apagaria o cache da A.
+export async function salvarRegrasCache(
+  sociedadeId: string,
+  safraId: string,
+  regras: RegraDespesaRecorrente[]
+): Promise<void> {
   const db = await getDatabase();
   await db.withTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM regras_recorrentes_cache WHERE sociedade_id = ?', [sociedadeId]);
+    await db.runAsync(
+      'DELETE FROM regras_recorrentes_cache WHERE sociedade_id = ? AND (safra_id = ? OR safra_id IS NULL)',
+      [sociedadeId, safraId]
+    );
     for (const r of regras) {
       await db.runAsync(
         `INSERT INTO regras_recorrentes_cache
-          (id, sociedade_id, socio_id, socio_nome, tipo_gatilho, tipo_despesa, valor, unidade_id, unidade_nome, ativo, criado_por, rateio)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, sociedade_id, socio_id, socio_nome, tipo_gatilho, tipo_despesa, valor, unidade_id, unidade_nome, ativo, criado_por, rateio, safra_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           r.id,
           sociedadeId,
@@ -59,16 +72,18 @@ export async function salvarRegrasCache(sociedadeId: string, regras: RegraDespes
           r.ativo ? 1 : 0,
           r.criado_por,
           r.rateio ? JSON.stringify(r.rateio) : null,
+          r.safra_id,
         ]
       );
     }
   });
 }
 
-export async function obterRegrasCache(sociedadeId: string): Promise<RegraDespesaRecorrente[]> {
+export async function obterRegrasCache(sociedadeId: string, safraId: string): Promise<RegraDespesaRecorrente[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<RegraRow>('SELECT * FROM regras_recorrentes_cache WHERE sociedade_id = ?', [
-    sociedadeId,
-  ]);
+  const rows = await db.getAllAsync<RegraRow>(
+    'SELECT * FROM regras_recorrentes_cache WHERE sociedade_id = ? AND (safra_id = ? OR safra_id IS NULL)',
+    [sociedadeId, safraId]
+  );
   return rows.map(converterLinha);
 }

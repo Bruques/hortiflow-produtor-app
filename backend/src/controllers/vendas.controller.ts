@@ -47,6 +47,7 @@ export async function criar(req: Request, res: Response): Promise<void> {
 
   const regrasValidas = await regrasService.todasRegrasPorVendaValidas(
     safra.sociedade_id,
+    safra.id,
     parsed.data.unidade_id,
     parsed.data.regras_por_venda_aplicadas ?? []
   );
@@ -131,6 +132,7 @@ export async function atualizar(req: Request, res: Response): Promise<void> {
     const unidadeParaValidar = parsed.data.unidade_id ?? venda.unidade_id;
     const regrasValidas = await regrasService.todasRegrasPorVendaValidas(
       safra.sociedade_id,
+      safra.id,
       unidadeParaValidar,
       parsed.data.regras_por_venda_aplicadas
     );

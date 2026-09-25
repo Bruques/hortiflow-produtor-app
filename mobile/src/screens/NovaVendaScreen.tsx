@@ -79,16 +79,16 @@ export function NovaVendaScreen({ navigation, route }: Props) {
         }
         setCarregandoUnidades(false);
       }
-      const cacheRegras = await obterRegrasCache(sociedadeId);
+      const cacheRegras = await obterRegrasCache(sociedadeId, safraId);
       if (cacheRegras.length > 0) setRegras(cacheRegras);
 
       try {
         const [resUnidades, resRegras] = await Promise.all([
           listarUnidadesRequest(sociedadeId),
-          listarRegrasRequest(sociedadeId),
+          listarRegrasRequest(sociedadeId, safraId),
         ]);
         await salvarUnidadesVendaCache(sociedadeId, resUnidades.unidades);
-        await salvarRegrasCache(sociedadeId, resRegras.regras);
+        await salvarRegrasCache(sociedadeId, safraId, resRegras.regras);
         setUnidades(resUnidades.unidades);
         setRegras(resRegras.regras);
         if (!emEdicao && !unidadeId) {

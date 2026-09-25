@@ -7,6 +7,7 @@ import { BottomSheet } from '../components/BottomSheet';
 import { useAuth } from '../context/AuthContext';
 import { obterSociosCache } from '../lib/sociedadesCache';
 import { listarSociosRequest } from '../services/sociedades';
+import { listarSociosDaSafraRequest } from '../services/safras';
 import {
   atualizarAtivoRequest,
   atualizarRegraRequest,
@@ -83,7 +84,7 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
   async function carregarRegras() {
     setCarregando(true);
     try {
-      const { regras: atualizadas } = await listarRegrasRequest(sociedadeId);
+      const { regras: atualizadas } = await listarRegrasRequest(sociedadeId, safraId);
       setRegras(atualizadas);
       setErro(null);
     } catch (e) {
@@ -115,12 +116,15 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
         setRateioExclusivoId((atual) => atual || cacheSocios[0].id);
       }
       try {
-        const [resSocios, resUnidades] = await Promise.all([
+        const [resSocios, resSociosSafra, resUnidades] = await Promise.all([
           listarSociosRequest(sociedadeId),
+          listarSociosDaSafraRequest(safraId),
           listarUnidadesRequest(sociedadeId),
         ]);
-        setSocios(resSocios.socios);
-        setRateioExclusivoId((atual) => atual || resSocios.socios[0]?.id || '');
+        // Spec 30 — o rateio de uma regra só oferece os sócios desta lavoura; o papel de
+        // financiador continua vindo da sociedade (quem pode configurar regra).
+        setSocios(resSociosSafra.socios);
+        setRateioExclusivoId((atual) => atual || resSociosSafra.socios[0]?.id || '');
         setUnidades(resUnidades.unidades);
         const primeiraAtiva = resUnidades.unidades.find((u) => u.ativo);
         if (primeiraAtiva) setUnidadeRegra((atual) => atual || primeiraAtiva.id);
@@ -232,6 +236,7 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
         });
       } else {
         await criarRegraRequest(sociedadeId, {
+          safra_id: safraId,
           tipo_gatilho: tipoGatilho,
           tipo_despesa: tipoDespesaRegra,
           valor: valorNumero,
@@ -317,6 +322,7 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
                   <Text style={[styles.badgeGatilho, porVenda ? styles.badgeGatilhoVenda : styles.badgeGatilhoPeriodo]}>
                     {porVenda ? 'Por venda' : 'Por período · sugestão'}
                   </Text>
+                  {r.safra_id === null && <Text style={styles.badgeRateio}>Todas as lavouras</Text>}
                   {r.rateio && (
                     <Text style={styles.badgeRateio}>
                       {r.rateio.length === 1 ? `Rateio: só ${r.rateio[0].socio_nome}` : 'Rateio personalizado'}
