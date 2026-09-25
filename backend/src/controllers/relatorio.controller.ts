@@ -80,6 +80,13 @@ export async function gerar(req: Request, res: Response): Promise<void> {
   });
 
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="relatorio-${safra.nome.replace(/\s+/g, '-').toLowerCase()}.pdf"`);
+  // Header HTTP só aceita ASCII: `filename` leva a versão sem acento/símbolo (fallback) e
+  // `filename*` (RFC 5987) leva o nome original codificado, que os navegadores preferem.
+  const nomeBase = `relatorio-${safra.nome.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+  const nomeAscii = nomeBase.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9._-]/g, '');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${nomeAscii}"; filename*=UTF-8''${encodeURIComponent(nomeBase)}`
+  );
   res.send(pdf);
 }
