@@ -95,10 +95,6 @@ export function RelatorioScreen({ navigation, route }: Props) {
               </View>
             </View>
 
-            {erro && <Text style={styles.erro}>{erro}</Text>}
-          </ScrollView>
-
-          <View style={styles.rodape}>
             <Pressable
               style={[styles.botaoPrimario, gerando && styles.botaoDesabilitado]}
               onPress={gerar}
@@ -113,7 +109,9 @@ export function RelatorioScreen({ navigation, route }: Props) {
                 </View>
               )}
             </Pressable>
-          </View>
+
+            {erro && <Text style={styles.erro}>{erro}</Text>}
+          </ScrollView>
         </>
       )}
     </SafeAreaView>
@@ -191,12 +189,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '500',
-  },
-  rodape: {
-    borderTopWidth: 1,
-    borderTopColor: cores.cream[100],
-    paddingHorizontal: espacamento.xl,
-    paddingVertical: espacamento.md,
   },
   botaoPrimario: {
     borderRadius: raio.lg,

@@ -68,7 +68,7 @@ export default function RelatorioPage() {
         </div>
       </div>
 
-      <div className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-[22px] py-[18px]">
+      <div className="mx-auto flex w-full max-w-sm flex-col gap-6 px-[22px] py-[18px]">
         <p className="text-[13px] leading-relaxed text-hf-stone-600">
           Escolha o período e baixe um PDF com as despesas, vendas e a divisão de lucro entre
           sócios da {safra.nome} — pronto pra levar pra contadora.
@@ -87,10 +87,6 @@ export default function RelatorioPage() {
           </div>
         </div>
 
-        {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
-      </div>
-
-      <div className="flex flex-col gap-1 border-t border-hf-cream-100 bg-white px-[22px] py-4">
         <button
           type="button"
           onClick={gerar}
@@ -100,6 +96,8 @@ export default function RelatorioPage() {
           <FileDown className="h-[18px] w-[18px]" strokeWidth={2.3} />
           {gerando ? 'Gerando...' : 'Baixar PDF'}
         </button>
+
+        {erro && <p className="text-center text-sm font-medium text-hf-red">{erro}</p>}
       </div>
     </div>
   );
