@@ -87,17 +87,6 @@ export default function HomePage() {
           navigate('/onboarding', { replace: true });
           return;
         }
-        // `plano` já vem preenchido com a recomendação assim que o formulário de qualificação
-        // é respondido (`responderOnboarding` no backend grava um default, pra não deixar o
-        // trial sem limite de safras enquanto o produtor não confirma) — então não serve mais
-        // pra saber se ele passou pela tela de plano. `ciclo` só é gravado quando o produtor
-        // de fato confirma (`escolherPlano`/checkout), então é o sinal certo aqui. Sem isso,
-        // quem respondia o formulário e fechava o app antes de confirmar o plano caía direto
-        // na Home pulando a tela de plano (bug relatado pelo dev, 2026-09-18).
-        if (dados.onboardingRespondido && !dados.ciclo && !dados.vencida && safras.length === 0) {
-          navigate(`/onboarding/plano?recomendado=${dados.plano?.id ?? ''}`, { replace: true });
-          return;
-        }
         // Spec 27 — GET /safras filtra silenciosamente safra de titular vencido (nunca devolve
         // 402, pra não bloquear em bloco uma lista que pode abranger sociedades de titulares
         // diferentes), então lista vazia aqui pode ser "venceu e sumiram todas", não só "nunca

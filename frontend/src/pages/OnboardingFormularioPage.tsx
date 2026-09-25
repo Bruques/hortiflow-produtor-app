@@ -59,13 +59,15 @@ export default function OnboardingFormularioPage() {
     setEnviando(true);
     setErro(null);
     try {
-      const { planoRecomendado } = await onboardingRequest({
+      await onboardingRequest({
         faixaMeeiros,
         quantidadePes: Number(quantidadePes),
         localizacaoProducao: localizacao,
         localizacaoProducaoOutra: precisaNomeCidade ? outraCidadeNome.trim() : undefined,
       });
-      navigate(`/onboarding/plano?recomendado=${planoRecomendado.id}`, { replace: true });
+      // Spec 32: sem tela de plano — o plano recomendado já fica gravado no backend e o
+      // produtor só escolhe/paga quando o teste acabar.
+      navigate('/', { replace: true });
     } catch {
       setErro('Não foi possível enviar o formulário');
       setEnviando(false);
@@ -78,7 +80,7 @@ export default function OnboardingFormularioPage() {
         <div className="text-center">
           <h1 className="font-rounded text-[20px] font-extrabold text-hf-stone-900">Conte sobre sua produção</h1>
           <p className="mx-auto mt-1.5 max-w-[30ch] text-sm leading-relaxed text-hf-stone-600">
-            Assim indicamos o plano certo pro tamanho da sua sociedade.
+            Assim preparamos o app pro tamanho da sua sociedade.
           </p>
         </div>
 
@@ -147,7 +149,7 @@ export default function OnboardingFormularioPage() {
           onClick={enviar}
           disabled={!preenchido || enviando}
         >
-          {enviando ? 'Enviando...' : 'Ver plano recomendado'}
+          {enviando ? 'Enviando...' : 'Começar teste grátis de 14 dias'}
         </Button>
 
         <button

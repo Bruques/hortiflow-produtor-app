@@ -100,17 +100,6 @@ export function InicioScreen({ navigation }: Props) {
           navigation.replace('OnboardingFormulario');
           return;
         }
-        // `plano` já vem preenchido com a recomendação assim que o formulário de qualificação
-        // é respondido (`responderOnboarding` no backend grava um default, pra não deixar o
-        // trial sem limite de safras enquanto o produtor não confirma) — então não serve mais
-        // pra saber se ele passou pela tela de plano. `ciclo` só é gravado quando o produtor
-        // de fato confirma (`escolherPlano`/checkout), então é o sinal certo aqui. Sem isso,
-        // quem respondia o formulário e fechava o app antes de confirmar o plano caía direto
-        // na Home pulando a tela de plano (bug relatado pelo dev, 2026-09-18).
-        if (dados.onboardingRespondido && !dados.ciclo && !dados.vencida && safras.length === 0) {
-          navigation.replace('OnboardingPlano', { planoRecomendadoId: dados.plano?.id ?? '' });
-          return;
-        }
         // Spec 27 — GET /safras agora filtra safras de titular vencido antes de responder, então
         // uma lista vazia pode significar "venceu e sumiram todas", não só "nunca criou nenhuma".
         // Só decide pelo bloqueio quando já existe plano atribuído (financiador de verdade que

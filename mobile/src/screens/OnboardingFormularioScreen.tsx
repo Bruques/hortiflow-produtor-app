@@ -54,13 +54,15 @@ export function OnboardingFormularioScreen({ navigation }: Props) {
     setEnviando(true);
     setErro(null);
     try {
-      const { planoRecomendado } = await onboardingRequest({
+      await onboardingRequest({
         faixaMeeiros,
         quantidadePes: Number(quantidadePes),
         localizacaoProducao: localizacao,
         localizacaoProducaoOutra: precisaNomeCidade ? outraCidadeNome.trim() : undefined,
       });
-      navigation.replace('OnboardingPlano', { planoRecomendadoId: planoRecomendado.id });
+      // Spec 32: sem tela de plano — o plano recomendado já fica gravado no backend e o
+      // produtor só escolhe/paga quando o teste acabar.
+      navigation.replace('Inicio');
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível enviar o formulário'));
       setEnviando(false);
@@ -72,7 +74,7 @@ export function OnboardingFormularioScreen({ navigation }: Props) {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
         <View>
           <Text style={styles.titulo}>Conte sobre sua produção</Text>
-          <Text style={styles.subtitulo}>Assim indicamos o plano certo pro tamanho da sua sociedade.</Text>
+          <Text style={styles.subtitulo}>Assim preparamos o app pro tamanho da sua sociedade.</Text>
         </View>
 
         <View style={styles.pergunta}>
@@ -142,7 +144,7 @@ export function OnboardingFormularioScreen({ navigation }: Props) {
           onPress={enviar}
           disabled={!preenchido || enviando}
         >
-          {enviando ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.textoBotaoPrimario}>Ver plano recomendado</Text>}
+          {enviando ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.textoBotaoPrimario}>Começar teste grátis de 14 dias</Text>}
         </Pressable>
 
         {/* Sem esse botão, quem cai aqui (formulário obrigatório de conta nova) ficava preso

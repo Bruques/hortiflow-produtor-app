@@ -26,7 +26,6 @@ import { RelatorioCompletoScreen } from '../screens/RelatorioCompletoScreen';
 import { MinhaAssinaturaScreen } from '../screens/MinhaAssinaturaScreen';
 import { AssinaturaBloqueioScreen } from '../screens/AssinaturaBloqueioScreen';
 import { OnboardingFormularioScreen } from '../screens/OnboardingFormularioScreen';
-import { OnboardingPlanoScreen } from '../screens/OnboardingPlanoScreen';
 import { CheckoutScreen } from '../screens/CheckoutScreen';
 import { TermosAceiteScreen } from '../screens/TermosAceiteScreen';
 import { TermosDocumentoScreen } from '../screens/TermosDocumentoScreen';
@@ -69,7 +68,6 @@ export type RootStackParamList = {
   AssinaturaBloqueio: undefined;
   // Spec 25 — fluxo de onboarding automatizado, entre o cadastro e a Início.
   OnboardingFormulario: undefined;
-  OnboardingPlano: { planoRecomendadoId: string };
   Checkout: undefined;
   // Spec 26 — sem parâmetros, mesmo motivo do AssinaturaBloqueio: navegada pelo interceptor
   // do apiClient (AuthContext.tsx) a partir de um 401 TERMOS_PENDENTES em qualquer chamada.
@@ -125,7 +123,6 @@ export function RootNavigator() {
             <Stack.Screen name="MinhaAssinatura" component={MinhaAssinaturaScreen} />
             <Stack.Screen name="AssinaturaBloqueio" component={AssinaturaBloqueioScreen} />
             <Stack.Screen name="OnboardingFormulario" component={OnboardingFormularioScreen} />
-            <Stack.Screen name="OnboardingPlano" component={OnboardingPlanoScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="EntrarSociedade" component={EntrarSociedadeScreen} />
             <Stack.Screen name="Safra" component={SafraTabsScreen} />

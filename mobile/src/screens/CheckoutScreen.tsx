@@ -42,8 +42,8 @@ interface PixGerado {
 //
 // Troca de plano no checkout (2026-09-15): o produtor só via a opção de assinar o plano já
 // atribuído a ele, sem poder mudar pra outro na hora de pagar (gap encontrado durante o uso
-// real, fora do escopo original da spec 25). Reaproveita o mesmo cartão de plano da tela de
-// onboarding (OnboardingPlanoScreen). Se o produtor trocar de plano aqui, confirma via
+// real, fora do escopo original da spec 25). Usa o mesmo cartão de plano que a tela de
+// onboarding tinha (removida na spec 32). Se o produtor trocar de plano aqui, confirma via
 // PATCH /assinatura/plano antes do checkout.
 export function CheckoutScreen({ navigation }: Props) {
   const [status, setStatus] = useState<AssinaturaStatus | null>(null);
