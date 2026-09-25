@@ -41,6 +41,10 @@ export async function atualizarRegraRequest(
 }
 
 // Com `safraId`, devolve só as regras dessa lavoura + as globais (spec 30)
+export async function excluirRegraRequest(regraId: string): Promise<void> {
+  await apiClient.delete(`/regras-recorrentes/${regraId}`);
+}
+
 export async function listarRegrasRequest(
   sociedadeId: string,
   safraId?: string

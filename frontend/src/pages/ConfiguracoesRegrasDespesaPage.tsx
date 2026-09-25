@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useVoltar } from '@/lib/useVoltar';
-import { ArrowLeft, Check, Pencil, Percent, Plus, SlidersHorizontal, User } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Percent, Plus, SlidersHorizontal, Trash2, User } from 'lucide-react';
 import { meRequest } from '@/services/auth';
 import { listarSociosRequest } from '@/services/sociedades';
 import { listarSociosDaSafraRequest, obterSafraRequest } from '@/services/safras';
@@ -9,6 +9,7 @@ import {
   atualizarAtivoRequest,
   atualizarRegraRequest,
   criarRegraRequest,
+  excluirRegraRequest,
   listarRegrasRequest,
 } from '@/services/regrasDespesaRecorrente';
 import { listarUnidadesRequest } from '@/services/unidadesVenda';
@@ -202,6 +203,17 @@ export default function ConfiguracoesRegrasDespesaPage() {
     setNovaRegraAberta(true);
   }
 
+  async function excluirRegra(regra: RegraDespesaRecorrente) {
+    if (!window.confirm('Excluir essa regra? Essa ação não pode ser desfeita.')) return;
+    setErroRegras(null);
+    try {
+      await excluirRegraRequest(regra.id);
+      carregarRegras();
+    } catch {
+      setErroRegras('Não foi possível excluir a regra');
+    }
+  }
+
   async function salvarRegra() {
     if (!sociedadeId || !safraId || !valorRegraCentavos || !rateioValido) return;
     if (tipoGatilho === 'POR_VENDA' && !unidadeRegra) return;
@@ -310,6 +322,18 @@ export default function ConfiguracoesRegrasDespesaPage() {
                     <Pencil className="h-3.5 w-3.5" strokeWidth={2.2} />
                   </button>
                 )}
+                {/* Spec 31 (experimento local) — lixeira no lugar do interruptor, mesmo que a regra já
+                    tenha gerado despesas (elas ficam, só perdem a ligação com a regra) */}
+                {souFinanciador ? (
+                  <button
+                    type="button"
+                    aria-label="Excluir regra"
+                    onClick={() => excluirRegra(r)}
+                    className="flex h-8 w-[42px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-red-200 text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={2.2} />
+                  </button>
+                ) : (
                 <button
                   type="button"
                   aria-label={r.ativo ? 'Desativar regra' : 'Ativar regra'}
@@ -327,6 +351,7 @@ export default function ConfiguracoesRegrasDespesaPage() {
                     )}
                   />
                 </button>
+                )}
               </div>
             );
           })}

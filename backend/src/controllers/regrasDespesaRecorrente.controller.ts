@@ -182,6 +182,30 @@ export async function atualizar(req: Request, res: Response): Promise<void> {
   res.json({ regra });
 }
 
+export async function excluir(req: Request, res: Response): Promise<void> {
+  const { id } = req.params; // regra id
+
+  const regraAtual = await regrasService.buscarRegraPorId(id);
+  if (!regraAtual) {
+    res.status(404).json({ error: 'Regra não encontrada' });
+    return;
+  }
+
+  const podeConfigurar = await regrasService.podeConfigurarRegra(req.usuarioId, regraAtual.sociedade_id);
+  if (!podeConfigurar) {
+    res.status(403).json({ error: 'Só sócios financiadores podem configurar despesa recorrente' });
+    return;
+  }
+
+  const resultado = await regrasService.excluirRegra(id);
+  if ('erro' in resultado) {
+    res.status(404).json({ error: 'Regra não encontrada' });
+    return;
+  }
+
+  res.status(204).send();
+}
+
 export async function sugestoes(req: Request, res: Response): Promise<void> {
   const { id } = req.params; // safra id
 

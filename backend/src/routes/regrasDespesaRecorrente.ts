@@ -20,5 +20,6 @@ router.use(
 
 router.patch('/:id', regrasController.atualizarAtivo);
 router.put('/:id', regrasController.atualizar);
+router.delete('/:id', regrasController.excluir);
 
 export default router;

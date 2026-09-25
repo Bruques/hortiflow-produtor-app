@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Check, Pencil, Percent, Plus, Receipt, SlidersHorizontal, User, X } from 'lucide-react-native';
+import { ArrowLeft, Check, Pencil, Percent, Plus, Receipt, SlidersHorizontal, Trash2, User, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BottomSheet } from '../components/BottomSheet';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,7 @@ import {
   atualizarAtivoRequest,
   atualizarRegraRequest,
   criarRegraRequest,
+  excluirRegraRequest,
   listarRegrasRequest,
   listarSugestoesRequest,
 } from '../services/regrasDespesaRecorrente';
@@ -222,6 +223,24 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
     setNovaAberta(true);
   }
 
+  function confirmarExclusao(regra: RegraDespesaRecorrente) {
+    Alert.alert('Excluir essa regra?', 'Essa ação não pode ser desfeita.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await excluirRegraRequest(regra.id);
+            await carregarRegras();
+          } catch (e) {
+            setErro(mensagemErro(e, 'Não foi possível excluir a regra'));
+          }
+        },
+      },
+    ]);
+  }
+
   async function salvarRegra() {
     if (!formNovaRegraValida) return;
     setErro(null);
@@ -335,15 +354,23 @@ export function ConfiguracoesRegrasDespesaScreen({ navigation, route }: Props) {
                   <Pencil size={14} color={cores.stone[600]} strokeWidth={2.2} />
                 </Pressable>
               )}
-              <View style={styles.toggleWrapper}>
-                <Switch
-                  value={r.ativo}
-                  onValueChange={() => alternarAtivo(r)}
-                  disabled={!souFinanciador}
-                  trackColor={{ false: cores.cream[100], true: cores.green[700] }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
+              {/* Spec 31 (experimento local) — lixeira no lugar do interruptor, mesmo que a regra já
+                  tenha gerado despesas (elas ficam, só perdem a ligação com a regra) */}
+              {souFinanciador ? (
+                <Pressable style={styles.botaoLixeira} onPress={() => confirmarExclusao(r)} hitSlop={6} accessibilityLabel="Excluir regra">
+                  <Trash2 size={16} color={cores.red.padrao} strokeWidth={2.2} />
+                </Pressable>
+              ) : (
+                <View style={styles.toggleWrapper}>
+                  <Switch
+                    value={r.ativo}
+                    onValueChange={() => alternarAtivo(r)}
+                    disabled={!souFinanciador}
+                    trackColor={{ false: cores.cream[100], true: cores.green[700] }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+              )}
             </View>
           );
         })}
@@ -748,6 +775,15 @@ const styles = StyleSheet.create({
     borderRadius: raio.lg,
     paddingVertical: espacamento.sm + 4,
     alignItems: 'center',
+  },
+  botaoLixeira: {
+    width: 51,
+    height: 32,
+    borderRadius: raio.pill,
+    borderWidth: 1.5,
+    borderColor: cores.red.fundo,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   botaoSecundarioTexto: { fontSize: 13, fontWeight: '700', color: cores.stone[700] },
   botaoPrimario: {

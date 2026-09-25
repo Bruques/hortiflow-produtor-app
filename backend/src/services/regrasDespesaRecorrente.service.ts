@@ -156,6 +156,22 @@ export async function atualizarAtivo(regraId: string, ativo: boolean): Promise<A
   return { regra: { id: atualizada.id, ativo: atualizada.ativo }, sociedade_id: atualizada.sociedade_id };
 }
 
+type ExcluirResultado = { erro: 'NAO_ENCONTRADA' } | { ok: true };
+
+// Spec 31 (experimento local) — exclui a regra mesmo que já tenha gerado despesas. As despesas
+// NÃO são apagadas nem alteradas em valor/rateio (guardam cópia própria): só perdem a ligação
+// com a regra de origem (`regra_origem_id` vira null). Rateio da regra apaga junto.
+export async function excluirRegra(regraId: string): Promise<ExcluirResultado> {
+  return prisma.$transaction(async (tx) => {
+    const regra = await tx.regraDespesaRecorrente.findUnique({ where: { id: regraId } });
+    if (!regra) return { erro: 'NAO_ENCONTRADA' as const };
+    await tx.despesa.updateMany({ where: { regra_origem_id: regraId }, data: { regra_origem_id: null } });
+    await tx.rateioRegra.deleteMany({ where: { regra_id: regraId } });
+    await tx.regraDespesaRecorrente.delete({ where: { id: regraId } });
+    return { ok: true as const };
+  });
+}
+
 export async function buscarRegraPorId(regraId: string) {
   return prisma.regraDespesaRecorrente.findUnique({ where: { id: regraId } });
 }
